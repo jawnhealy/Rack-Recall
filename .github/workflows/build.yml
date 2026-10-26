@@ -1,0 +1,76 @@
+name: Build apps
+
+# Builds the Windows installer and the Android app on GitHub's servers.
+# Runs on every push to main, when started by hand (Actions tab > Build apps > Run workflow),
+# and on version tags like v1.0.1, which also publish a Release with both files attached.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: npx electron-builder --win nsis --x64 --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/*.exe
+          if-no-files-found: error
+
+  android:
+    runs-on: ubuntu-latest
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund --omit=dev
+      - name: Create the Android project
+        run: npx cap add android
+      - name: App name, icons and splash screen
+        run: |
+          sed -i 's/Rack and Recall/Rack \&amp; Recall/g' android/app/src/main/res/values/strings.xml
+          npx capacitor-assets generate --android
+      - run: npx cap sync android
+      - name: Build the APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - run: cp android/app/build/outputs/apk/debug/app-debug.apk Rack-and-Recall.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: Rack-and-Recall.apk
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            out/*.exe
+            out/*.apk

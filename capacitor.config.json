@@ -1,0 +1,9 @@
+{
+  "appId": "com.rackrecall.app",
+  "appName": "Rack and Recall",
+  "webDir": "web",
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#eef2f4"
+  }
+}
