@@ -54,10 +54,10 @@ How sync behaves:
 
 Replace `web/index.html` with a new version and push it. GitHub builds fresh installers. Your progress lives in each app's storage and in Supabase, so it survives updates.
 
-`tools/` holds what built `index.html`: `template.html` (the app), `build.py` (embeds the word list from a Zyzzyva-style `NWL2023.db`) and `make_icons.py`. To rebuild with a new lexicon file:
+`tools/` holds what built `index.html`: `template.html` (the app), `build.py` (embeds the word list from a Zyzzyva-style `NWL2023.db`, plus the Collins-only words from `CSW24.db` used as phonies) and `make_icons.py`. To rebuild with new lexicon files:
 
 ```
-python3 tools/build.py path/to/NWL2023.db tools/template.html web/index.html
+python3 tools/build.py path/to/NWL2023.db tools/template.html web/index.html path/to/CSW24.db
 ```
 
 ## Files

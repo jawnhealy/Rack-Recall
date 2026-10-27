@@ -262,6 +262,11 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       </div>
     </div>
 
+    <div class="toolbar" id="phonyBar" hidden>
+      <span class="note">Phonies to include:</span>
+      <div class="actions" id="phonyKinds"></div>
+    </div>
+
     <div class="addbar" id="addbar">
       <div class="boxinfo" id="boxInfo"></div>
       <div class="addctl">
@@ -419,10 +424,12 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     </div>
   </details>
 
-  <footer>Quiz types: Anagrams, Anagrams + hooks, Hooks, Build, Blanks (letters plus one blank), Extensions (longer words containing the word) and Definitions each keep their own cardbox. Probability ranks use two-blank probability. Keys: <kbd>Enter</kbd> checks typed answers. In flashcard mode, <kbd>1</kbd>–<kbd>4</kbd> or <kbd>Space</kbd> flip the card. On the back, <kbd>1</kbd> Again · <kbd>2</kbd> Hard · <kbd>3</kbd> Good · <kbd>4</kbd> Easy. In phony mode, <kbd>V</kbd> valid, <kbd>P</kbd> phony; phony mode is practice and does not touch your schedule. Hooks appear either side of each word. A red <sup class="nw">+</sup> marks words and hooks new in NWL2023. Lexicon: <span id="lexInfo">NWL2023</span>.</footer>
+  <footer>Valid or phony? mixes words from your deck with three kinds of phony: made-up words built from real words' letters, real words with endings they don't take, and Collins-only words. Quiz types: Anagrams, Anagrams + hooks, Hooks, Build, Blanks (letters plus one blank), Extensions (longer words containing the word) and Definitions each keep their own cardbox. Probability ranks use two-blank probability. Keys: <kbd>Enter</kbd> checks typed answers. In flashcard mode, <kbd>1</kbd>–<kbd>4</kbd> or <kbd>Space</kbd> flip the card. On the back, <kbd>1</kbd> Again · <kbd>2</kbd> Hard · <kbd>3</kbd> Good · <kbd>4</kbd> Easy. In phony mode, <kbd>V</kbd> valid, <kbd>P</kbd> phony; phony mode is practice and does not touch your schedule. Hooks appear either side of each word. A red <sup class="nw">+</sup> marks words and hooks new in NWL2023. Lexicon: <span id="lexInfo">NWL2023</span>.</footer>
 </div>
 
 <script id="lexdata" type="application/octet-stream">/*__LEX__*/</script>
+<script id="cswdata" type="application/octet-stream">/*__CSW__*/</script>
+<script id="endingdata" type="application/json">/*__ENDINGS__*/</script>
 <script>
 "use strict";
 const SCORES={A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10};
@@ -438,10 +445,13 @@ const fmtN=n=>n.toLocaleString();
 // LEX.words: word -> {a alphagram, fh, bh (hook strings, + / ! follow the letter they mark), sym, play (playability rank within length), pscore (playability score), def}
 const LEX={words:new Map(),anag:new Map(),byLen:{},wordsByLen:{},rank:new Map(),wrank:new Map(),all:[]};
 const alpha=w=>{if(w.length<2)return w;const a=new Array(w.length);for(let i=0;i<w.length;i++)a[i]=w.charCodeAt(i);a.sort((x,y)=>x-y);return String.fromCharCode.apply(null,a)};
-async function loadLexicon(){
-  const raw=atob(document.getElementById("lexdata").textContent.trim()),bin=new Uint8Array(raw.length);
+async function unpack(id){
+  const raw=atob(document.getElementById(id).textContent.trim()),bin=new Uint8Array(raw.length);
   for(let i=0;i<raw.length;i++)bin[i]=raw.charCodeAt(i);
-  const text=await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+  return new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+}
+async function loadLexicon(){
+  const text=await unpack("lexdata");
   let start=0;
   while(start<text.length){
     let end=text.indexOf("\n",start);if(end<0)end=text.length;
@@ -762,7 +772,7 @@ const KEY="rack-recall-nwl23-v2",LOGKEY="rack-recall-log-v1";
 const SEED_DECKS=[{id:"s:sev8",name:"Bingos",conds:[{t:"lengths",a:"7,8"}],order:"prob"}];
 const DEFAULTS={cards:{},custom:"",deck:"s:sev8",migr:{bingo:1,ext:1},mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"length",a:7,b:7},{t:"prob",a:1,b:100}],
   notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},
-  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"on",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",w:null,fit:null}};
+  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"on",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",phonyKinds:{made:true,ending:true,collins:true},w:null,fit:null}};
 let store=structuredClone(DEFAULTS),LOG="";
 function mergeStore(s){
   store={...structuredClone(DEFAULTS),...s,settings:{...DEFAULTS.settings,...(s.settings||{})}};
@@ -829,15 +839,56 @@ function pickNext(deck,now,exclude){
   const sn=s.soon.find(x=>x[0]!==exclude)||s.soon[0];return sn?sn[0]:null;
 }
 
-/* =================== phony =================== */
-function phonyFor(word){
-  const V="AEIOU",C="BCDFGHJKLMNPQRSTVWXYZ";
-  for(let t=0;t<400;t++){
-    const a=word.split(""),n=1+(word.length>6&&Math.random()<.3?1:0);
-    for(let j=0;j<n;j++){const i=Math.floor(Math.random()*a.length),pool=V.includes(a[i])?V:C;a[i]=pool[Math.floor(Math.random()*pool.length)]}
-    const f=a.join("");if(f!==word&&!LEX.words.has(f))return f;
-  }
+/* =================== phonies =================== */
+// Collins-only words (valid in CSW, not NWL) are unpacked the first time they're needed.
+const CSW={ready:false,loading:null,def:new Map(),byLen:{}};
+const hasCSW=()=>!!(LEX_META.csw&&document.getElementById("cswdata").textContent.trim());
+function ensureCSW(){
+  if(CSW.ready||!hasCSW())return Promise.resolve();
+  return CSW.loading||(CSW.loading=unpack("cswdata").then(text=>{
+    for(const line of text.split("\n")){if(!line)continue;const i=line.indexOf("\t"),w=line.slice(0,i);CSW.def.set(w,line.slice(i+1));(CSW.byLen[w.length]=CSW.byLen[w.length]||[]).push(w)}
+    CSW.ready=true;
+  }));
+}
+// Letter-pattern model: how word-like a string looks, from three-letter sequences in NWL2023.
+let TRI=null;
+function triModel(){
+  if(TRI)return TRI;const cnt=new Map(),ctx=new Map();
+  for(const w of LEX.all){const s="^^"+w+"$";for(let i=0;i<s.length-2;i++){const g=s.substr(i,3);cnt.set(g,(cnt.get(g)||0)+1);const c2=g.slice(0,2);ctx.set(c2,(ctx.get(c2)||0)+1)}}
+  return TRI={cnt,ctx};
+}
+function wordScore(w){const {cnt,ctx}=triModel(),s="^^"+w+"$";let t=0;for(let i=0;i<s.length-2;i++){const g=s.substr(i,3);t+=Math.log(((cnt.get(g)||0)+.1)/((ctx.get(g.slice(0,2))||0)+2.7))}return t/s.length}
+const pickTop=(list,n)=>list.length?list[Math.floor(Math.random()*Math.min(n,list.length))]:null;
+function phonyMadeUp(w){
+  // rearrangements of a real word's letters (and, for short words, one-letter changes), keeping the most word-like
+  const a=w.split(""),L=a.length,cands=new Set();
+  for(let t=0;t<(L<=4?80:700);t++){const b=a.slice();for(let i=L-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]}cands.add(b.join(""))}
+  if(L<=5){const V="AEIOU",C="BCDFGHKLMNPRSTVWY";for(let i=0;i<L;i++)for(const ch of (V.includes(a[i])?V:C)){const b=a.slice();b[i]=ch;cands.add(b.join(""))}}
+  const ok=[...cands].filter(f=>f!==w&&!LEX.words.has(f)).map(f=>[f,wordScore(f)]).sort((x,y)=>y[1]-x[1]);
+  const f=pickTop(ok,4);return f?{key:f[0],kind:"made",src:w}:null;
+}
+// wrong-ending phonies are worked out when the app is built: [phony, base word, ending]
+let ENDINGS=null;
+function endingsByLen(){
+  if(ENDINGS)return ENDINGS;ENDINGS={};
+  let list=[];try{list=JSON.parse(document.getElementById("endingdata").textContent||"[]")}catch(e){}
+  for(const [f,base,type] of list)if(!LEX.words.has(f)){const L=f.length;(ENDINGS[L]=ENDINGS[L]||{S:[],ED:[],ING:[]})[type].push({key:f,kind:"ending",base,type})}
+  return ENDINGS;
+}
+function phonyEnding(L){
+  const g=endingsByLen()[L];if(!g)return null;
+  // S endings are the most convincing, so they come up most
+  const order=Math.random()<.6?["S","ED","ING"]:Math.random()<.5?["ED","ING","S"]:["ING","ED","S"];
+  for(const t of order){const p=g[t];if(p.length)return {...p[Math.floor(Math.random()*p.length)]}}
   return null;
+}
+function phonyCollins(L){const pool=CSW.byLen[L];if(!pool||!pool.length)return null;const f=pool[Math.floor(Math.random()*pool.length)];return {key:f,kind:"collins"}}
+const PHONY_KINDS={made:"Made-up words",ending:"Wrong endings",collins:"Collins-only words"};
+function phonyFor(w){
+  const on=Object.keys(PHONY_KINDS).filter(k=>store.settings.phonyKinds[k]&&(k!=="collins"||CSW.ready));
+  const order=on.sort(()=>Math.random()-.5);if(!order.length)order.push("made");
+  for(const k of order){const r=k==="made"?phonyMadeUp(w):k==="ending"?phonyEnding(w.length):phonyCollins(w.length);if(r)return r}
+  return phonyMadeUp(w);
 }
 
 /* =================== session =================== */
@@ -849,8 +900,9 @@ function next(){
   if(store.mode==="phony"){
     const keys=deckKeys(store.deck,"word");
     if(!keys.length){cur=null;render();return}
+    if(store.settings.phonyKinds.collins&&hasCSW()&&!CSW.ready){$("card").innerHTML=`<div class="loading">Unpacking Collins words…</div>`;ensureCSW().then(next);return}
     const w=keys[Math.floor(Math.random()*keys.length)],f=Math.random()<.5?phonyFor(w):null;
-    cur=f?{key:f,phony:true,src:w}:{key:w,phony:false};
+    cur=f?{...f,phony:true}:{key:w,phony:false};
   }else if(store.mode==="learn"){
     const k=pickNext(store.deck,Date.now(),lastK);cur=k?{key:k,ans:answersFor(k)}:null;
   }
@@ -882,7 +934,9 @@ function grade(g){
 }
 function answerPhony(saidPhony){
   if(store.mode!=="phony"||!cur||phonyAns!==null)return;
-  phonyAns=saidPhony;session.n++;if(saidPhony!==cur.phony)session.again++;render();
+  phonyAns=saidPhony;session.n++;const right=saidPhony===cur.phony;if(!right)session.again++;
+  const kind=cur.phony?cur.kind:"valid",pk=session.pk=session.pk||{};pk[kind]=pk[kind]||[0,0];pk[kind][1]++;if(right)pk[kind][0]++;
+  render();
 }
 
 /* =================== rendering helpers =================== */
@@ -917,7 +971,8 @@ function renderChrome(){
   for(const m of ["learn","search","phony"])$("m-"+m).setAttribute("aria-pressed",store.mode===m);
   $("studyView").hidden=store.mode==="search";$("searchView").hidden=store.mode!=="search";
   const learn=store.mode==="learn";
-  $("qtBar").hidden=!learn;$("addbar").hidden=!learn||store.deck==="none";$("statsBlock").hidden=!learn;$("seenBox").hidden=!learn;
+  $("qtBar").hidden=!learn;$("phonyBar").hidden=store.mode!=="phony";
+  if(store.mode==="phony")$("phonyKinds").innerHTML=Object.entries(PHONY_KINDS).filter(([k])=>k!=="collins"||hasCSW()).map(([k,n])=>`<label class="switch"><input type="checkbox" data-pk="${k}" ${store.settings.phonyKinds[k]?"checked":""}> <span>${n}</span></label>`).join("");$("addbar").hidden=!learn||store.deck==="none";$("statsBlock").hidden=!learn;$("seenBox").hidden=!learn;
   $("lenDecks").innerHTML=store.searches.map(s=>chip(s.id,s.name)).join("")+`<button class="chip add" id="newDeck">+ New deck</button>`;
   const lists=[];
   if(store.custom&&deckKeys("custom").length)lists.push(chip("custom","My list"));
@@ -1013,7 +1068,16 @@ function render(){
     }else{
       const ok=phonyAns===cur.phony;
       html+=`<div class="verdict ${ok?"ok":"no"}">${ok?"Correct":"Wrong"}: ${cur.phony?"phony":"valid"}</div>`;
-      html+=cur.phony?`<div class="hint">${esc(k)} is not in NWL2023. It was made from:</div>`+ansRows([cur.src]):ansRows([k]);
+      if(!cur.phony)html+=ansRows([k]);
+      else{
+        const cs=CSW.def.get(k),tag={made:"made-up",ending:"wrong ending",collins:"Collins only"}[cur.kind];
+        html+=`<div class="meta"><span class="badge">${tag}</span></div>`;
+        if(cur.kind==="made"){const same=alpha(k)===alpha(cur.src);html+=`<div class="hint">${esc(k)} is not in NWL2023. ${same?"Same letters as:":"It's close to:"}</div>`+ansRows(same?LEX.anag.get(alpha(cur.src)):[cur.src])}
+        else if(cur.kind==="ending")html+=`<div class="hint">${esc(k)} is not in NWL2023: ${esc(cur.base)} doesn't take -${cur.type}.</div>`+ansRows([cur.base]);
+        if(cs!==undefined)html+=`<div class="hint">${cur.kind==="collins"?esc(k)+" is valid in Collins (CSW24) but not in NWL2023.":"It is valid in Collins (CSW24), though."}</div>${cs?`<div class="single"><div class="def">${esc(cs)}</div></div>`:""}`;
+      }
+      const pk=session.pk||{},tally=Object.entries({valid:"Valid words",...PHONY_KINDS}).filter(([k])=>pk[k]).map(([k,n])=>`${n} ${pk[k][0]}/${pk[k][1]}`).join(" · ");
+      if(tally)html+=`<div class="meta">This session: ${tally}</div>`;
       gr.className="grade two";gr.innerHTML=`<button class="full" id="g-next">Next word<small>Space</small></button>`;
     }
   }
@@ -1082,7 +1146,9 @@ function doSearch(){
 function lookup(){
   const q=$("lookupIn").value.toUpperCase().replace(/[^A-Z]/g,"");if(!q){$("lookupOut").innerHTML="";return}
   const a=alpha(q),g=LEX.anag.get(a),valid=LEX.words.has(q);
-  let html=`<p><b>${esc(q)}</b> ${valid?"is valid":"is not a word"} in NWL2023.</p>`;
+  if(!valid&&hasCSW()&&!CSW.ready){ensureCSW().then(lookup);return}
+  const cs=CSW.def.get(q);
+  let html=`<p><b>${esc(q)}</b> ${valid?"is valid":"is not a word"} in NWL2023.${cs!==undefined?` It is valid in Collins (CSW24)${cs?`: ${esc(cs)}`:"."}`:""}</p>`;
   if(g){
     html+=`<p class="note">Alphagram ${esc(a)} · two-blank probability rank ${fmtN(LEX.rank.get(a))} of ${fmtN(LEX.byLen[a.length].length)} · ${g.length} ${g.length===1?"word":"words"}${valid?` · ${esc(q)} playability rank ${fmtN(LEX.words.get(q).play)} (score ${fmtN(LEX.words.get(q).pscore)})`:""}</p>`+ansRows(g);
   }else html+=`<p class="note">No valid anagrams of these letters.</p>`;
@@ -1685,6 +1751,7 @@ for(const id in NUMS)$(id).addEventListener("change",e=>{const [lo,hi,def]=NUMS[
 for(const id of ["newOrder","typing","showCount","buryOn"])$(id).addEventListener("change",e=>{store.settings[id]=e.target.value;save();if(!flipped)next();else render()});
 $("extDir").addEventListener("change",e=>{store.settings.extDir=e.target.value;save();if(cur&&store.mode==="learn")cur.ans=answersFor(cur.key);render()});
 $("hideCount").addEventListener("change",e=>{store.settings.showCount=e.target.checked?"off":"on";$("showCount").value=store.settings.showCount;save();render()});
+$("phonyKinds").addEventListener("change",e=>{const k=e.target.dataset.pk;if(!k)return;store.settings.phonyKinds={...store.settings.phonyKinds,[k]:e.target.checked};save();next()});
 $("flashMode").addEventListener("change",e=>{store.settings.typing=e.target.checked?"off":"on";$("typing").value=store.settings.typing;save();if(!flipped)next();else render()});
 document.addEventListener("keydown",e=>{
   if(!ready||store.mode==="search")return;
