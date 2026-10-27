@@ -226,7 +226,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     <div class="group">
       <div class="label">Your decks <em>· badge shows cards ready now</em></div>
       <div class="decks" id="lenDecks"></div>
-      <div class="label" style="margin-top:4px">Built-in lists</div>
+      <div class="label" style="margin-top:4px" id="listLabel">Other</div>
       <div class="decks" id="listDecks"></div>
     </div>
 
@@ -292,6 +292,11 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 
   <!-- ============ SEARCH ============ -->
   <section class="view" id="searchView" hidden>
+    <div class="panel">
+      <h2 class="sec">Built-in lists</h2>
+      <p class="note" style="margin:0">Load one to see its words, then save it as a deck or add it to your cardbox. You can also change its conditions first.</p>
+      <div class="decks" id="presets"></div>
+    </div>
     <div class="panel">
       <h2 class="sec">Search NWL2023</h2>
       <div class="conds" id="conds"></div>
@@ -554,12 +559,15 @@ function wordsToKeys(words,u){
   if(u==="word")return words;
   const seen=new Set(),out=[];for(const w of words){const a=LEX.words.get(w).a;if(!seen.has(a)){seen.add(a);out.push(a)}}return out;
 }
+// Built-in lists live on the Search page as ready-made conditions.
+const PRESETS=[
+  {name:"Q without U",conds:[{t:"includes",a:"Q"},{t:"includes",a:"U",neg:true}]},
+  {name:"JQXZ threes & fours",conds:[{t:"lengths",a:"3,4"},{t:"pattern",a:"*[JQXZ]*"}]},
+  {name:"Bingo stems: 6 + ?",conds:[{t:"lengths",a:"6"},{t:"blankn",a:15,b:""}]},
+  {name:"Bingo stems: 7 + ?",conds:[{t:"lengths",a:"7"},{t:"blankn",a:15,b:""}]},
+  {name:"New in NWL2023",conds:[{t:"lengths",a:"2-8"},{t:"isnew"}]},
+];
 const LISTS={
-  qnou:{name:"Q without U",words:()=>LEX.all.filter(w=>w.includes("Q")&&!w.includes("U"))},
-  jqxz:{name:"JQXZ threes & fours",words:()=>LEX.all.filter(w=>w.length>=3&&w.length<=4&&/[JQXZ]/.test(w))},
-  stem6:{name:"Bingo stems: 6 + ?",words:()=>stemWords(6,15)},
-  stem7:{name:"Bingo stems: 7 + ?",words:()=>stemWords(7,15)},
-  new23:{name:"New in NWL2023",words:()=>LEX.all.filter(w=>w.length<=8&&isNew(w))},
 };
 function stemWords(L,min){const out=[];for(const a of LEX.byLen[L]||[])if(blankCount(a)>=min)out.push(...LEX.anag.get(a));return out}
 const deckCache={};
@@ -578,6 +586,7 @@ function deckKeys(id,u){
 const clearCache=pre=>{for(const k in deckCache)if(!pre||k.startsWith(pre))delete deckCache[k]};
 function deckExists(id){return LISTS[id]||id==="leech"||(id==="custom"&&store.custom)||(id.startsWith("s:")&&store.searches.some(s=>s.id===id))}
 function deckName(id){
+  if(id==="none")return "No deck";
   if(id.startsWith("len"))return LEN_NAMES[id.slice(3)];
   if(id.startsWith("s:")&&!store.searches.some(s=>s.id===id))return "Deleted deck";
   if(id==="custom")return "My list";if(id==="leech")return "Leeches";
@@ -750,17 +759,14 @@ const recallNow=(r,now)=>r&&r[0]>0?retrievability(Math.max(0,(now-r[4])/DAY),Mat
 
 /* =================== storage =================== */
 const KEY="rack-recall-nwl23-v2",LOGKEY="rack-recall-log-v1";
-const SEED_DECKS=[
-  {id:"s:twos",name:"Twos",conds:[{t:"lengths",a:"2"}],order:"prob"},
-  {id:"s:fives",name:"Fives",conds:[{t:"lengths",a:"5"}],order:"prob"},
-  {id:"s:sev8",name:"Sevens & Eights",conds:[{t:"lengths",a:"7,8"}],order:"prob"},
-];
-const DEFAULTS={cards:{},custom:"",deck:"s:twos",mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"length",a:7,b:7},{t:"prob",a:1,b:100}],
+const SEED_DECKS=[{id:"s:sev8",name:"Bingos",conds:[{t:"lengths",a:"7,8"}],order:"prob"}];
+const DEFAULTS={cards:{},custom:"",deck:"s:sev8",migr:{bingo:1},mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"length",a:7,b:7},{t:"prob",a:1,b:100}],
   notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},
   settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"on",buildMin:4,leech:6,extDir:"both",extMin:1,extMax:13,buryOn:"on",w:null,fit:null}};
 let store=structuredClone(DEFAULTS),LOG="";
 function mergeStore(s){
   store={...structuredClone(DEFAULTS),...s,settings:{...DEFAULTS.settings,...(s.settings||{})}};
+  if(!s.migr)store.migr={}; // saved before this version: run the one-time deck update
   if(s.front&&!s.qtype)store.qtype=s.front==="word"?"W":"A";delete store.front;
   if(!QT[store.qtype])store.qtype="A";
   W=Array.isArray(store.settings.w)&&store.settings.w.length===17?store.settings.w.slice():W_DEFAULT.slice();
@@ -911,12 +917,12 @@ function renderChrome(){
   for(const m of ["learn","search","phony"])$("m-"+m).setAttribute("aria-pressed",store.mode===m);
   $("studyView").hidden=store.mode==="search";$("searchView").hidden=store.mode!=="search";
   const learn=store.mode==="learn";
-  $("qtBar").hidden=!learn;$("addbar").hidden=!learn;$("statsBlock").hidden=!learn;$("seenBox").hidden=!learn;
+  $("qtBar").hidden=!learn;$("addbar").hidden=!learn||store.deck==="none";$("statsBlock").hidden=!learn;$("seenBox").hidden=!learn;
   $("lenDecks").innerHTML=store.searches.map(s=>chip(s.id,s.name)).join("")+`<button class="chip add" id="newDeck">+ New deck</button>`;
-  const lists=Object.entries(LISTS).map(([k,d])=>chip(k,d.name));
+  const lists=[];
   if(store.custom&&deckKeys("custom").length)lists.push(chip("custom","My list"));
   if(leechKeys().length)lists.push(chip("leech","Leeches"));
-  $("listDecks").innerHTML=lists.join("");
+  $("listDecks").innerHTML=lists.join("");$("listDecks").hidden=$("listLabel").hidden=!lists.length;
   $("qtypes").innerHTML=Object.entries(QT).map(([k,q])=>`<button data-qt="${k}" aria-pressed="${k===store.qtype}">${q.name}</button>`).join("");
   $("flashMode").checked=store.settings.typing==="off";
   $("hideCount").checked=store.settings.showCount==="off";
@@ -941,7 +947,8 @@ function render(){
     const s=scan(store.deck,now),nm=esc(deckName(store.deck)),u=unit()==="alpha"?"alphagrams":"words";
     let nextDue=null;for(const k of s.keys){const r=store.cards[ckey(k)];if(r&&r[0]!==0&&(nextDue===null||r[3]<nextDue))nextDue=r[3]}
     let h,hint="";
-    if(!s.total){h=store.deck==="leech"?"No leeches":"This list is empty";hint=store.deck==="leech"?`Cards you forget ${store.settings.leech} times appear here.`:""}
+    if(store.deck==="none"){h="Make a deck to start";hint="Press + New deck above, or build one in Search, where the built-in lists are too."}
+    else if(!s.total){h=store.deck==="leech"?"No leeches":"This list is empty";hint=store.deck==="leech"?`Cards you forget ${store.settings.leech} times appear here.`:""}
     else if(!s.boxed){h=`No ${nm} in your ${esc(qt().name)} cardbox yet`;hint=`Add some with the bar above. They come in most probable first. You can also add single ${u} from Look up, or build a list in Search.`}
     else{h=`All caught up on ${nm}`;
       if(nextDue)hint+=`Next review in ${fmtIvl(Math.max(MIN,nextDue-now))}. `;
@@ -1038,6 +1045,7 @@ function renderSeen(rows,now){
 /* =================== search UI =================== */
 let lastResult=null;
 function renderSearch(){
+  $("presets").innerHTML=PRESETS.map((p,i)=>`<button class="chip" data-preset="${i}" title="${esc(describeConds(p.conds))}">${esc(p.name)}</button>`).join("");
   $("addCond").innerHTML=`<option value="">Add a condition…</option>`+Object.entries(COND).map(([k,d])=>`<option value="${k}">${d.label}</option>`).join("");
   $("conds").innerHTML=store.draft.length?store.draft.map((c,i)=>{
     const d=COND[c.t];let p="";
@@ -1544,7 +1552,20 @@ window.addEventListener("online",()=>syncNow());
 setInterval(()=>{if(syncCfg.session&&document.visibilityState==="visible")syncNow();else renderSyncUI()},180e3);
 
 /* =================== events =================== */
-const firstDeck=()=>store.searches[0]?.id||"qnou";
+const firstDeck=()=>store.searches[0]?.id||"none";
+// one-time: earlier versions started with Twos, Fives and Sevens & Eights. Rename Sevens & Eights to Bingos,
+// and drop the Twos and Fives starters if they're unchanged and hold no cards.
+function migrateDecks(){
+  if(store.migr&&store.migr.bingo)return;
+  store.migr={...(store.migr||{}),bingo:1};
+  const seed=(d,id,name,lens)=>d.id===id&&d.name===name&&d.conds.length===1&&d.conds[0].t==="lengths"&&!d.conds[0].neg&&String(d.conds[0].a)===lens;
+  const hasCards=id=>{for(const q in QT){const pre=q+":";for(const k of deckKeys(id,QT[q].unit))if(store.cards[pre+k])return true}return false};
+  const before=store.searches.length;
+  store.searches=store.searches.filter(d=>!((seed(d,"s:twos","Twos","2")||seed(d,"s:fives","Fives","5"))&&!hasCards(d.id)));
+  const b=store.searches.find(d=>seed(d,"s:sev8","Sevens & Eights","7,8"));if(b)b.name="Bingos";
+  if(b||store.searches.length!==before){clearCache("s:");if(!deckExists(store.deck))store.deck=firstDeck()}
+  save();
+}
 function setDeck(id){store.deck=id;save();lastK=null;session={n:0,again:0};next()}
 function setMode(m){store.mode=m;save();lastK=null;if(m==="search"){cur=null;render()}else next()}
 document.addEventListener("submit",e=>{if(e.target.id==="ansForm"){e.preventDefault();reveal(true)}});
@@ -1559,6 +1580,7 @@ document.addEventListener("click",e=>{
   if(ds.add){const i=ds.add.indexOf(":");addKeys([ds.add.slice(i+1)],ds.add.slice(0,i+1));lookup();if(!cur&&store.mode==="learn")next();else render();return}
   if(ds.remove){delCard(ds.remove);save();syncSoon();lookup();if(cur&&ckey(cur.key)===ds.remove)next();else render();return}
   if(ds.rm){store.draft.splice(+ds.rm,1);save();renderSearch();return}
+  if(ds.preset){const pr=PRESETS[+ds.preset];store.draft=structuredClone(pr.conds);editingId=null;$("saveOrder").value="prob";save();doSearch();$("saveName").value=pr.name;$("saveSearch").textContent="Save as deck";$("resultsPanel").scrollIntoView({behavior:"smooth",block:"start"});return}
   if(ds.study){store.mode="learn";setDeck(ds.study);return}
   if(ds.load){const s=store.searches.find(x=>x.id===ds.load);if(s){store.draft=structuredClone(s.conds);editingId=s.id;save();doSearch();$("saveName").value=s.name;$("saveOrder").value=s.order||"prob"}return}
   if(ds.del){
@@ -1681,7 +1703,7 @@ setInterval(()=>{if(!ready||store.mode!=="learn")return;if(!cur)next();else rend
 syncInputs();
 $("lexInfo").textContent=`${LEX_META.name}, ${LEX_META.count.toLocaleString()} words (lexicon dated ${LEX_META.date})`;
 loadLexicon().then(()=>{
-  ready=true;renderFitInfo();syncReady=true;renderSyncUI();if(syncCfg.session)syncNow();
+  ready=true;migrateDecks();renderFitInfo();syncReady=true;renderSyncUI();if(syncCfg.session)syncNow();
   if(store.deck.startsWith("len")){const L=store.deck.slice(3),m=store.searches.find(s=>s.conds.length===1&&s.conds[0].t==="lengths"&&[...parseLens(s.conds[0].a)].join()===L);store.deck=m?m.id:firstDeck()}
   if(!deckExists(store.deck))store.deck=firstDeck();
   if(store.mode==="search"){render()}else next();
