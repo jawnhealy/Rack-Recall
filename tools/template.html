@@ -18,11 +18,17 @@
   --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
   color-scheme:light;
 }
-@media (prefers-color-scheme: dark){:root{
+/* dark: follows the system unless Settings picks Light or Dark */
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#141b1f; --surface:#1d272c; --ink:#e6edf0; --muted:#94a6ae; --line:#2f3d44;
   --tile:#e8d8b2; --tile-edge:#a8915f; --tile-ink:#2a2116;
   --tw:#e0695b; --dw:#7a3a34; --dl:#24434f; --tl:#6fb3d0;
   --good:#5cbf84; --bad:#e8786c; --warn:#e0a84a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141b1f; --surface:#1d272c; --ink:#e6edf0; --muted:#94a6ae; --line:#2f3d44;
+  --tile:#e8d8b2; --tile-edge:#a8915f; --tile-ink:#2a2116;
+  --tw:#e0695b; --dw:#7a3a34; --dl:#24434f; --tl:#6fb3d0;
+  --good:#5cbf84; --bad:#e8786c; --warn:#e0a84a; color-scheme:dark}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0}
@@ -247,7 +253,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <button id="n-settings" aria-pressed="false">Settings</button>
     </nav>
     <form class="lookup" id="lookupForm" autocomplete="off" role="search">
-      <input type="text" id="lookupIn" placeholder="Look up RETAINS, AEINRST, AEINRS?" aria-label="Look up a word or rack" spellcheck="false" autocapitalize="characters">
+      <input type="text" id="lookupIn" aria-label="Look up a word or rack" spellcheck="false" autocapitalize="characters">
       <button class="btn" id="lookupBtn" type="submit">Look up</button>
     </form>
     <button class="syncpill" id="syncPill" hidden title="Sync status. Tap to sync now.">Sync off</button>
@@ -384,6 +390,10 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div><select id="newOrder"><option value="prob">Order added (most probable first)</option><option value="random">Random</option></select></div>
         <label for="typing">Type your answers</label>
         <div><select id="typing"><option value="on">On: type the answers, then check</option><option value="off">Off: flashcard mode</option></select></div>
+        <label for="theme">Appearance</label>
+        <div><select id="theme"><option value="system">Match system</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
+        <label for="showRank">Show probability rank on cards</label>
+        <div><select id="showRank"><option value="on">On</option><option value="off">Off</option></select> <span class="note">the “#1 of 21,223” in the card's corner</span></div>
         <label for="showCount">Show answer count</label>
         <div><select id="showCount"><option value="on">On</option><option value="off">Off</option></select></div>
         <label for="buildMin">Build: shortest word</label>
@@ -811,7 +821,7 @@ const KEY="rack-recall-nwl23-v2",LOGKEY="rack-recall-log-v1";
 const SEED_DECKS=[{id:"s:sev8",name:"Bingos",conds:[{t:"lengths",a:"7,8"}],order:"prob"}];
 const DEFAULTS={cards:{},custom:"",deck:"s:sev8",migr:{bingo:1,ext:1},mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"length",a:7,b:7},{t:"prob",a:1,b:100}],
   notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},
-  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"on",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",phonyKinds:{made:true,ending:true,collins:true},w:null,fit:null}};
+  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"on",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",showRank:"on",theme:"system",phonyKinds:{made:true,ending:true,collins:true},w:null,fit:null}};
 let store=structuredClone(DEFAULTS),LOG="";
 function mergeStore(s){
   store={...structuredClone(DEFAULTS),...s,settings:{...DEFAULTS.settings,...(s.settings||{})}};
@@ -1102,7 +1112,7 @@ function render(){
     const st=cardState(k),r=store.cards[ckey(k)],ans=cur.ans,isAlpha=unit()==="alpha";
     const rankTxt=isAlpha?`#${fmtN(LEX.rank.get(k))} of ${fmtN(LEX.byLen[k.length].length)}`:`#${fmtN(LEX.wrank.get(k))} of ${fmtN(LEX.wordsByLen[k.length].length)}`;
     const rc=recallNow(r,now),leech=st.lapses>=store.settings.leech;
-    html=`<div class="corner"><span class="badge ${st.state}">${st.state}</span>${leech?'<span class="badge leech">leech</span>':""}<span>${rankTxt}</span></div><div class="corner r"><span class="qname">${esc(qt().name)}</span>${rc!=null?`<span title="Estimated chance you recall this card right now">recall ${Math.round(rc*100)}%</span>`:""}</div>${tiles(k,store.qtype==="S")}`;
+    html=`<div class="corner"><span class="badge ${st.state}">${st.state}</span>${leech?'<span class="badge leech">leech</span>':""}${store.settings.showRank==="off"?"":`<span>${rankTxt}</span>`}</div><div class="corner r"><span class="qname">${esc(qt().name)}</span>${rc!=null?`<span title="Estimated chance you recall this card right now">recall ${Math.round(rc*100)}%</span>`:""}</div>${tiles(k,store.qtype==="S")}`;
     if(!flipped){
       if(qt().typed&&store.settings.showCount==="on")html+=`<div class="count">${countText(k,ans)}</div>`;
       if(qt().typed&&store.settings.typing==="on"){
@@ -1599,7 +1609,7 @@ if(!syncCfg.dev)syncCfg.dev=Math.random().toString(36).slice(2,10);
 const saveSyncCfg=()=>{try{localStorage.setItem(SYNCKEY,JSON.stringify(syncCfg))}catch(e){}};saveSyncCfg();
 let syncReady=false,syncing=false,syncTimer=null,syncState={msg:"",ok:null,at:0};
 const META={
-  settings:{get:()=>{const {typing,...rest}=store.settings;return rest},set:v=>{store.settings={...store.settings,...v,typing:store.settings.typing};W=Array.isArray(store.settings.w)&&store.settings.w.length===17?store.settings.w.slice():W_DEFAULT.slice();syncInputs()}},
+  settings:{get:()=>{const {typing,...rest}=store.settings;return rest},set:v=>{store.settings={...store.settings,...v,typing:store.settings.typing};W=Array.isArray(store.settings.w)&&store.settings.w.length===17?store.settings.w.slice():W_DEFAULT.slice();syncInputs();applyTheme()}},
   decks:{get:()=>store.searches,set:v=>{store.searches=v;clearCache("s:");searchCache.clear();if(!deckExists(store.deck))store.deck=firstDeck()}},
   custom:{get:()=>store.custom,set:v=>{store.custom=v;clearCache("custom");$("customText").value=v||""}},
   bury:{get:()=>store.bury,set:v=>{store.bury=v}},
@@ -1858,15 +1868,17 @@ $("importFile").addEventListener("change",e=>{
   rd.readAsText(f);e.target.value="";
 });
 const NUMS={retention:[.7,.99,.9],newLimit:[0,1000,20],buildMin:[2,15,4],leech:[2,50,6],extMin:[1,13,2],extMax:[1,13,7]};
-function syncInputs(){for(const id of ["retention","newLimit","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
+function syncInputs(){for(const id of ["retention","newLimit","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn","showRank","theme"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
 for(const id in NUMS)$(id).addEventListener("change",e=>{const [lo,hi,def]=NUMS[id];let v=+e.target.value;if(isNaN(v)||e.target.value==="")v=def;v=Math.min(hi,Math.max(lo,v));if(id!=="retention")v=Math.round(v);store.settings[id]=v;e.target.value=v;save();
   if(id==="leech")clearCache("leech");
   if(id==="extMin"&&store.settings.extMax<v){store.settings.extMax=v;$("extMax").value=v}
   if(id==="extMax"&&store.settings.extMin>v){store.settings.extMin=v;$("extMin").value=v}
   if(cur&&store.mode==="learn"){cur.ans=answersFor(cur.key);if(flipped)preview=schedule(cardState(cur.key),Date.now())}
   if(!cur&&store.mode==="learn")next();else render()});
-for(const id of ["newOrder","typing","showCount","buryOn"])$(id).addEventListener("change",e=>{store.settings[id]=e.target.value;save();if(!flipped)next();else render()});
+for(const id of ["newOrder","typing","showCount","buryOn","showRank"])$(id).addEventListener("change",e=>{store.settings[id]=e.target.value;save();if(!flipped)next();else render()});
 $("extDir").addEventListener("change",e=>{store.settings.extDir=e.target.value;save();if(cur&&store.mode==="learn")cur.ans=answersFor(cur.key);render()});
+function applyTheme(){const t=store.settings.theme;if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;else delete document.documentElement.dataset.theme}
+$("theme").addEventListener("change",e=>{store.settings.theme=e.target.value;save();applyTheme()});
 $("hideCount").addEventListener("change",e=>{store.settings.showCount=e.target.checked?"off":"on";$("showCount").value=store.settings.showCount;save();render()});
 $("phonyKinds").addEventListener("change",e=>{const k=e.target.dataset.pk;if(!k)return;store.settings.phonyKinds={...store.settings.phonyKinds,[k]:e.target.checked};save();next()});
 $("flashMode").addEventListener("change",e=>{store.settings.typing=e.target.checked?"off":"on";$("typing").value=store.settings.typing;save();if(!flipped)next();else render()});
@@ -1895,7 +1907,7 @@ setInterval(()=>{
   if(PAGE==="decks"&&!$("deckList").contains(document.activeElement))renderDecks();
 },30e3);
 
-syncInputs();
+syncInputs();applyTheme();
 $("lexInfo").textContent=`${LEX_META.name}, ${LEX_META.count.toLocaleString()} words (lexicon dated ${LEX_META.date}). App build ${LEX_META.build||"unknown"}`;
 loadLexicon().then(()=>{
   ready=true;migrateDecks();renderFitInfo();syncReady=true;renderSyncUI();if(syncCfg.session)syncNow();
