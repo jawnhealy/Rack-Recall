@@ -760,9 +760,9 @@ const recallNow=(r,now)=>r&&r[0]>0?retrievability(Math.max(0,(now-r[4])/DAY),Mat
 /* =================== storage =================== */
 const KEY="rack-recall-nwl23-v2",LOGKEY="rack-recall-log-v1";
 const SEED_DECKS=[{id:"s:sev8",name:"Bingos",conds:[{t:"lengths",a:"7,8"}],order:"prob"}];
-const DEFAULTS={cards:{},custom:"",deck:"s:sev8",migr:{bingo:1},mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"length",a:7,b:7},{t:"prob",a:1,b:100}],
+const DEFAULTS={cards:{},custom:"",deck:"s:sev8",migr:{bingo:1,ext:1},mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"length",a:7,b:7},{t:"prob",a:1,b:100}],
   notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},
-  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"on",buildMin:4,leech:6,extDir:"both",extMin:1,extMax:13,buryOn:"on",w:null,fit:null}};
+  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"on",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",w:null,fit:null}};
 let store=structuredClone(DEFAULTS),LOG="";
 function mergeStore(s){
   store={...structuredClone(DEFAULTS),...s,settings:{...DEFAULTS.settings,...(s.settings||{})}};
@@ -1556,6 +1556,8 @@ const firstDeck=()=>store.searches[0]?.id||"none";
 // one-time: earlier versions started with Twos, Fives and Sevens & Eights. Rename Sevens & Eights to Bingos,
 // and drop the Twos and Fives starters if they're unchanged and hold no cards.
 function migrateDecks(){
+  // one-time: extension defaults went from 1–13 letters to 2–7; move settings still on the old defaults
+  if(!store.migr.ext){store.migr.ext=1;if(store.settings.extMin===1&&store.settings.extMax===13){store.settings.extMin=2;store.settings.extMax=7;syncInputs()}save()}
   if(store.migr&&store.migr.bingo)return;
   store.migr={...(store.migr||{}),bingo:1};
   const seed=(d,id,name,lens)=>d.id===id&&d.name===name&&d.conds.length===1&&d.conds[0].t==="lengths"&&!d.conds[0].neg&&String(d.conds[0].a)===lens;
@@ -1672,7 +1674,7 @@ $("importFile").addEventListener("change",e=>{
   }catch(err){note("settingsNote","That file isn't a Rack & Recall backup.")}};
   rd.readAsText(f);e.target.value="";
 });
-const NUMS={retention:[.7,.99,.9],newLimit:[0,1000,20],buildMin:[2,15,4],leech:[2,50,6],extMin:[1,13,1],extMax:[1,13,13]};
+const NUMS={retention:[.7,.99,.9],newLimit:[0,1000,20],buildMin:[2,15,4],leech:[2,50,6],extMin:[1,13,2],extMax:[1,13,7]};
 function syncInputs(){for(const id of ["retention","newLimit","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
 for(const id in NUMS)$(id).addEventListener("change",e=>{const [lo,hi,def]=NUMS[id];let v=+e.target.value;if(isNaN(v)||e.target.value==="")v=def;v=Math.min(hi,Math.max(lo,v));if(id!=="retention")v=Math.round(v);store.settings[id]=v;e.target.value=v;save();
   if(id==="leech")clearCache("leech");
