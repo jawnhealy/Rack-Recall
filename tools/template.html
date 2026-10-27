@@ -1107,8 +1107,7 @@ function render(){
       if(qt().typed&&store.settings.showCount==="on")html+=`<div class="count">${countText(k,ans)}</div>`;
       if(qt().typed&&store.settings.typing==="on"){
         html+=`<form class="typebox" id="ansForm" autocomplete="off"><input id="ansIn" aria-label="Your answers" placeholder="Type the words, space between" spellcheck="false" autocapitalize="characters"><button class="btn" type="submit">Check</button></form>`;
-        html+=`<div class="hint">${PROMPT[store.qtype]} Press Return to check.</div>`;
-      }else html+=`<div class="hint">${PROMPT[store.qtype]} Then press Return, Space, any of 0–3, or tap the tiles to flip.</div>`;
+      }
       gr.className="grade";gr.innerHTML=`<button class="full" id="g-show">Show answer<small>${qt().typed&&store.settings.typing==="on"?"Return":"Return, Space or 0–3"}</small></button>`;
     }else{
       let suggest=null;const found=typed?typed.hit:null;
