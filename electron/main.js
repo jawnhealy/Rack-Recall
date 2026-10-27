@@ -3,6 +3,24 @@
 // windows never write over each other's saved progress.
 const { app, BrowserWindow, shell, Menu } = require("electron");
 const path = require("path");
+const fs = require("fs");
+
+// Updates without reinstalling: if a newer rack-and-recall.html sits next to the
+// app (portable copy) or in the app's data folder (installed copy), use it instead
+// of the built-in page. All file:// pages share one storage area, so progress carries over.
+const UPDATE_NAME = "rack-and-recall.html";
+function pagePath() {
+  const builtIn = path.join(__dirname, "..", "web", "index.html");
+  const mtime = (p) => { try { return fs.statSync(p).mtimeMs; } catch (e) { return -1; } };
+  let best = builtIn, bestTime = mtime(builtIn);
+  const folders = [path.dirname(process.execPath), app.getPath("userData")];
+  if (process.env.PORTABLE_EXECUTABLE_DIR) folders.unshift(process.env.PORTABLE_EXECUTABLE_DIR);
+  for (const dir of folders) {
+    const p = path.join(dir, UPDATE_NAME), t = mtime(p);
+    if (t > bestTime) { best = p; bestTime = t; }
+  }
+  return best;
+}
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -21,7 +39,7 @@ if (!app.requestSingleInstanceLock()) {
       icon: path.join(__dirname, "..", "build", "icon.png"),
       webPreferences: { contextIsolation: true, sandbox: true, spellcheck: false },
     });
-    win.loadFile(path.join(__dirname, "..", "web", "index.html"));
+    win.loadFile(pagePath());
     // Links to other sites open in the normal browser, not inside the app.
     win.webContents.setWindowOpenHandler(({ url }) => {
       shell.openExternal(url);
