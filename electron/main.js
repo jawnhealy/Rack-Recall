@@ -5,24 +5,48 @@ const { app, BrowserWindow, shell, Menu } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
-// Updates without reinstalling: if a newer rack-and-recall.html sits next to the
-// app (portable copy) or in the app's data folder (installed copy), use it instead
-// of the built-in page. All file:// pages share one storage area, so progress carries over.
-const UPDATE_NAME = "rack-and-recall.html";
+// Updates without reinstalling: a newer rack-and-recall.html placed next to the app
+// (portable copy) or in the app's data folder (installed copy) is used instead of the
+// built-in page. "Newer" means a higher build number, read from the page's
+// <meta name="rr-build"> tag. (File dates aren't reliable for the built-in page.)
+// Names like "rack-and-recall (1).html", which browsers create on repeat downloads, count too.
+// All file:// pages share one storage area, so progress carries over.
+const BUILT_IN = path.join(__dirname, "..", "web", "index.html");
+const UPDATE_FILE = /^rack-and-recall.*\.html$/i;
+
+function buildOf(file) {
+  try {
+    const head = fs.readFileSync(file, "utf8").slice(0, 4096);
+    const m = head.match(/<meta name="rr-build" content="(\d+)"/);
+    return m ? Number(m[1]) : 0;
+  } catch (e) {
+    return -1;
+  }
+}
+
+function updateFolders() {
+  const dirs = [process.env.PORTABLE_EXECUTABLE_DIR, path.dirname(process.execPath), app.getPath("userData")];
+  return [...new Set(dirs.filter(Boolean))];
+}
+
 function pagePath() {
-  const builtIn = path.join(__dirname, "..", "web", "index.html");
-  const mtime = (p) => { try { return fs.statSync(p).mtimeMs; } catch (e) { return -1; } };
-  let best = builtIn, bestTime = mtime(builtIn);
-  const folders = [path.dirname(process.execPath), app.getPath("userData")];
-  if (process.env.PORTABLE_EXECUTABLE_DIR) folders.unshift(process.env.PORTABLE_EXECUTABLE_DIR);
-  for (const dir of folders) {
-    const p = path.join(dir, UPDATE_NAME), t = mtime(p);
-    if (t > bestTime) { best = p; bestTime = t; }
+  let best = BUILT_IN, bestBuild = buildOf(BUILT_IN);
+  for (const dir of updateFolders()) {
+    let names = [];
+    try { names = fs.readdirSync(dir); } catch (e) { continue; }
+    for (const name of names) {
+      if (!UPDATE_FILE.test(name)) continue;
+      const file = path.join(dir, name), b = buildOf(file);
+      if (b > bestBuild) { best = file; bestBuild = b; }
+    }
   }
   return best;
 }
 
-if (!app.requestSingleInstanceLock()) {
+// Used by the build check on GitHub: report which page would load, then quit.
+const reportArg = process.argv.find((a) => a.startsWith("--report-page="));
+
+if (!reportArg && !app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   let win = null;
@@ -54,6 +78,12 @@ if (!app.requestSingleInstanceLock()) {
     if (win) { if (win.isMinimized()) win.restore(); win.focus(); }
   });
   app.whenReady().then(() => {
+    if (reportArg) {
+      const page = pagePath();
+      fs.writeFileSync(reportArg.slice("--report-page=".length), `${page}\n${buildOf(page)}\nfolders: ${updateFolders().join(" | ")}\n`);
+      app.exit(0);
+      return;
+    }
     Menu.setApplicationMenu(null);
     createWindow();
   });

@@ -19,6 +19,20 @@ jobs:
           node-version: 20
       - run: npm install --no-audit --no-fund
       - run: npx electron-builder --win nsis zip --x64 --publish never
+      - name: Check the app loads a newer page placed next to it
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem dist -Filter "Rack-and-Recall-*-portable.zip" | Select-Object -First 1
+          Expand-Archive $zip.FullName -DestinationPath apptest -Force
+          $exe = Get-ChildItem apptest -Recurse -Filter RackAndRecall.exe | Select-Object -First 1
+          Start-Process $exe.FullName -ArgumentList "--report-page=$PWD\before.txt" -Wait
+          Get-Content before.txt
+          if ((Get-Content before.txt -First 1) -notmatch 'app\.asar') { throw "The built-in page should load when no update file is present" }
+          $html = [IO.File]::ReadAllText("$PWD\web\index.html") -replace 'name="rr-build" content="\d+"','name="rr-build" content="999999999999"'
+          [IO.File]::WriteAllText((Join-Path $exe.DirectoryName "rack-and-recall (1).html"), $html)
+          Start-Process $exe.FullName -ArgumentList "--report-page=$PWD\after.txt" -Wait
+          Get-Content after.txt
+          if ((Get-Content after.txt -First 1) -notmatch 'rack-and-recall \(1\)\.html') { throw "A newer page next to the app was not picked up" }
       - uses: actions/upload-artifact@v4
         with:
           name: windows-installer

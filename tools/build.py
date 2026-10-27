@@ -9,7 +9,9 @@ pack=lambda s:base64.b64encode(gzip.compress(s.encode(),9)).decode()
 b64=pack('\n'.join('\t'.join(r) for r in rows))
 name=c.execute('select lexicon,revision from lexicon_revision').fetchone()[0]
 date=c.execute('select date from lexicon_date').fetchone()[0]
-meta={"name":name,"date":date,"count":len(rows)}
+import datetime
+stamp=datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d%H%M")  # build number: the Windows app loads the page with the highest one
+meta={"name":name,"date":date,"count":len(rows),"build":stamp}
 cb=""
 if csw:
     nwl={r[0] for r in rows}
@@ -37,6 +39,6 @@ for w,d in defs:
         f=inflect(w,t)
         if f and f not in nwl: endings.append([f,w,t])
 meta["endings"]=len(endings)
-html=open(tpl).read().replace('/*__ENDINGS__*/',json.dumps(endings,separators=(",",":"))).replace('/*__LEX__*/',b64).replace('/*__CSW__*/',cb).replace('/*__META__*/',json.dumps(meta))
+html=open(tpl).read().replace('/*__ENDINGS__*/',json.dumps(endings,separators=(",",":"))).replace('/*__LEX__*/',b64).replace('/*__CSW__*/',cb).replace('/*__META__*/',json.dumps(meta)).replace('__RRBUILD__',stamp)
 open(out,'w').write(html)
 print(len(rows),'words;',meta['endings'],'ending phonies;',meta.get("csw",{}).get("count",0),'Collins-only;',round(len(html)/1e6,2),'MB')
