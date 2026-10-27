@@ -68,13 +68,13 @@ input[type=number],input[type=text],select{font:inherit;padding:6px 8px;border:1
 .badge.leech{background:var(--warn);color:#fff}
 .qname{font-family:var(--f-display);font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--tl)}
 .tiles{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;cursor:pointer}
-.tile{width:clamp(36px,10.5vw,62px);aspect-ratio:1;background:var(--tile);border-radius:6px;box-shadow:inset 0 -3px 0 var(--tile-edge),0 1px 2px rgba(0,0,0,.18);position:relative;display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:clamp(20px,5.8vw,34px);color:var(--tile-ink)}
-.tile sub{position:absolute;right:4px;bottom:3px;font-size:clamp(8px,2.1vw,11px);font-weight:700;line-height:1}
+.tiles{--t:min(84px,max(30px,calc((min(100vw,860px) - 80px - (var(--n,7) - 1)*6px)/var(--n,7))))} /* one row when it fits; long words wrap rather than shrink below 30px */
+.tile{width:var(--t);aspect-ratio:1;background:var(--tile);border-radius:6px;box-shadow:inset 0 -3px 0 var(--tile-edge),0 1px 2px rgba(0,0,0,.18);position:relative;display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:calc(var(--t)*.56);color:var(--tile-ink)}
+.tile sub{position:absolute;right:calc(var(--t)*.07);bottom:calc(var(--t)*.05);font-size:max(8px,calc(var(--t)*.19));font-weight:700;line-height:1}
 .tile.blank{color:var(--tile-edge);font-weight:600}
 .tile.slot{background:transparent;box-shadow:none;border:2px dashed var(--line);color:var(--muted)}
-.card.mid .tile{width:clamp(30px,8vw,48px);font-size:clamp(17px,4.4vw,26px)}
-.card.long .tile{width:clamp(20px,5.4vw,40px);font-size:clamp(12px,3.2vw,22px)}
-.card.long .tile sub{display:none}
+.tiles{gap:6px}
+@media (max-width:520px){.tile sub{display:var(--subs,block)}}
 .count{font-family:var(--f-display);font-weight:700;font-size:15px;color:var(--tl);text-align:center}
 .hint{color:var(--muted);font-size:13px;text-align:center;max-width:56ch}
 .typebox{display:flex;gap:8px;width:100%;max-width:520px}
@@ -424,7 +424,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     </div>
   </details>
 
-  <footer>Valid or phony? mixes words from your deck with three kinds of phony: made-up words built from real words' letters, real words with endings they don't take, and Collins-only words. Quiz types: Anagrams, Anagrams + hooks, Hooks, Build, Blanks (letters plus one blank), Extensions (longer words containing the word) and Definitions each keep their own cardbox. Probability ranks use two-blank probability. Keys: <kbd>Enter</kbd> checks typed answers. In flashcard mode, <kbd>1</kbd>–<kbd>4</kbd> or <kbd>Space</kbd> flip the card. On the back, <kbd>1</kbd> Again · <kbd>2</kbd> Hard · <kbd>3</kbd> Good · <kbd>4</kbd> Easy. In phony mode, <kbd>V</kbd> valid, <kbd>P</kbd> phony; phony mode is practice and does not touch your schedule. Hooks appear either side of each word. A red <sup class="nw">+</sup> marks words and hooks new in NWL2023. Lexicon: <span id="lexInfo">NWL2023</span>.</footer>
+  <footer>Valid or phony? mixes words from your deck with three kinds of phony: made-up words built from real words' letters, real words with endings they don't take, and Collins-only words. Quiz types: Anagrams, Anagrams + hooks, Hooks, Build, Blanks (letters plus one blank), Extensions (longer words containing the word) and Definitions each keep their own cardbox. Probability ranks use two-blank probability. Keys: <kbd>Enter</kbd> checks typed answers. In flashcard mode, <kbd>Return</kbd>, <kbd>Space</kbd> or <kbd>0</kbd>–<kbd>3</kbd> flip the card. On the back, <kbd>0</kbd> Again · <kbd>1</kbd> Hard · <kbd>2</kbd> Good · <kbd>3</kbd> Easy (<kbd>Space</kbd> also means Good). In phony mode, <kbd>V</kbd> valid, <kbd>P</kbd> phony; phony mode is practice and does not touch your schedule. Hooks appear either side of each word. A red <sup class="nw">+</sup> marks words and hooks new in NWL2023. Lexicon: <span id="lexInfo">NWL2023</span>.</footer>
 </div>
 
 <script id="lexdata" type="application/octet-stream">/*__LEX__*/</script>
@@ -940,7 +940,7 @@ function answerPhony(saidPhony){
 }
 
 /* =================== rendering helpers =================== */
-const tiles=(w,blank)=>`<div class="tiles" id="tiles" title="Tap to reveal">${w.split("").map(l=>`<div class="tile">${l}<sub>${SCORES[l]}</sub></div>`).join("")}${blank?'<div class="tile blank" aria-label="blank">?</div>':""}</div>`;
+const tiles=(w,blank)=>`<div class="tiles" id="tiles" title="Tap to reveal" style="--n:${w.length+(blank?1:0)};${w.length+(blank?1:0)>=11?"--subs:none":""}">${w.split("").map(l=>`<div class="tile">${l}<sub>${SCORES[l]}</sub></div>`).join("")}${blank?'<div class="tile blank" aria-label="blank">?</div>':""}</div>`;
 const wordHTML=(w,cls)=>`<span class="${cls||""}">${esc(w)}</span>${isNew(w)?'<sup class="nw">+</sup>':""}`;
 function hooksHTML(w,side,found){
   const e=LEX.words.get(w);
@@ -1025,9 +1025,9 @@ function render(){
       if(qt().typed&&store.settings.showCount==="on")html+=`<div class="count">${countText(k,ans)}</div>`;
       if(qt().typed&&store.settings.typing==="on"){
         html+=`<form class="typebox" id="ansForm" autocomplete="off"><input id="ansIn" aria-label="Your answers" placeholder="Type the words, space between" spellcheck="false" autocapitalize="characters"><button class="btn" type="submit">Check</button></form>`;
-        html+=`<div class="hint">${PROMPT[store.qtype]} Press Enter to check.</div>`;
-      }else html+=`<div class="hint">${PROMPT[store.qtype]} Then press any of 1–4, Space, or tap the tiles to flip.</div>`;
-      gr.className="grade";gr.innerHTML=`<button class="full" id="g-show">Show answer<small>${qt().typed&&store.settings.typing==="on"?"Enter":"1–4 or Space"}</small></button>`;
+        html+=`<div class="hint">${PROMPT[store.qtype]} Press Return to check.</div>`;
+      }else html+=`<div class="hint">${PROMPT[store.qtype]} Then press Return, Space, any of 0–3, or tap the tiles to flip.</div>`;
+      gr.className="grade";gr.innerHTML=`<button class="full" id="g-show">Show answer<small>${qt().typed&&store.settings.typing==="on"?"Return":"Return, Space or 0–3"}</small></button>`;
     }else{
       let suggest=null;const found=typed?typed.hit:null;
       if(typed){
@@ -1058,7 +1058,7 @@ function render(){
       html+=`<div class="meta">${nt||noteEditing?"":'<button class="linkbtn" id="noteEdit">Add note</button> · '}${st.state==="new"?"First time seen":`Stability ${st.s.toFixed(1)}d · difficulty ${st.d.toFixed(1)} · ${st.lapses} lapse${st.lapses===1?"":"s"}`} · <button class="linkbtn" id="removeCur">Remove from cardbox</button></div>`;
       const L=g=>fmtIvl(preview[g].due-now),cls={1:"again",2:"",3:"good",4:"easy"},nm={1:"Again",2:"Hard",3:"Good",4:"Easy"};
       gr.className="grade";
-      gr.innerHTML=[1,2,3,4].map(g=>`<button class="${cls[g]} ${suggest===g?"suggest":""}" data-g="${g}">${nm[g]}<small>${L(g)} · ${g}</small></button>`).join("");
+      gr.innerHTML=[1,2,3,4].map(g=>`<button class="${cls[g]} ${suggest===g?"suggest":""}" data-g="${g}">${nm[g]}<small>${L(g)} · ${g-1}</small></button>`).join("");
     }
   }else{
     html=`<div class="corner"><span class="badge">practice</span></div><div class="corner r">${score(k)} pts</div>${tiles(k)}`;
@@ -1641,6 +1641,7 @@ document.addEventListener("click",e=>{
   if(!ready)return;
   if(e.target.closest("#tiles")){if(store.mode==="learn")reveal(false);else if(phonyAns!==null)next();return}
   const t=e.target.closest("button");if(!t)return;
+  if(e.detail>0)setTimeout(()=>{if(document.activeElement===t)t.blur()},0);
   const ds=t.dataset;
   if(ds.deck){setDeck(ds.deck);return}
   if(ds.qt){store.qtype=ds.qt;save();lastK=null;clearCache("leech");next();return}
@@ -1758,12 +1759,14 @@ document.addEventListener("keydown",e=>{
   const tag=e.target.tagName;if(tag==="TEXTAREA"||tag==="SELECT"||(tag==="INPUT"&&e.target.type!=="checkbox")||e.metaKey||e.ctrlKey||e.altKey)return;
   const k=e.key.toLowerCase();
   if(k===" "||k==="enter"){
-    if(tag==="BUTTON"||tag==="SUMMARY")return;
+    // Return flips the card even when a button has focus; elsewhere buttons keep their usual Return
+    const front=store.mode==="learn"&&cur&&!flipped;
+    if(tag==="SUMMARY"||(tag==="BUTTON"&&!(k==="enter"&&front)))return;
     e.preventDefault();
     if(store.mode==="learn"){if(!flipped)reveal(false);else if(k===" ")grade(GOOD)}
     else if(phonyAns!==null)next();
   }
-  else if(["1","2","3","4"].includes(k)){if(store.mode==="learn"&&!flipped)reveal(false);else grade(+k)}
+  else if(["0","1","2","3"].includes(k)){if(store.mode==="learn"&&!flipped)reveal(false);else grade(+k+1)} // 0 Again · 1 Hard · 2 Good · 3 Easy
   else if(k==="v")answerPhony(false);
   else if(k==="p")answerPhony(true);
 });
