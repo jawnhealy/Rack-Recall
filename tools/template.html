@@ -69,7 +69,7 @@ input[type=number],input[type=text],select{font:inherit;padding:6px 8px;border:1
 .badge.leech{background:var(--warn);color:#fff}
 .qname{font-family:var(--f-display);font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--tl)}
 .tiles{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;cursor:pointer}
-.tiles{--g:6px;--t:min(84px,calc((min(100vw,860px) - 80px - (var(--n,7) - 1)*var(--g))/var(--n,7)));gap:var(--g)!important;flex-wrap:nowrap!important;max-width:100%} /* always one row: tiles shrink to fit */
+.tiles{--g:6px;--t:min(96px,calc((min(100vw,900px) - 80px - (var(--n,7) - 1)*var(--g))/var(--n,7)));gap:var(--g)!important;flex-wrap:nowrap!important;max-width:100%} /* always one row: tiles shrink to fit */
 .tile{width:var(--t);aspect-ratio:1;background:var(--tile);border-radius:6px;box-shadow:inset 0 -3px 0 var(--tile-edge),0 1px 2px rgba(0,0,0,.18);position:relative;display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:calc(var(--t)*.56);color:var(--tile-ink)}
 .tile sub{position:absolute;right:calc(var(--t)*.07);bottom:calc(var(--t)*.05);font-size:max(8px,calc(var(--t)*.19));font-weight:700;line-height:1}
 .tile.blank{color:var(--tile-edge);font-weight:600}
@@ -101,6 +101,7 @@ sup.nw{color:var(--tw);font-size:.7em;margin-left:1px}
 .bgrp{display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:baseline}
 .blen{font-family:var(--f-display);font-weight:700;color:var(--muted);text-align:right}
 .bwords{display:flex;flex-wrap:wrap;gap:4px 10px;font-family:var(--f-mono);font-size:14px;font-weight:500}
+.bwords .bl{color:var(--tw);font-weight:600}
 .bwords .base{opacity:.5;font-weight:400}
 .bgrp .blen{white-space:nowrap}
 .bgrp{grid-template-columns:34px 1fr}
@@ -144,6 +145,34 @@ sup.nw{color:var(--tw);font-size:.7em;margin-left:1px}
 .syncgrid{display:grid;grid-template-columns:auto 1fr;gap:8px 12px;align-items:center;max-width:620px}
 .syncgrid input{width:100%}
 @media (max-width:480px){.syncgrid{grid-template-columns:1fr}}
+/* top bar */
+header.top{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap}
+header.top .brand{margin-right:auto}
+header.top h1{font-size:24px}
+.nav button{padding:8px 14px;font-size:14px}
+form.lookup{display:flex;gap:6px;margin:0;flex:1 1 260px;max-width:380px;min-width:0}
+form.lookup input{flex:1;min-width:0;font-family:var(--f-mono);text-transform:uppercase;font-size:14px}
+form.lookup input::placeholder{text-transform:none;font-family:var(--f-body)}
+@media (max-width:700px){header.top .brand{flex-basis:100%}form.lookup{max-width:none;flex-basis:100%}}
+/* decks */
+.decklist{display:flex;flex-direction:column;gap:10px}
+.deckrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 16px;align-items:center;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.deckrow .nm{font-family:var(--f-display);font-weight:700;font-size:17px}
+.deckrow .ct{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.deckrow .ct b{color:var(--ink);font-weight:600}
+.deckrow .ct b.due{color:var(--tw)}
+.deckrow .dact{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.deckrow .more{grid-column:1/-1;display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:12px}
+@media (max-width:620px){.deckrow{grid-template-columns:minmax(0,1fr)}.deckrow .dact{justify-content:flex-start}}
+/* study screen */
+#review{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column;overflow:auto}
+html.reviewing,html.reviewing body{overflow:hidden}
+.rv-top{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;background:var(--surface);border-bottom:1px solid var(--line);padding-block:max(10px,env(safe-area-inset-top,0px)) 10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.rv-title{font-family:var(--f-display);font-weight:700;font-size:15px;margin-right:auto;min-width:0}
+.rv-prog{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.rv-phony{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;padding-block:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line)}
+.rv-body{flex:1 0 auto;display:flex;flex-direction:column;gap:14px;width:100%;max-width:900px;margin:0 auto;padding-block:16px max(16px,env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.rv-body .card{flex:1 0 auto;min-height:min(60vh,520px)}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
 .conds{display:flex;flex-direction:column;gap:8px}
 .cond{display:grid;grid-template-columns:minmax(150px,210px) 1fr auto auto;gap:8px;align-items:center}
@@ -207,29 +236,43 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <div>
+  <header class="top">
+    <div class="brand">
       <h1>Rack <span>&amp;</span> Recall</h1>
-      <p class="sub">NWL2023 word study with an FSRS cardbox</p>
     </div>
-    <div class="actions">
+    <nav class="seg nav" aria-label="Pages">
+      <button id="n-decks" aria-pressed="true">Decks</button>
+      <button id="n-search" aria-pressed="false">Search</button>
+      <button id="n-stats" aria-pressed="false">Stats</button>
+      <button id="n-settings" aria-pressed="false">Settings</button>
+    </nav>
+    <form class="lookup" id="lookupForm" autocomplete="off" role="search">
+      <input type="text" id="lookupIn" placeholder="Look up RETAINS, AEINRST, AEINRS?" aria-label="Look up a word or rack" spellcheck="false" autocapitalize="characters">
+      <button class="btn" id="lookupBtn" type="submit">Look up</button>
+    </form>
     <button class="syncpill" id="syncPill" hidden title="Sync status. Tap to sync now.">Sync off</button>
-    <div class="seg" role="group" aria-label="Mode">
-      <button id="m-learn" aria-pressed="true">Study</button>
-      <button id="m-search" aria-pressed="false">Search</button>
-      <button id="m-phony" aria-pressed="false">Valid or phony?</button>
-    </div>
-    </div>
   </header>
 
-  <!-- ============ STUDY / PHONY ============ -->
-  <section class="view" id="studyView">
-    <div class="group">
-      <div class="label">Your decks <em>· badge shows cards ready now</em></div>
-      <div class="decks" id="lenDecks"></div>
-      <div class="label" style="margin-top:4px" id="listLabel">Other</div>
-      <div class="decks" id="listDecks"></div>
+  <section class="panel" id="lookupPanel" hidden aria-live="polite">
+    <div class="actions" style="justify-content:space-between"><h2 class="sec">Look up</h2><button class="btn ghost sm" id="lookupClose">Close</button></div>
+    <div id="lookupOut"></div>
+  </section>
+
+  <!-- ============ DECKS ============ -->
+  <section class="view" id="decksView">
+    <div class="toolbar">
+      <div class="group" style="gap:6px">
+        <div class="label">Quiz type</div>
+        <div class="seg" role="group" aria-label="Quiz type" id="qtypes"></div>
+      </div>
+      <div class="actions">
+        <label class="switch"><input type="checkbox" id="hideCount"> <span>Hide answer count</span></label>
+        <label class="switch"><input type="checkbox" id="flashMode"> <span>Flashcard mode</span></label>
+      </div>
     </div>
+
+    <div class="decklist" id="deckList"></div>
+    <div class="actions"><button class="btn ghost" id="newDeck">+ New deck</button></div>
 
     <div class="panel" id="deckEditor" hidden>
       <h2 class="sec" id="deTitle">New deck</h2>
@@ -255,44 +298,14 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       </div>
     </div>
 
-    <div class="toolbar" id="qtBar">
-      <div class="seg" role="group" aria-label="Quiz type" id="qtypes"></div>
-      <div class="actions">
-        <label class="switch"><input type="checkbox" id="hideCount"> <span>Hide answer count</span></label>
-        <label class="switch"><input type="checkbox" id="flashMode"> <span>Flashcard mode</span></label>
+    <details id="custom">
+      <summary>Paste your own list</summary>
+      <p>Paste words or alphagrams, one per line or separated by spaces. Saving makes a deck called “My list” and adds every entry to your cardbox for the current quiz type. Anything not in NWL2023 is skipped. To build a deck from conditions, use New deck or Search.</p>
+      <textarea id="customText" spellcheck="false" placeholder="RETAINS&#10;AEINRST&#10;QOPH ZAX CWM"></textarea>
+      <div class="actions" style="margin-top:10px">
+        <button class="btn" id="saveCustom">Save and add to cardbox</button>
+        <span class="note" id="customNote"></span>
       </div>
-    </div>
-
-    <div class="toolbar" id="phonyBar" hidden>
-      <span class="note">Phonies to include:</span>
-      <div class="actions" id="phonyKinds"></div>
-    </div>
-
-    <div class="addbar" id="addbar">
-      <div class="boxinfo" id="boxInfo"></div>
-      <div class="addctl">
-        <label for="addN">Add next</label>
-        <input type="number" id="addN" min="1" max="5000" step="1" value="20">
-        <button class="btn" id="addBtn">Add to cardbox</button>
-        <button class="btn ghost" id="addAll">Add all</button>
-      </div>
-    </div>
-
-    <div class="card" id="card" tabindex="-1" aria-live="polite"><div class="loading">Unpacking NWL2023…</div></div>
-    <div class="grade" id="grade"></div>
-
-    <div id="statsBlock">
-      <div class="stats" id="stats"></div>
-      <div style="margin-top:14px">
-        <div class="label">Reviews due in this deck, next 30 days</div>
-        <div class="forecast" id="forecast"></div>
-        <div class="fc-axis"><span>today</span><span>+15</span><span>+30</span></div>
-      </div>
-    </div>
-
-    <details id="seenBox">
-      <summary>Cards from this deck in your cardbox</summary>
-      <div class="wl" id="wordlist"></div>
     </details>
   </section>
 
@@ -336,44 +349,57 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     </div>
   </section>
 
-  <!-- ============ SHARED ============ -->
-  <details id="statsBox">
-    <summary>Statistics</summary>
-    <div id="statsOut"></div>
-  </details>
+  <!-- ============ STATS ============ -->
+  <section class="view" id="statsView" hidden>
+    <div class="panel">
+      <div class="actions" style="justify-content:space-between"><h2 class="sec" id="statsTitle">Deck</h2><span class="note" id="statsQt"></span></div>
+      <div class="decks" id="statsDecks"></div>
+      <div class="stats" id="stats"></div>
+      <div>
+        <div class="label">Reviews due in this deck, next 30 days</div>
+        <div class="forecast" id="forecast"></div>
+        <div class="fc-axis"><span>today</span><span>+15</span><span>+30</span></div>
+      </div>
+      <details id="seenBox">
+        <summary>Cards from this deck in your cardbox</summary>
+        <div class="wl" id="wordlist"></div>
+      </details>
+    </div>
+    <div class="panel">
+      <h2 class="sec">All your study</h2>
+      <div id="statsOut"></div>
+    </div>
+  </section>
 
-  <details id="lookupBox">
-    <summary>Look up a word or rack</summary>
-    <div class="lookup"><input type="text" id="lookupIn" placeholder="RETAINS or AEINRST" autocomplete="off" spellcheck="false"><button class="btn" id="lookupBtn">Look up</button></div>
-    <div id="lookupOut"></div>
-  </details>
-
-  <details id="settingsBox">
-    <summary>Settings</summary>
-    <div class="settings">
-      <label for="retention">Target retention</label>
-      <div><input type="number" id="retention" min="0.7" max="0.99" step="0.01"> <span class="note">0.90 is the FSRS default. Higher means more reviews.</span></div>
-      <label for="newLimit">New cards per day</label>
-      <div><input type="number" id="newLimit" min="0" max="1000" step="1"> <span class="note">how many of the cards you've added are introduced each day, per deck and quiz type</span></div>
-      <label for="newOrder">Order of added cards</label>
-      <div><select id="newOrder"><option value="prob">Order added (most probable first)</option><option value="random">Random</option></select></div>
-      <label for="typing">Type your answers</label>
-      <div><select id="typing"><option value="on">On: type the answers, then check</option><option value="off">Off: flashcard mode</option></select></div>
-      <label for="showCount">Show answer count</label><!-- mirrored by the Hide answer count switch -->
-      <div><select id="showCount"><option value="on">On</option><option value="off">Off</option></select></div>
-      <label for="buildMin">Build: shortest word</label>
-      <div><input type="number" id="buildMin" min="2" max="15" step="1"> <span class="note">letters; Build asks for every word this long or longer that fits in the rack</span></div>
-      <label for="extDir">Extensions</label>
-      <div class="actions"><select id="extDir"><option value="both">Front or back</option><option value="back">Back only (AUDIO → AUDIOBOOK)</option><option value="front">Front only (CHAIR → ARMCHAIR)</option><option value="any">Anywhere (includes words with it in the middle)</option></select>
-        <span class="note">adding</span> <input type="number" id="extMin" min="1" max="13" step="1" aria-label="Fewest letters added"> <span class="note">to</span> <input type="number" id="extMax" min="1" max="13" step="1" aria-label="Most letters added"> <span class="note">letters</span></div>
-      <label for="buryOn">Bury siblings</label>
-      <div><select id="buryOn"><option value="on">On: one quiz type per set of letters per day</option><option value="off">Off</option></select> <span class="note">stops an Anagrams card from priming its Build or Hooks sibling the same day</span></div>
-      <label for="leech">Leech after</label>
-      <div><input type="number" id="leech" min="2" max="50" step="1"> <span class="note">lapses (forgetting a card you had learned)</span></div>
+  <!-- ============ SETTINGS ============ -->
+  <section class="view" id="settingsView" hidden>
+    <div class="panel">
+      <h2 class="sec">Study</h2>
+      <div class="settings">
+        <label for="retention">Target retention</label>
+        <div><input type="number" id="retention" min="0.7" max="0.99" step="0.01"> <span class="note">0.90 is the FSRS default. Higher means more reviews.</span></div>
+        <label for="newLimit">New cards per day</label>
+        <div><input type="number" id="newLimit" min="0" max="1000" step="1"> <span class="note">how many of the cards you've added are introduced each day, per deck and quiz type</span></div>
+        <label for="newOrder">Order of added cards</label>
+        <div><select id="newOrder"><option value="prob">Order added (most probable first)</option><option value="random">Random</option></select></div>
+        <label for="typing">Type your answers</label>
+        <div><select id="typing"><option value="on">On: type the answers, then check</option><option value="off">Off: flashcard mode</option></select></div>
+        <label for="showCount">Show answer count</label>
+        <div><select id="showCount"><option value="on">On</option><option value="off">Off</option></select></div>
+        <label for="buildMin">Build: shortest word</label>
+        <div><input type="number" id="buildMin" min="2" max="15" step="1"> <span class="note">letters; Build asks for every word this long or longer that fits in the rack</span></div>
+        <label for="extDir">Extensions</label>
+        <div class="actions"><select id="extDir"><option value="both">Front or back</option><option value="back">Back only (AUDIO → AUDIOBOOK)</option><option value="front">Front only (CHAIR → ARMCHAIR)</option><option value="any">Anywhere (includes words with it in the middle)</option></select>
+          <span class="note">adding</span> <input type="number" id="extMin" min="1" max="13" step="1" aria-label="Fewest letters added"> <span class="note">to</span> <input type="number" id="extMax" min="1" max="13" step="1" aria-label="Most letters added"> <span class="note">letters</span></div>
+        <label for="buryOn">Bury siblings</label>
+        <div><select id="buryOn"><option value="on">On: one quiz type per set of letters per day</option><option value="off">Off</option></select> <span class="note">stops an Anagrams card from priming its Build or Hooks sibling the same day</span></div>
+        <label for="leech">Leech after</label>
+        <div><input type="number" id="leech" min="2" max="50" step="1"> <span class="note">lapses (forgetting a card you had learned)</span></div>
+      </div>
     </div>
 
-    <div class="fit">
-      <div class="label">Personal FSRS parameters</div>
+    <div class="panel">
+      <h2 class="sec">Personal FSRS parameters</h2>
       <div class="note" id="fitInfo"></div>
       <div class="actions">
         <button class="btn" id="fitBtn">Fit to my reviews</button>
@@ -383,8 +409,8 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <div class="note" id="fitNote"></div>
     </div>
 
-    <div class="fit" id="syncBox">
-      <div class="label">Sync between devices</div>
+    <div class="panel" id="syncBox">
+      <h2 class="sec">Sync between devices</h2>
       <p class="note" style="margin:0">Uses your own free Supabase project. Each device keeps a full copy and works offline; changes sync when you're online, and the most recent change to a card wins.</p>
       <div class="syncgrid">
         <label for="syncUrl">Project URL</label><input type="text" id="syncUrl" placeholder="https://abcdxyz.supabase.co" autocomplete="off" spellcheck="false">
@@ -399,33 +425,45 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <div class="note" id="syncMsg"></div>
     </div>
 
-    <div class="fit">
-      <div class="label">Your data</div>
+    <div class="panel">
+      <h2 class="sec">Your data</h2>
       <div class="actions">
         <button class="btn ghost" id="exportBtn">Back up progress</button>
         <button class="btn ghost" id="importBtn">Restore from backup</button>
         <input type="file" id="importFile" accept="application/json,.json" hidden>
         <button class="btn ghost" id="zyzBtn">Import Zyzzyva cardbox (.db)</button>
         <input type="file" id="zyzFile" accept=".db,.sqlite,.sqlite3,application/x-sqlite3,application/vnd.sqlite3,application/octet-stream" hidden>
-        <button class="btn ghost" id="resetDeck">Remove this deck from cardbox</button>
       </div>
       <div class="note" id="settingsNote"></div>
       <div class="notebox" id="zyzPanel" hidden></div>
-      <p>Progress and the review log are saved in this browser. Each quiz type has its own cardbox. An alphagram you learn in Sevens is the same card when it turns up in another list. Back up before clearing browser data or moving computers.</p>
+      <p class="note" style="margin:0">Progress and the review log are saved on this device. Each quiz type has its own cardbox. An alphagram you learn in one deck is the same card when it turns up in another. Back up before clearing browser data or moving computers.</p>
     </div>
-  </details>
 
-  <details id="custom">
-    <summary>Paste your own list</summary>
-    <p>Paste words or alphagrams, one per line or separated by spaces. Saving makes a list called “My list” and adds every entry to your cardbox for the current quiz type. Anything not in NWL2023 is skipped. To build a deck from conditions, use New deck or Search.</p>
-    <textarea id="customText" spellcheck="false" placeholder="RETAINS&#10;AEINRST&#10;QOPH ZAX CWM"></textarea>
-    <div class="actions" style="margin-top:10px">
-      <button class="btn" id="saveCustom">Save and add to cardbox</button>
-      <span class="note" id="customNote"></span>
-    </div>
-  </details>
+    <footer class="panel">
+      <h2 class="sec">Keys and notes</h2>
+      <p class="note" style="margin:0">While studying: <kbd>Return</kbd> checks typed answers or flips the card, as do <kbd>Space</kbd> and <kbd>0</kbd>–<kbd>3</kbd> in flashcard mode. On the back, <kbd>0</kbd> Again · <kbd>1</kbd> Hard · <kbd>2</kbd> Good · <kbd>3</kbd> Easy (<kbd>Space</kbd> also means Good). In Valid or phony?, <kbd>V</kbd> valid and <kbd>P</kbd> phony. <kbd>F</kbd> toggles fullscreen and <kbd>Esc</kbd> leaves the study screen.</p>
+      <p class="note" style="margin:0">Quiz types: Anagrams, Anagrams + hooks, Hooks, Build, Blanks (letters plus one blank), Extensions (longer words containing the word) and Definitions each keep their own cardbox. Valid or phony? is practice and doesn't change your schedule; it mixes words from the deck with made-up words, real words with endings they don't take, and Collins-only words. Probability ranks use two-blank probability. Hooks appear either side of each word; a red <sup class="nw">+</sup> marks words and hooks new in NWL2023. In Look up, <kbd>?</kbd> is a blank.</p>
+      <p class="note" style="margin:0">Lexicon: <span id="lexInfo">NWL2023</span>.</p>
+    </footer>
+  </section>
+</div>
 
-  <footer>Valid or phony? mixes words from your deck with three kinds of phony: made-up words built from real words' letters, real words with endings they don't take, and Collins-only words. Quiz types: Anagrams, Anagrams + hooks, Hooks, Build, Blanks (letters plus one blank), Extensions (longer words containing the word) and Definitions each keep their own cardbox. Probability ranks use two-blank probability. Keys: <kbd>Enter</kbd> checks typed answers. In flashcard mode, <kbd>Return</kbd>, <kbd>Space</kbd> or <kbd>0</kbd>–<kbd>3</kbd> flip the card. On the back, <kbd>0</kbd> Again · <kbd>1</kbd> Hard · <kbd>2</kbd> Good · <kbd>3</kbd> Easy (<kbd>Space</kbd> also means Good). In phony mode, <kbd>V</kbd> valid, <kbd>P</kbd> phony; phony mode is practice and does not touch your schedule. Hooks appear either side of each word. A red <sup class="nw">+</sup> marks words and hooks new in NWL2023. Lexicon: <span id="lexInfo">NWL2023</span>.</footer>
+<!-- ============ STUDY SCREEN (fills the window) ============ -->
+<div id="review" hidden>
+  <div class="rv-top">
+    <button class="btn ghost sm" id="rvExit" title="Back to decks (Esc)">✕ Done</button>
+    <div class="rv-title" id="rvTitle"></div>
+    <div class="rv-prog" id="rvProg"></div>
+    <button class="btn ghost sm" id="rvFull" title="Fullscreen (F)">Fullscreen</button>
+  </div>
+  <div class="rv-phony" id="rvPhony" hidden>
+    <span class="note">Phonies to include:</span>
+    <div class="actions" id="phonyKinds"></div>
+  </div>
+  <div class="rv-body">
+    <div class="card" id="card" tabindex="-1" aria-live="polite"><div class="loading">Unpacking NWL2023…</div></div>
+    <div class="grade" id="grade"></div>
+  </div>
 </div>
 
 <script id="lexdata" type="application/octet-stream">/*__LEX__*/</script>
@@ -895,8 +933,10 @@ function phonyFor(w){
 /* =================== session =================== */
 let noteEditing=false;
 let ready=false,cur=null,flipped=false,preview=null,typed=null,phonyAns=null,lastK=null,session={n:0,again:0};
+let PAGE="decks",reviewing=false,expanded=null,addNVal=20;
 function next(){
   if(!ready)return;
+  if(!reviewing){cur=null;flipped=false;render();return}
   flipped=false;phonyAns=null;preview=null;typed=null;noteEditing=false;
   if(store.mode==="phony"){
     const keys=deckKeys(store.deck,"word");
@@ -968,52 +1008,93 @@ function chip(id,label,cls){
   const s=scan(id,Date.now()),n=s.due.length+s.newAvail;
   return `<button class="chip ${cls||""}" data-deck="${esc(id)}" aria-pressed="${id===store.deck}" title="${fmtN(s.total)} cards">${esc(label)}<span class="n">${n||""}</span></button>`;
 }
+const PAGES=["decks","search","stats","settings"];
+function setPage(pg){PAGE=pg;store.page=pg;save();render();window.scrollTo(0,0)}
 function renderChrome(){
-  for(const m of ["learn","search","phony"])$("m-"+m).setAttribute("aria-pressed",store.mode===m);
-  $("studyView").hidden=store.mode==="search";$("searchView").hidden=store.mode!=="search";
-  const learn=store.mode==="learn";
-  $("qtBar").hidden=!learn;$("phonyBar").hidden=store.mode!=="phony";
-  if(store.mode==="phony")$("phonyKinds").innerHTML=Object.entries(PHONY_KINDS).filter(([k])=>k!=="collins"||hasCSW()).map(([k,n])=>`<label class="switch"><input type="checkbox" data-pk="${k}" ${store.settings.phonyKinds[k]?"checked":""}> <span>${n}</span></label>`).join("");$("addbar").hidden=!learn||store.deck==="none";$("statsBlock").hidden=!learn;$("seenBox").hidden=!learn;
-  $("lenDecks").innerHTML=store.searches.map(s=>chip(s.id,s.name)).join("")+`<button class="chip add" id="newDeck">+ New deck</button>`;
-  const lists=[];
-  if(store.custom&&deckKeys("custom").length)lists.push(chip("custom","My list"));
-  if(leechKeys().length)lists.push(chip("leech","Leeches"));
-  $("listDecks").innerHTML=lists.join("");$("listDecks").hidden=$("listLabel").hidden=!lists.length;
+  for(const pg of PAGES){$("n-"+pg).setAttribute("aria-pressed",PAGE===pg);$(pg+"View").hidden=PAGE!==pg}
+  $("review").hidden=!reviewing;document.documentElement.classList.toggle("reviewing",reviewing);
   $("qtypes").innerHTML=Object.entries(QT).map(([k,q])=>`<button data-qt="${k}" aria-pressed="${k===store.qtype}">${q.name}</button>`).join("");
   $("flashMode").checked=store.settings.typing==="off";
   $("hideCount").checked=store.settings.showCount==="off";
-  if(learn){
-    const sc=scan(store.deck,Date.now()),u=unit()==="alpha"?"alphagrams":"words";
-    const leechDeck=store.deck==="leech";
-    const editLink=store.deck.startsWith("s:")?` · <button class="linkbtn" id="editDeck">Edit deck</button>`:"";
-    $("boxInfo").innerHTML=leechDeck?`<b>${fmtN(sc.total)}</b> ${qt().name} cards lapsed ${store.settings.leech}+ times`:`<b>${fmtN(sc.boxed)}</b> of ${fmtN(sc.total)} ${esc(deckName(store.deck))} ${u} in your ${esc(qt().name)} cardbox${sc.nw?` · ${fmtN(sc.nw)} not yet studied`:""}${editLink}<div class="boxbar"><i style="width:${sc.total?sc.boxed/sc.total*100:0}%"></i></div>`;
-    $("addBtn").disabled=!sc.out;$("addAll").disabled=!sc.out;$("addN").disabled=leechDeck;
-    $("addAll").textContent=$("addAll").dataset.confirm==="1"?`Tap again to add ${fmtN(sc.out)}`:`Add all (${fmtN(sc.out)})`;
-  }
 }
+function deckIds(){const ids=store.searches.map(s=>s.id);if(store.custom&&deckKeys("custom").length)ids.push("custom");if(leechKeys().length)ids.push("leech");return ids}
+function renderDecks(){
+  const now=Date.now(),ids=deckIds(),u=unit()==="alpha"?"alphagrams":"words";
+  if(expanded&&!ids.includes(expanded))expanded=null;
+  $("deckList").innerHTML=ids.length?ids.map(id=>{
+    const s=scan(id,now),readyN=s.due.length+s.newAvail,leech=id==="leech",open=expanded===id;
+    const counts=leech?`<b>${fmtN(s.total)}</b> ${qt().name} cards lapsed ${store.settings.leech}+ times · <b class="${s.due.length?"due":""}">${fmtN(s.due.length)}</b> due`
+      :`<b class="${s.due.length?"due":""}">${fmtN(s.due.length)}</b> due · <b>${s.newAvail}</b> new today${s.nw>s.newAvail?` (${fmtN(s.nw)} waiting)`:""} · ${fmtN(s.boxed)} of ${fmtN(s.total)} ${u} in your ${esc(qt().name)} cardbox${s.seen?` · ${Math.round(s.mature/s.seen*100)}% mature`:""}${s.buried?` · ${fmtN(s.buried)} buried today`:""}`;
+    let row=`<div class="deckrow"><div style="min-width:0"><div class="nm">${esc(deckName(id))}</div><div class="ct">${counts}</div></div>
+      <div class="dact"><button class="btn" data-review="${esc(id)}">${readyN?`Study ${fmtN(readyN)}`:"Study"}</button><button class="btn ghost" data-phony="${esc(id)}">Valid or phony?</button><button class="btn ghost" data-expand="${esc(id)}" aria-expanded="${open}">${open?"Less":"More"}</button></div>`;
+    if(open){
+      const confirm=$("deckList").dataset.confirm===id;
+      row+=`<div class="more">${leech?"":`<div class="boxinfo"><div class="boxbar"><i style="width:${s.total?s.boxed/s.total*100:0}%"></i></div></div>
+        <div class="addctl"><label for="addN">Add next</label><input type="number" id="addN" min="1" max="5000" step="1" value="${addNVal}"><button class="btn" id="addBtn" ${s.out?"":"disabled"}>Add to cardbox</button><button class="btn ghost" id="addAll" ${s.out?"":"disabled"}>${confirm?`Tap again to add ${fmtN(s.out)}`:`Add all (${fmtN(s.out)})`}</button></div>`}
+        <div class="actions">${id.startsWith("s:")?`<button class="btn ghost sm" id="editDeck">Edit deck</button>`:""}<button class="btn ghost sm" id="resetDeck">Remove this deck from your ${esc(qt().name)} cardbox</button><span class="note" id="rowNote"></span></div></div>`;
+    }
+    return row+`</div>`;
+  }).join(""):`<div class="panel"><p class="note" style="margin:0">No decks yet. Press New deck, or save one from Search, where the built-in lists are.</p></div>`;
+}
+function renderStatsPage(){
+  if(!deckExists(store.deck))store.deck=firstDeck();
+  $("statsDecks").innerHTML=deckIds().map(id=>chip(id,deckName(id))).join("");
+  $("statsTitle").textContent=deckName(store.deck);$("statsQt").textContent=`${qt().name} cardbox · change the quiz type on Decks`;
+  renderStats();renderStatsPanel();
+}
+function renderReviewBar(){
+  const ph=store.mode==="phony";
+  $("rvTitle").textContent=`${deckName(store.deck)} · ${ph?"Valid or phony?":qt().name}`;
+  const acc=session.n?Math.round((1-session.again/session.n)*100)+"%":"";
+  let prog="";
+  if(!ph){const s=scan(store.deck,Date.now());prog=`${fmtN(s.due.length)} due · ${s.newAvail} new · `}
+  $("rvProg").textContent=`${prog}${session.n} done${acc?`, ${acc} right`:""}`;
+  $("rvFull").hidden=!document.fullscreenEnabled;$("rvFull").textContent=document.fullscreenElement?"Exit fullscreen":"Fullscreen";
+  $("rvPhony").hidden=!ph;
+  if(ph)$("phonyKinds").innerHTML=Object.entries(PHONY_KINDS).filter(([k])=>k!=="collins"||hasCSW()).map(([k,n])=>`<label class="switch"><input type="checkbox" data-pk="${k}" ${store.settings.phonyKinds[k]?"checked":""}> <span>${n}</span></label>`).join("");
+}
+function startReview(id,mode){
+  store.deck=id;store.mode=mode;save();reviewing=true;lastK=null;session={n:0,again:0,start:Date.now()};next();
+}
+function exitReview(){
+  reviewing=false;cur=null;flipped=false;noteEditing=false;
+  if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});
+  render();
+}
+function toggleFullscreen(){
+  if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});
+  else document.documentElement.requestFullscreen?.().catch(()=>{});
+}
+document.addEventListener("fullscreenchange",()=>{if(reviewing)renderReviewBar()});
 
 function render(){
   if(!ready)return;
   renderChrome();
-  if(store.mode==="search"){renderSearch();return}
+  if(!reviewing){
+    if(PAGE==="search")renderSearch();else if(PAGE==="stats")renderStatsPage();else if(PAGE==="settings")renderFitInfo();else renderDecks();
+    return;
+  }
+  renderReviewBar();
   const now=Date.now(),card=$("card"),gr=$("grade");
   if(!cur){
     card.className="card";gr.className="grade two";gr.innerHTML="";
-    if(store.mode==="phony"){card.innerHTML=`<div class="done"><h2>This list is empty</h2></div>`;return}
+    if(store.mode==="phony"){card.innerHTML=`<div class="done"><h2>This deck is empty</h2></div><div class="actions" style="justify-content:center"><button class="btn ghost" id="rvExit2">Back to decks</button></div>`;return}
     const s=scan(store.deck,now),nm=esc(deckName(store.deck)),u=unit()==="alpha"?"alphagrams":"words";
     let nextDue=null;for(const k of s.keys){const r=store.cards[ckey(k)];if(r&&r[0]!==0&&(nextDue===null||r[3]<nextDue))nextDue=r[3]}
     let h,hint="";
-    if(store.deck==="none"){h="Make a deck to start";hint="Press + New deck above, or build one in Search, where the built-in lists are too."}
+    if(store.deck==="none"){h="Make a deck to start";hint="Go back to Decks and press New deck, or build one in Search."}
     else if(!s.total){h=store.deck==="leech"?"No leeches":"This list is empty";hint=store.deck==="leech"?`Cards you forget ${store.settings.leech} times appear here.`:""}
-    else if(!s.boxed){h=`No ${nm} in your ${esc(qt().name)} cardbox yet`;hint=`Add some with the bar above. They come in most probable first. You can also add single ${u} from Look up, or build a list in Search.`}
+    else if(!s.boxed){h=`No ${nm} in your ${esc(qt().name)} cardbox yet`;hint=`Add some below, or from the deck's More menu. They come in most probable first.`}
     else{h=`All caught up on ${nm}`;
       if(nextDue)hint+=`Next review in ${fmtIvl(Math.max(MIN,nextDue-now))}. `;
       if(s.buried)hint+=`${fmtN(s.buried)} ${s.buried===1?"card is":"cards are"} held until tomorrow because you've already answered ${s.buried===1?"its":"their"} letters in another quiz type today (sibling burying, in Settings). `;
       if(s.nw-s.buried>0&&!s.newAvail)hint+=`${fmtN(s.nw)} added ${s.nw===1?"card is":"cards are"} waiting; you've reached today's limit of ${store.settings.newLimit} new cards (change it in Settings). `;
       else if(s.out)hint+=`Add more ${u} to keep going.`;
     }
-    card.innerHTML=`<div class="done"><h2>${h}</h2></div><div class="hint">${hint}</div>${s.out&&store.deck!=="leech"?`<button class="btn" id="addBtn2">Add the next ${Math.min(+$("addN").value||20,s.out)} to your cardbox</button>`:""}`;
-    renderStats();return;
+    const mins=session.start?Math.max(1,Math.round((Date.now()-session.start)/6e4)):0;
+    const summary=session.n?`<div class="meta">This session: ${session.n} ${session.n===1?"card":"cards"}, ${Math.round((1-session.again/session.n)*100)}% right, ${mins} min</div>`:"";
+    card.innerHTML=`<div class="done"><h2>${h}</h2></div><div class="hint">${hint}</div>${summary}<div class="actions" style="justify-content:center">${s.out&&store.deck!=="leech"?`<button class="btn" id="addBtn2">Add the next ${Math.min(addNVal,s.out)} to your cardbox</button>`:""}<button class="btn ghost" id="rvExit2">Back to decks</button></div>`;
+    return;
   }
   const k=cur.key;card.className="card "+sizeClass(k.length+(store.mode==="learn"&&store.qtype==="S"?1:0));
   let html="";
@@ -1082,7 +1163,7 @@ function render(){
       gr.className="grade two";gr.innerHTML=`<button class="full" id="g-next">Next word<small>Space</small></button>`;
     }
   }
-  card.innerHTML=html;if(store.mode==="learn")renderStats();
+  card.innerHTML=html;
 }
 function renderStats(){
   const now=Date.now(),s=scan(store.deck,now);
@@ -1091,7 +1172,7 @@ function renderStats(){
     `<div class="stat"><b>${fmtN(s.due.length)}</b><span>due now${s.buried?` · ${fmtN(s.buried)} buried`:""}</span></div>`+
     `<div class="stat"><b>${s.newAvail}</b><span>new today, of ${fmtN(s.nw)} added</span></div>`+
     `<div class="stat"><b>${fmtN(s.mature)}</b><span>mature (21d+) of ${fmtN(s.seen)} studied${s.leeches?` · ${s.leeches} leech${s.leeches===1?"":"es"}`:""}</span></div>`+
-    `<div class="stat"><b>${acc}</b><span>${session.n} answered this session</span></div>`;
+    `<div class="stat"><b>${acc}</b><span>right, last study session (${session.n})</span></div>`;
   const start=new Date();start.setHours(0,0,0,0);
   const bins=new Array(31).fill(0),rows=[],pre=store.qtype+":";
   for(const k of s.keys){const r=store.cards[pre+k];if(!r)continue;rows.push([k,r]);if(r[0]===0)continue;const i=Math.max(0,Math.floor((r[3]-start)/DAY));if(i<31)bins[i]++}
@@ -1144,8 +1225,40 @@ function doSearch(){
 }
 
 /* =================== lookup =================== */
+/* ? in Look up is a blank tile: every word the rack makes, grouped by what the blanks stand for */
+function blankRackWords(letters,nb){
+  const out=new Map(); // word -> blank letters
+  const rec=(i,acc,used)=>{
+    if(used.length===nb){const g=LEX.anag.get(alpha(letters+acc));if(g)for(const w of g)if(!out.has(w))out.set(w,used);return}
+    for(let c=i;c<26;c++)rec(c,acc+LETTERS[c],used+LETTERS[c]);
+  };
+  rec(0,"","");return out;
+}
+function markBlanks(w,blanks){
+  // show the letters that came from blanks in lowercase, as Scrabble scoresheets do
+  const need={};for(const b of blanks)need[b]=(need[b]||0)+1;
+  let h="";for(let i=w.length-1;i>=0;i--){const c=w[i];if(need[c]){need[c]--;h=`<span class="bl">${c.toLowerCase()}</span>`+h}else h=esc(c)+h}
+  return h;
+}
+function lookupBlanks(raw){
+  const nb=(raw.match(/\?/g)||[]).length,letters=raw.replace(/[^A-Z]/g,"");
+  if(nb>2){$("lookupOut").innerHTML=`<p class="note">Use at most two ? blanks, as in a real game.</p>`;return}
+  if(letters.length+nb<2||letters.length+nb>15){$("lookupOut").innerHTML=`<p class="note">Racks need 2 to 15 tiles.</p>`;return}
+  const found=blankRackWords(letters,nb),rack=alpha(letters)+"?".repeat(nb);
+  let html=`<p><b>${esc(rack)}</b> makes <b>${fmtN(found.size)}</b> ${found.size===1?"word":"words"} with ${nb===1?"the blank":"both blanks"}.</p>`;
+  if(found.size){
+    const by=new Map();for(const [w,b] of found){if(!by.has(b))by.set(b,[]);by.get(b).push(w)}
+    html+=`<div class="build">${[...by.keys()].sort().map(b=>`<div class="bgrp"><span class="blen" title="blank${nb>1?"s":""} as ${b}">${b}</span><div class="bwords">${by.get(b).sort().map(w=>`<span title="${esc(LEX.words.get(w).def)}">${markBlanks(w,b)}${isNew(w)?'<sup class="nw">+</sup>':""}</span>`).join("")}</div></div>`).join("")}</div>`;
+    html+=`<p class="note">Blank letters are shown in lowercase. Hover or long-press a word for its definition.</p>`;
+  }
+  if(nb===1&&LEX.anag.size){const k=alpha(letters),r=store.cards["S:"+k];
+    html+=`<div class="ltypes"><div><b>Blanks</b><span class="note">${esc(k)}?: ${!r?"not in cardbox":r[0]===0?"added, not yet studied":`${SC[r[0]]}, next ${r[3]<=Date.now()?"now":fmtIvl(r[3]-Date.now())}`}</span>${r?`<button class="btn ghost sm" data-remove="S:${k}">Remove</button>`:`<button class="btn sm" data-add="S:${k}">Add</button>`}</div></div>`}
+  $("lookupOut").innerHTML=html;
+}
 function lookup(){
-  const q=$("lookupIn").value.toUpperCase().replace(/[^A-Z]/g,"");if(!q){$("lookupOut").innerHTML="";return}
+  const raw=$("lookupIn").value.toUpperCase().replace(/[^A-Z?]/g,"");
+  if(raw.includes("?")){lookupBlanks(raw);return}
+  const q=raw;if(!q){$("lookupOut").innerHTML="";return}
   const a=alpha(q),g=LEX.anag.get(a),valid=LEX.words.has(q);
   if(!valid&&hasCSW()&&!CSW.ready){ensureCSW().then(lookup);return}
   const cs=CSW.def.get(q);
@@ -1610,7 +1723,7 @@ async function syncNow(){
     S.inited=true;
     try{localStorage.setItem(KEY,JSON.stringify(store))}catch(e){}
     syncing=false;syncStatus("",true);
-    if(changed){clearCache("leech");if(store.mode==="learn"&&!flipped&&!$("ansIn")?.value)next();else render()}
+    if(changed){clearCache("leech");if(reviewing&&store.mode==="learn"&&!flipped&&!$("ansIn")?.value)next();else render()}
   }catch(e){syncing=false;syncStatus(e.message,false)}
   renderSyncUI();
 }
@@ -1635,8 +1748,7 @@ function migrateDecks(){
   if(b||store.searches.length!==before){clearCache("s:");if(!deckExists(store.deck))store.deck=firstDeck()}
   save();
 }
-function setDeck(id){store.deck=id;save();lastK=null;session={n:0,again:0};next()}
-function setMode(m){store.mode=m;save();lastK=null;if(m==="search"){cur=null;render()}else next()}
+function setDeck(id){store.deck=id;save();lastK=null;render()}
 document.addEventListener("submit",e=>{if(e.target.id==="ansForm"){e.preventDefault();reveal(true)}});
 document.addEventListener("click",e=>{
   if(!ready)return;
@@ -1645,13 +1757,16 @@ document.addEventListener("click",e=>{
   if(e.detail>0)setTimeout(()=>{if(document.activeElement===t)t.blur()},0);
   const ds=t.dataset;
   if(ds.deck){setDeck(ds.deck);return}
+  if(ds.review){startReview(ds.review,"learn");return}
+  if(ds.phony){startReview(ds.phony,"phony");return}
+  if(ds.expand){expanded=expanded===ds.expand?null:ds.expand;store.deck=ds.expand;save();render();return}
   if(ds.qt){store.qtype=ds.qt;save();lastK=null;clearCache("leech");next();return}
   if(ds.g){grade(+ds.g);return}
   if(ds.add){const i=ds.add.indexOf(":");addKeys([ds.add.slice(i+1)],ds.add.slice(0,i+1));lookup();if(!cur&&store.mode==="learn")next();else render();return}
   if(ds.remove){delCard(ds.remove);save();syncSoon();lookup();if(cur&&ckey(cur.key)===ds.remove)next();else render();return}
   if(ds.rm){store.draft.splice(+ds.rm,1);save();renderSearch();return}
   if(ds.preset){const pr=PRESETS[+ds.preset];store.draft=structuredClone(pr.conds);editingId=null;$("saveOrder").value="prob";save();doSearch();$("saveName").value=pr.name;$("saveSearch").textContent="Save as deck";$("resultsPanel").scrollIntoView({behavior:"smooth",block:"start"});return}
-  if(ds.study){store.mode="learn";setDeck(ds.study);return}
+  if(ds.study){PAGE="decks";store.page="decks";startReview(ds.study,"learn");return}
   if(ds.load){const s=store.searches.find(x=>x.id===ds.load);if(s){store.draft=structuredClone(s.conds);editingId=s.id;save();doSearch();$("saveName").value=s.name;$("saveOrder").value=s.order||"prob"}return}
   if(ds.del){
     if(delPending!==ds.del){delPending=ds.del;renderSearch();setTimeout(()=>{if(delPending===ds.del){delPending=null;if(store.mode==="search")renderSearch()}},4000);return}
@@ -1661,15 +1776,17 @@ document.addEventListener("click",e=>{
     case "g-valid":answerPhony(false);break;
     case "g-phony":answerPhony(true);break;
     case "g-next":next();break;
-    case "m-learn":setMode("learn");break;
-    case "m-search":setMode("search");break;
-    case "m-phony":setMode("phony");break;
-    case "lookupBtn":lookup();break;
-    case "addBtn":case "addBtn2":{const n=Math.max(1,Math.round(+$("addN").value||20));addNext(store.deck,n);if(!cur)next();else render();break}
+    case "n-decks":case "n-search":case "n-stats":case "n-settings":setPage(t.id.slice(2));break;
+    case "rvExit":case "rvExit2":exitReview();break;
+    case "rvFull":toggleFullscreen();break;
+    case "lookupClose":$("lookupPanel").hidden=true;$("lookupIn").value="";break;
+
+    case "addBtn":case "addBtn2":{if($("addN"))addNVal=Math.max(1,Math.round(+$("addN").value||20));addNext(store.deck,addNVal);if(reviewing&&!cur)next();else render();break}
     case "addAll":{
       const out=scan(store.deck,Date.now()).out;
-      if(out>200&&ds.confirm!=="1"){ds.confirm="1";render();setTimeout(()=>{ds.confirm="";if(ready)renderChrome()},4000);break}
-      ds.confirm="";addKeys(deckKeys(store.deck));if(!cur)next();else render();break}
+      const dl=$("deckList").dataset;
+      if(out>200&&dl.confirm!==store.deck){dl.confirm=store.deck;render();setTimeout(()=>{dl.confirm="";if(ready&&!reviewing)render()},4000);break}
+      dl.confirm="";addKeys(deckKeys(store.deck));render();break}
     case "noteEdit":noteEditing=true;render();$("noteText")?.focus();break;
     case "noteCancel":noteEditing=false;render();break;
     case "noteSave":{const v=$("noteText").value.trim();setNote(cur.key,v.slice(0,2000));noteEditing=false;render();break}
@@ -1680,7 +1797,7 @@ document.addEventListener("click",e=>{
     case "editDeck":openEditor(store.deck);break;
     case "deSave":saveEditor();break;
     case "deCancel":$("deckEditor").hidden=true;break;
-    case "deSearch":{store.draft=editorConds();editingId=deEditing;$("saveOrder").value=$("deOrder").value;$("deckEditor").hidden=true;store.mode="search";save();render();doSearch();break}
+    case "deSearch":{store.draft=editorConds();editingId=deEditing;$("saveOrder").value=$("deOrder").value;$("deckEditor").hidden=true;setPage("search");doSearch();break}
     case "deDelete":{
       if(ds.confirm!=="1"){ds.confirm="1";t.textContent="Tap again to delete (your cards stay in the cardbox)";break}
       store.searches=store.searches.filter(x=>x.id!==deEditing);clearCache(deEditing);$("deckEditor").hidden=true;
@@ -1704,14 +1821,14 @@ document.addEventListener("click",e=>{
       else note("customNote","None of those are in NWL2023.");
       save();next();break}
     case "resetDeck":{
-      if(ds.confirm!=="1"){ds.confirm="1";t.textContent=`Tap again to remove ${deckName(store.deck)} from your ${qt().name} cardbox`;setTimeout(()=>{ds.confirm="";t.textContent="Remove this deck from cardbox"},4000);break}
+      if(ds.confirm!=="1"){ds.confirm="1";t.textContent=`Tap again to remove ${deckName(store.deck)} and its progress`;setTimeout(()=>{if(ready&&!reviewing)render()},4000);break}
       const pre=store.qtype+":";for(const k of deckKeys(store.deck))delCard(pre+k);syncSoon();
-      save();ds.confirm="";t.textContent="Remove this deck from cardbox";note("settingsNote",`${deckName(store.deck)} removed from your ${qt().name} cardbox.`);clearCache("leech");next();break}
+      save();expanded=null;clearCache("leech");next();break}
     case "fitBtn":startFit();break;
     case "syncIn":signIn(false);break;
     case "syncUp":signIn(true);break;
     case "syncOut":signOut();break;
-    case "syncGo":case "syncPill":if(syncCfg.session)syncNow();else{$("settingsBox").open=true;$("syncBox").scrollIntoView({behavior:"smooth",block:"center"})}break;
+    case "syncGo":case "syncPill":if(syncCfg.session)syncNow();else{if(reviewing)exitReview();setPage("settings");$("syncBox").scrollIntoView({behavior:"smooth",block:"center"})}break;
     case "fitRevert":W=W_DEFAULT.slice();store.settings.w=null;store.settings.fit=null;save();note("fitNote","Back on the default parameters.");renderFitInfo();break;
     case "exportBtn":{
       saveBackup();break}
@@ -1727,9 +1844,8 @@ $("conds").addEventListener("change",e=>{const el=e.target;if(el.dataset.f==="t"
 $("conds").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.tagName==="INPUT"){e.preventDefault();doSearch()}});
 $("addCond").addEventListener("change",e=>{const t=e.target.value;if(!t)return;const d=COND[t];store.draft.push({t,a:d.def?d.def[0]:"",b:d.def?d.def[1]:""});save();renderSearch()});
 $("seenBox").addEventListener("toggle",()=>{if($("seenBox").open&&ready)renderSeen()});
-$("statsBox").addEventListener("toggle",()=>{if($("statsBox").open&&ready)renderStatsPanel()});
-$("settingsBox").addEventListener("toggle",()=>{if($("settingsBox").open&&ready)renderFitInfo()});
-$("lookupIn").addEventListener("keydown",e=>{if(e.key==="Enter")lookup()});
+$("deckList").addEventListener("input",e=>{if(e.target.id==="addN")addNVal=Math.max(1,Math.round(+e.target.value||20))});
+$("lookupForm").addEventListener("submit",e=>{e.preventDefault();const v=$("lookupIn").value.trim();if(!v){$("lookupPanel").hidden=true;return}$("lookupPanel").hidden=false;$("lookupOut").innerHTML=`<p class="note">Looking up…</p>`;lookup();$("lookupPanel").scrollIntoView({block:"nearest"})});
 $("zyzFile").addEventListener("change",e=>{const f=e.target.files[0];if(f)openZyz(f);e.target.value=""});
 $("zyzPanel").addEventListener("change",e=>{if(!zyz)return;const id=e.target.id;if(id==="zyzQt")zyz.qt=e.target.value;if(id==="zyzReplace")zyz.replace=e.target.checked;if(id==="zyzDeck")zyz.deck=e.target.checked;renderZyz()});
 $("importFile").addEventListener("change",e=>{
@@ -1756,7 +1872,9 @@ $("hideCount").addEventListener("change",e=>{store.settings.showCount=e.target.c
 $("phonyKinds").addEventListener("change",e=>{const k=e.target.dataset.pk;if(!k)return;store.settings.phonyKinds={...store.settings.phonyKinds,[k]:e.target.checked};save();next()});
 $("flashMode").addEventListener("change",e=>{store.settings.typing=e.target.checked?"off":"on";$("typing").value=store.settings.typing;save();if(!flipped)next();else render()});
 document.addEventListener("keydown",e=>{
-  if(!ready||store.mode==="search")return;
+  if(!ready)return;
+  if(e.key==="Escape"&&reviewing&&e.target.tagName!=="TEXTAREA"){e.preventDefault();exitReview();return}
+  if(!reviewing)return;
   const tag=e.target.tagName;if(tag==="TEXTAREA"||tag==="SELECT"||(tag==="INPUT"&&e.target.type!=="checkbox")||e.metaKey||e.ctrlKey||e.altKey)return;
   const k=e.key.toLowerCase();
   if(k===" "||k==="enter"){
@@ -1770,8 +1888,13 @@ document.addEventListener("keydown",e=>{
   else if(["0","1","2","3"].includes(k)){if(store.mode==="learn"&&!flipped)reveal(false);else grade(+k+1)} // 0 Again · 1 Hard · 2 Good · 3 Easy
   else if(k==="v")answerPhony(false);
   else if(k==="p")answerPhony(true);
+  else if(k==="f")toggleFullscreen();
 });
-setInterval(()=>{if(!ready||store.mode!=="learn")return;if(!cur)next();else renderStats()},30e3);
+setInterval(()=>{
+  if(!ready)return;
+  if(reviewing){if(store.mode==="learn"&&!cur)next();else renderReviewBar();return}
+  if(PAGE==="decks"&&!$("deckList").contains(document.activeElement))renderDecks();
+},30e3);
 
 syncInputs();
 $("lexInfo").textContent=`${LEX_META.name}, ${LEX_META.count.toLocaleString()} words (lexicon dated ${LEX_META.date}). App build ${LEX_META.build||"unknown"}`;
@@ -1779,7 +1902,9 @@ loadLexicon().then(()=>{
   ready=true;migrateDecks();renderFitInfo();syncReady=true;renderSyncUI();if(syncCfg.session)syncNow();
   if(store.deck.startsWith("len")){const L=store.deck.slice(3),m=store.searches.find(s=>s.conds.length===1&&s.conds[0].t==="lengths"&&[...parseLens(s.conds[0].a)].join()===L);store.deck=m?m.id:firstDeck()}
   if(!deckExists(store.deck))store.deck=firstDeck();
-  if(store.mode==="search"){render()}else next();
+  PAGE=PAGES.includes(store.page)?store.page:"decks";
+  if(store.mode==="search"){PAGE="search";store.mode="learn"}
+  render();
 }).catch(err=>{
   $("card").innerHTML=`<div class="done"><h2>Couldn't unpack the word list</h2></div><div class="hint">This app needs a current browser (Chrome, Edge, Firefox or Safari from 2023 on). ${esc(err.message||"")}</div>`;
 });
