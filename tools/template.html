@@ -158,6 +158,7 @@ sup.nw{color:var(--tw);font-size:.7em;margin-left:1px}
 .blen{font-family:var(--f-display);font-weight:700;color:var(--muted);text-align:right}
 .bwords{display:flex;flex-wrap:wrap;gap:4px 10px;font-family:var(--f-mono);font-size:14px;font-weight:500}
 .ih{color:var(--tw);font-weight:700;padding:0 1px;cursor:help}
+.cousins .chg{color:var(--tw);font-weight:700}
 .bwords .bl{color:var(--tw);font-weight:600}
 .bwords .base{opacity:.5;font-weight:400}
 .bgrp .blen{white-space:nowrap}
@@ -1580,6 +1581,12 @@ function doSearch(){
 }
 
 /* =================== lookup =================== */
+// cousins: same-length words that differ by exactly one letter (MUNITION → MONITION, PUNITION)
+function cousins(w){
+  const out=[];
+  for(let i=0;i<w.length;i++)for(const c of LETTERS){if(c===w[i])continue;const x=w.slice(0,i)+c+w.slice(i+1);if(LEX.words.has(x))out.push([x,i])}
+  return out.sort((a,b)=>a[1]-b[1]||(a[0]<b[0]?-1:1));
+}
 /* ? in Look up is a blank tile: every word the rack makes, grouped by what the blanks stand for */
 function blankRackWords(letters,nb){
   const out=new Map(); // word -> blank letters
@@ -1621,6 +1628,9 @@ function lookup(){
   if(g){
     html+=`<p class="note">Alphagram ${esc(a)} · two-blank probability rank ${fmtN(LEX.rank.get(a))} of ${fmtN(LEX.byLen[a.length].length)} · ${g.length} ${g.length===1?"word":"words"}${valid?` · ${esc(q)} playability rank ${fmtN(LEX.words.get(q).play)} (score ${fmtN(LEX.words.get(q).pscore)})`:""}</p>`+ansRows(g);
   }else html+=`<p class="note">No valid anagrams of these letters.</p>`;
+  {const co=cousins(q);
+    if(co.length)html+=`<p class="note">${valid?"Cousins":"Words one letter away"}: ${fmtN(co.length)} ${co.length===1?"word differs":"words differ"} from ${esc(q)} by one letter.</p><div class="bwords cousins">${co.map(([w,i])=>`<span title="${esc(LEX.words.get(w).def)}">${esc(w.slice(0,i))}<b class="chg">${w[i]}</b>${esc(w.slice(i+1))}${isNew(w)?'<sup class="nw">+</sup>':""}</span>`).join("")}</div>`;
+    else if(valid)html+=`<p class="note">No cousins: no other word differs from ${esc(q)} by one letter.</p>`}
   if(valid){const ex=extensions(q,"both",1,13);if(ex.length){const shown=ex.slice(0,60);html+=`<p class="note">${fmtN(ex.length)} front or back extension${ex.length===1?"":"s"}${ex.length>60?" (first 60)":""}:</p>`+extHTML(q,shown)}}
   const desc=r=>!r?"not in cardbox":r[0]>=10?"suspended":r[0]===0?"added, not yet studied":`${SC[r[0]]}, next ${r[3]<=Date.now()?"now":fmtIvl(r[3]-Date.now())}`;
   const rows=[];
