@@ -134,6 +134,7 @@ sup.nw{color:var(--tw);font-size:.7em;margin-left:1px}
 .bgrp{display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:baseline}
 .blen{font-family:var(--f-display);font-weight:700;color:var(--muted);text-align:right}
 .bwords{display:flex;flex-wrap:wrap;gap:4px 10px;font-family:var(--f-mono);font-size:14px;font-weight:500}
+.ih{color:var(--tw);font-weight:700;padding:0 1px;cursor:help}
 .bwords .bl{color:var(--tw);font-weight:600}
 .bwords .base{opacity:.5;font-weight:400}
 .bgrp .blen{white-space:nowrap}
@@ -504,7 +505,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     <footer class="panel">
       <h2 class="sec">Keys and notes</h2>
       <p class="note" style="margin:0">While studying: <kbd>Return</kbd> checks typed answers or flips the card, as do <kbd>Space</kbd> and <kbd>0</kbd>–<kbd>3</kbd> in flashcard mode. On the back, <kbd>0</kbd> Again · <kbd>1</kbd> Hard · <kbd>2</kbd> Good · <kbd>3</kbd> Easy (<kbd>Space</kbd> also means Good). In Valid or phony?, <kbd>V</kbd> valid and <kbd>P</kbd> phony. <kbd>F</kbd> toggles fullscreen and <kbd>Esc</kbd> leaves the study screen.</p>
-      <p class="note" style="margin:0">Quiz types: Anagrams, Anagrams + hooks, Hooks, Build, Blanks (letters plus one blank), Extensions (longer words containing the word) and Definitions each keep their own cardbox. Valid or phony? is practice and doesn't change your schedule; it mixes words from the deck with made-up words, real words with endings they don't take, and Collins-only words. Probability ranks use two-blank probability. Hooks appear either side of each word; a red <sup class="nw">+</sup> marks words and hooks new in NWL2023. In Look up, <kbd>?</kbd> is a blank.</p>
+      <p class="note" style="margin:0">Quiz types: Anagrams, Anagrams + hooks, Hooks, Build, Blanks (letters plus one blank), Extensions (longer words containing the word) and Definitions each keep their own cardbox. Valid or phony? is practice and doesn't change your schedule; it mixes words from the deck with made-up words, real words with endings they don't take, and Collins-only words. Probability ranks use two-blank probability. Hooks appear either side of each word. A red <span class="ih">·</span> before or after a word marks an inner hook: it's still a word without that first or last letter, so <span class="ih">·</span>LOBELIAS<span class="ih">·</span> means OBELIAS and LOBELIA are words. A red <sup class="nw">+</sup> marks words and hooks new in NWL2023. In Look up, <kbd>?</kbd> is a blank.</p>
       <p class="note" style="margin:0">Lexicon: <span id="lexInfo">NWL2023</span>.</p>
     </footer>
   </section>
@@ -1094,7 +1095,14 @@ function answerPhony(saidPhony){
 
 /* =================== rendering helpers =================== */
 const tiles=(w,blank)=>`<div class="tiles" id="tiles" title="Tap to reveal" style="--n:${w.length+(blank?1:0)};--g:${w.length+(blank?1:0)>11?"2px":w.length+(blank?1:0)>8?"4px":"6px"}" ${w.length+(blank?1:0)>=11?"data-tiny":""}>${w.split("").map(l=>`<div class="tile">${l}<sub>${SCORES[l]}</sub></div>`).join("")}${blank?'<div class="tile blank" aria-label="blank">?</div>':""}</div>`;
-const wordHTML=(w,cls)=>`<span class="${cls||""}">${esc(w)}</span>${isNew(w)?'<sup class="nw">+</sup>':""}`;
+// inner hooks, as Zyzzyva shows them: a dot before the word if it's still a word without its first
+// letter, a dot after if it's still a word without its last letter (·LOBELIAS· = OBELIAS, LOBELIA)
+function innerDots(w){
+  if(w.length<3)return ["",""];
+  const f=w.slice(1),b=w.slice(0,-1);
+  return [LEX.words.has(f)?`<span class="ih" title="${esc(f)}">·</span>`:"",LEX.words.has(b)?`<span class="ih" title="${esc(b)}">·</span>`:""];
+}
+const wordHTML=(w,cls,dots)=>{const [f,b]=dots?innerDots(w):["",""];return `${f}<span class="${cls||""}">${esc(w)}</span>${b}${isNew(w)?'<sup class="nw">+</sup>':""}`};
 function hooksHTML(w,side,found){
   const e=LEX.words.get(w);
   return hookList(side==="f"?e.fh:e.bh).map(h=>{const hw=side==="f"?h.l+w:w+h.l;const cls=found?(found.has(hw)?"hit":"miss"):"";return `<span class="${cls}" title="${esc(hw)}">${h.l}</span>${h.nw?'<sup class="nw">+</sup>':""}`}).join("");
@@ -1102,7 +1110,7 @@ function hooksHTML(w,side,found){
 function ansRows(words,o){
   o=o||{};
   return `<div class="answers">${words.map(w=>{const e=LEX.words.get(w),cls=o.found?(o.found.has(w)?"hit":"miss"):"";
-    return `<div class="ans"><span class="fh">${hooksHTML(w,"f",o.hookFound)}</span><span class="w">${wordHTML(w,cls)}</span><span class="bh">${hooksHTML(w,"b",o.hookFound)}</span><span class="def">${esc(e.def)}</span></div>`}).join("")}</div>`;
+    return `<div class="ans"><span class="fh">${hooksHTML(w,"f",o.hookFound)}</span><span class="w">${wordHTML(w,cls,true)}</span><span class="bh">${hooksHTML(w,"b",o.hookFound)}</span><span class="def">${esc(e.def)}</span></div>`}).join("")}</div>`;
 }
 function buildHTML(words,found){
   const by={};for(const w of words)(by[w.length]=by[w.length]||[]).push(w);
@@ -1270,15 +1278,15 @@ function render(){
         case "A":html+=ansRows(ans,{found});break;
         case "X":html+=ansRows(LEX.anag.get(k),{found,hookFound:found});break;
         case "H":{const e=LEX.words.get(k);
-          html+=`<div class="single"><div class="hooksline">${hooksHTML(k,"f",found)||"·"} <b>${wordHTML(k)}</b> ${hooksHTML(k,"b",found)||"·"}</div><div class="def">${esc(e.def)}</div></div>`;
+          html+=`<div class="single"><div class="hooksline">${hooksHTML(k,"f",found)||"–"} <b>${wordHTML(k,"",true)}</b> ${hooksHTML(k,"b",found)||"–"}</div><div class="def">${esc(e.def)}</div></div>`;
           if(ans.length)html+=ansRows(ans,{found});break}
         case "B":html+=buildHTML(ans,found);break;
         case "S":html+=ans.length?`<div class="build">${blankAnswers(k).map(([ch,g])=>`<div class="bgrp"><span class="blen" title="blank as ${ch}">${ch}</span><div class="bwords">${g.map(w=>`<span title="${esc(LEX.words.get(w).def)}">${wordHTML(w,found?(found.has(w)?"hit":"miss"):"")}</span>`).join("")}</div></div>`).join("")}</div>`:`<div class="hint">No words with the blank.</div>`;break;
         case "E":{const e=LEX.words.get(k);
-          html+=`<div class="single"><div class="hooksline"><b>${wordHTML(k)}</b></div><div class="def">${esc(e.def)}</div></div>`;
+          html+=`<div class="single"><div class="hooksline"><b>${wordHTML(k,"",true)}</b></div><div class="def">${esc(e.def)}</div></div>`;
           html+=ans.length?extHTML(k,ans,found):`<div class="hint">No extensions ${extDesc()}.</div>`;break}
         case "W":{const e=LEX.words.get(k);
-          html+=`<div class="single"><div class="hooksline">${hooksHTML(k,"f")||"·"} <b>${wordHTML(k)}</b> ${hooksHTML(k,"b")||"·"}</div><div class="def">${esc(e.def)}</div></div>`;
+          html+=`<div class="single"><div class="hooksline">${hooksHTML(k,"f")||"–"} <b>${wordHTML(k,"",true)}</b> ${hooksHTML(k,"b")||"–"}</div><div class="def">${esc(e.def)}</div></div>`;
           const sibs=LEX.anag.get(e.a).filter(w=>w!==k);if(sibs.length)html+=`<div class="meta">Anagrams: ${sibs.map(w=>wordHTML(w)).join(" ")}</div>`;break}
       }
       const nt=store.notes[k];
@@ -1360,7 +1368,7 @@ function renderResults(){
   const {words,alphas}=lastResult;
   $("resultSummary").innerHTML=`<b>${fmtN(words.length)}</b> words in <b>${fmtN(alphas)}</b> alphagrams`;
   const shown=words.slice(0,300);
-  $("results").innerHTML=words.length?`<table><thead><tr><th class="num">Prob.</th><th class="num">Play.</th><th>Front</th><th>Word</th><th>Back</th><th>Alphagram</th><th>Definition</th></tr></thead><tbody>${shown.map(w=>{const e=LEX.words.get(w);return `<tr><td class="num">${fmtN(LEX.rank.get(e.a))}</td><td class="num" title="Playability score ${fmtN(e.pscore)}">${fmtN(e.play)}</td><td class="fh" style="text-align:right">${hooksHTML(w,"f")}</td><td class="w">${wordHTML(w)}</td><td class="bh">${hooksHTML(w,"b")}</td><td class="w" style="color:var(--muted)">${e.a}</td><td class="d">${esc(e.def)}</td></tr>`}).join("")}</tbody></table>${words.length>300?`<p class="note">Showing the first 300. Save the list or add it to your cardbox to use all ${fmtN(words.length)}.</p>`:""}`:`<p class="note">No words match. Try loosening a condition.</p>`;
+  $("results").innerHTML=words.length?`<table><thead><tr><th class="num">Prob.</th><th class="num">Play.</th><th>Front</th><th>Word</th><th>Back</th><th>Alphagram</th><th>Definition</th></tr></thead><tbody>${shown.map(w=>{const e=LEX.words.get(w);return `<tr><td class="num">${fmtN(LEX.rank.get(e.a))}</td><td class="num" title="Playability score ${fmtN(e.pscore)}">${fmtN(e.play)}</td><td class="fh" style="text-align:right">${hooksHTML(w,"f")}</td><td class="w">${wordHTML(w,"",true)}</td><td class="bh">${hooksHTML(w,"b")}</td><td class="w" style="color:var(--muted)">${e.a}</td><td class="d">${esc(e.def)}</td></tr>`}).join("")}</tbody></table>${words.length>300?`<p class="note">Showing the first 300. Save the list or add it to your cardbox to use all ${fmtN(words.length)}.</p>`:""}`:`<p class="note">No words match. Try loosening a condition.</p>`;
 }
 let editingId=null;
 function doSearch(){
