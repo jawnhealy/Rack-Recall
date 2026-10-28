@@ -184,6 +184,7 @@ header.top{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap}
 header.top .brand{margin-right:auto}
 header.top h1{font-size:24px}
 .nav button{padding:8px 14px;font-size:14px}
+@media (max-width:480px){.nav{flex-wrap:nowrap;width:100%}.nav button{flex:1;padding:8px 4px;font-size:13px}}
 form.lookup{display:flex;gap:6px;margin:0;flex:1 1 260px;max-width:380px;min-width:0}
 form.lookup input{flex:1;min-width:0;font-family:var(--f-mono);text-transform:uppercase;font-size:14px}
 form.lookup input::placeholder{text-transform:none;font-family:var(--f-body)}
@@ -207,6 +208,8 @@ html.reviewing,html.reviewing body{overflow:hidden}
 .rv-phony{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;padding-block:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line)}
 .rv-body{flex:1 0 auto;display:flex;flex-direction:column;gap:14px;width:100%;max-width:900px;margin:0 auto;padding-block:16px max(16px,env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .rv-body .card{flex:1 0 auto;min-height:min(60vh,520px)}
+.game-head{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.game-head>div:first-child{flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:6px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
 .conds{display:flex;flex-direction:column;gap:8px}
 .cond{display:grid;grid-template-columns:minmax(150px,210px) 1fr auto auto;gap:8px;align-items:center}
@@ -276,6 +279,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     </div>
     <nav class="seg nav" aria-label="Pages">
       <button id="n-decks" aria-pressed="true">Decks</button>
+      <button id="n-games" aria-pressed="false">Games</button>
       <button id="n-search" aria-pressed="false">Search</button>
       <button id="n-stats" aria-pressed="false">Stats</button>
       <button id="n-settings" aria-pressed="false">Settings</button>
@@ -341,6 +345,26 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <span class="note" id="customNote"></span>
       </div>
     </details>
+  </section>
+
+  <!-- ============ GAMES ============ -->
+  <section class="view" id="gamesView" hidden>
+    <div class="panel game">
+      <div class="game-head">
+        <div>
+          <h2 class="sec">Valid or phony?</h2>
+          <p class="note" style="margin:0">A word appears; decide whether it would survive a challenge. Half are real words from the deck you pick, half are phonies. It's practice only and doesn't change your schedule. Keys: <kbd>V</kbd> valid, <kbd>P</kbd> phony, <kbd>Space</kbd> next.</p>
+        </div>
+        <div class="tiles demo" aria-hidden="true" style="--n:6"><div class="tile">P<sub>3</sub></div><div class="tile">H<sub>4</sub></div><div class="tile">O<sub>1</sub></div><div class="tile">N<sub>1</sub></div><div class="tile">E<sub>1</sub></div><div class="tile">Y<sub>4</sub></div></div>
+      </div>
+      <div class="settings" style="margin-top:0">
+        <label for="gameDeck">Real words from</label>
+        <div><select id="gameDeck"></select></div>
+        <span>Phonies to include</span>
+        <div class="actions" id="gamePhonyKinds"></div>
+      </div>
+      <div class="actions"><button class="btn" id="gamePlay">Play</button><span class="note" id="gameNote"></span></div>
+    </div>
   </section>
 
   <!-- ============ SEARCH ============ -->
@@ -504,7 +528,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 
     <footer class="panel">
       <h2 class="sec">Keys and notes</h2>
-      <p class="note" style="margin:0">While studying: <kbd>Return</kbd> checks typed answers or flips the card, as do <kbd>Space</kbd> and <kbd>0</kbd>–<kbd>3</kbd> in flashcard mode. On the back, <kbd>0</kbd> Again · <kbd>1</kbd> Hard · <kbd>2</kbd> Good · <kbd>3</kbd> Easy (<kbd>Space</kbd> also means Good). In Valid or phony?, <kbd>V</kbd> valid and <kbd>P</kbd> phony. <kbd>F</kbd> toggles fullscreen and <kbd>Esc</kbd> leaves the study screen.</p>
+      <p class="note" style="margin:0">While studying: <kbd>Return</kbd> checks typed answers or flips the card, as do <kbd>Space</kbd> and <kbd>0</kbd>–<kbd>3</kbd> in flashcard mode. On the back, <kbd>0</kbd> Again · <kbd>1</kbd> Hard · <kbd>2</kbd> Good · <kbd>3</kbd> Easy (<kbd>Space</kbd> also means Good). In Games › Valid or phony?, <kbd>V</kbd> valid and <kbd>P</kbd> phony. <kbd>F</kbd> toggles fullscreen and <kbd>Esc</kbd> leaves the study screen.</p>
       <p class="note" style="margin:0">Quiz types: Anagrams, Anagrams + hooks, Hooks, Build, Blanks (letters plus one blank), Extensions (longer words containing the word) and Definitions each keep their own cardbox. Valid or phony? is practice and doesn't change your schedule; it mixes words from the deck with made-up words, real words with endings they don't take, and Collins-only words. Probability ranks use two-blank probability. Hooks appear either side of each word. A red <span class="ih">·</span> before or after a word marks an inner hook: it's still a word without that first or last letter, so <span class="ih">·</span>LOBELIAS<span class="ih">·</span> means OBELIAS and LOBELIA are words. A red <sup class="nw">+</sup> marks words and hooks new in NWL2023. In Look up, <kbd>?</kbd> is a blank.</p>
       <p class="note" style="margin:0">Lexicon: <span id="lexInfo">NWL2023</span>.</p>
     </footer>
@@ -514,7 +538,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 <!-- ============ STUDY SCREEN (fills the window) ============ -->
 <div id="review" hidden>
   <div class="rv-top">
-    <button class="btn ghost sm" id="rvExit" title="Back to decks (Esc)">✕ Done</button>
+    <button class="btn ghost sm" id="rvExit" title="Leave (Esc)">✕ Done</button>
     <div class="rv-title" id="rvTitle"></div>
     <div class="rv-prog" id="rvProg"></div>
     <button class="btn ghost sm" id="rvUndo" title="Undo the last grade (Ctrl+Z)">Undo</button>
@@ -1128,7 +1152,7 @@ function chip(id,label,cls){
   const s=scan(id,Date.now()),n=s.due.length+s.newAvail;
   return `<button class="chip ${cls||""}" data-deck="${esc(id)}" aria-pressed="${id===store.deck}" title="${fmtN(s.total)} cards">${esc(label)}<span class="n">${n||""}</span></button>`;
 }
-const PAGES=["decks","search","stats","settings"];
+const PAGES=["decks","games","search","stats","settings"];
 function setPage(pg){PAGE=pg;store.page=pg;save();render();window.scrollTo(0,0)}
 function renderChrome(){
   for(const pg of PAGES){$("n-"+pg).setAttribute("aria-pressed",PAGE===pg);$(pg+"View").hidden=PAGE!==pg}
@@ -1147,7 +1171,7 @@ function renderDecks(){
     const counts=leech?`<b>${fmtN(s.total)}</b> ${qt().name} cards lapsed ${store.settings.leech}+ times · <b class="${s.due.length?"due":""}">${fmtN(s.due.length)}</b> due`
       :`<b class="${s.due.length?"due":""}">${fmtN(s.due.length)}</b> due${s.held?` (${fmtN(s.held)} more held by your daily limit)`:""} · <b>${s.newAvail}</b> new today${s.nw>s.newAvail?` (${fmtN(s.nw)} waiting)`:""} · ${fmtN(s.boxed)} of ${fmtN(s.total)} ${u} in your ${esc(qt().name)} cardbox${s.seen?` · ${Math.round(s.mature/s.seen*100)}% mature`:""}${s.buried?` · ${fmtN(s.buried)} buried today`:""}`;
     let row=`<div class="deckrow"><div style="min-width:0"><div class="nm">${esc(deckName(id))}</div><div class="ct">${counts}</div></div>
-      <div class="dact"><button class="btn" data-review="${esc(id)}">${readyN?`Study ${fmtN(readyN)}`:"Study"}</button><button class="btn ghost" data-phony="${esc(id)}">Valid or phony?</button><button class="btn ghost" data-expand="${esc(id)}" aria-expanded="${open}">${open?"Less":"More"}</button></div>`;
+      <div class="dact"><button class="btn" data-review="${esc(id)}">${readyN?`Study ${fmtN(readyN)}`:"Study"}</button><button class="btn ghost" data-expand="${esc(id)}" aria-expanded="${open}">${open?"Less":"More"}</button></div>`;
     if(open){
       const confirm=$("deckList").dataset.confirm===id;
       row+=`<div class="more">${leech?"":`<div class="boxinfo"><div class="boxbar"><i style="width:${s.total?s.boxed/s.total*100:0}%"></i></div></div>
@@ -1158,6 +1182,13 @@ function renderDecks(){
     }
     return row+`</div>`;
   }).join(""):`<div class="panel"><p class="note" style="margin:0">No decks yet. Press New deck, or save one from Search, where the built-in lists are.</p></div>`;
+}
+const phonyKindsHTML=()=>Object.entries(PHONY_KINDS).filter(([k])=>k!=="collins"||hasCSW()).map(([k,n])=>`<label class="switch"><input type="checkbox" data-pk="${k}" ${store.settings.phonyKinds[k]?"checked":""}> <span>${n}</span></label>`).join("");
+function renderGames(){
+  const ids=deckIds().filter(id=>id!=="susp"&&id!=="leech"),pick=ids.includes(store.gameDeck)?store.gameDeck:ids.includes(store.deck)?store.deck:ids[0];
+  $("gameDeck").innerHTML=ids.map(id=>`<option value="${esc(id)}" ${id===pick?"selected":""}>${esc(deckName(id))} (${fmtN(deckKeys(id,"word").length)} words)</option>`).join("");
+  $("gamePlay").disabled=!ids.length;note("gameNote",ids.length?"":"Make a deck first, on Decks or Search.");
+  $("gamePhonyKinds").innerHTML=phonyKindsHTML();
 }
 function renderStatsPage(){
   if(!deckExists(store.deck))store.deck=firstDeck();
@@ -1176,7 +1207,7 @@ function renderReviewBar(){
   $("rvUndo").hidden=ph;$("rvUndo").disabled=!undoStack.length;
   $("rvFull").hidden=!document.fullscreenEnabled;$("rvFull").textContent=document.fullscreenElement?"Exit fullscreen":"Fullscreen";
   $("rvPhony").hidden=!ph;
-  if(ph)$("phonyKinds").innerHTML=Object.entries(PHONY_KINDS).filter(([k])=>k!=="collins"||hasCSW()).map(([k,n])=>`<label class="switch"><input type="checkbox" data-pk="${k}" ${store.settings.phonyKinds[k]?"checked":""}> <span>${n}</span></label>`).join("");
+  if(ph)$("phonyKinds").innerHTML=phonyKindsHTML();
 }
 function spreadBacklog(deck,days){
   // keep the most at-risk share for today and move the rest onto the following days, evenly
@@ -1222,14 +1253,14 @@ function render(){
   if(!ready)return;
   renderChrome();
   if(!reviewing){
-    if(PAGE==="search")renderSearch();else if(PAGE==="stats")renderStatsPage();else if(PAGE==="settings")renderFitInfo();else renderDecks();
+    if(PAGE==="search")renderSearch();else if(PAGE==="games")renderGames();else if(PAGE==="stats")renderStatsPage();else if(PAGE==="settings")renderFitInfo();else renderDecks();
     return;
   }
   renderReviewBar();
   const now=Date.now(),card=$("card"),gr=$("grade");
   if(!cur){
     card.className="card";gr.className="grade two";gr.innerHTML="";
-    if(store.mode==="phony"){card.innerHTML=`<div class="done"><h2>This deck is empty</h2></div><div class="actions" style="justify-content:center"><button class="btn ghost" id="rvExit2">Back to decks</button></div>`;return}
+    if(store.mode==="phony"){card.innerHTML=`<div class="done"><h2>This deck is empty</h2></div><div class="actions" style="justify-content:center"><button class="btn ghost" id="rvExit2">Back to games</button></div>`;return}
     const s=scan(store.deck,now),nm=esc(deckName(store.deck)),u=unit()==="alpha"?"alphagrams":"words";
     let nextDue=null;for(const k of s.keys){const r=store.cards[ckey(k)];if(r&&r[0]!==0&&(nextDue===null||r[3]<nextDue))nextDue=r[3]}
     let h,hint="";
@@ -2003,7 +2034,8 @@ document.addEventListener("click",e=>{
     case "g-valid":answerPhony(false);break;
     case "g-phony":answerPhony(true);break;
     case "g-next":next();break;
-    case "n-decks":case "n-search":case "n-stats":case "n-settings":setPage(t.id.slice(2));break;
+    case "n-decks":case "n-games":case "n-search":case "n-stats":case "n-settings":setPage(t.id.slice(2));break;
+    case "gamePlay":{const d=$("gameDeck").value;if(!d||!deckKeys(d,"word").length){note("gameNote","Pick a deck with words in it.");break}store.gameDeck=d;startReview(d,"phony");break}
     case "rvExit":case "rvExit2":exitReview();break;
     case "rvFull":toggleFullscreen();break;
     case "rvUndo":undoGrade();break;
@@ -2123,6 +2155,8 @@ for(const id of ["tileStyle","tilePoints"])$(id).addEventListener("change",e=>{s
 $("theme").addEventListener("change",e=>{store.settings.theme=e.target.value;save();applyTheme()});
 $("hideCount").addEventListener("change",e=>{store.settings.showCount=e.target.checked?"off":"on";$("showCount").value=store.settings.showCount;save();render()});
 $("phonyKinds").addEventListener("change",e=>{const k=e.target.dataset.pk;if(!k)return;store.settings.phonyKinds={...store.settings.phonyKinds,[k]:e.target.checked};save();next()});
+$("gamePhonyKinds").addEventListener("change",e=>{const k=e.target.dataset.pk;if(!k)return;store.settings.phonyKinds={...store.settings.phonyKinds,[k]:e.target.checked};save()});
+$("gameDeck").addEventListener("change",e=>{store.gameDeck=e.target.value;save()});
 $("flashMode").addEventListener("change",e=>{store.settings.typing=e.target.checked?"off":"on";$("typing").value=store.settings.typing;save();if(!flipped)next();else render()});
 document.addEventListener("keydown",e=>{
   if(!ready)return;
