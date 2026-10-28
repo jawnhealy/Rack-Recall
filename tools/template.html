@@ -1553,8 +1553,10 @@ async function openZyz(file){
 const secMs=v=>v==null||v===""?0:(+v>1e12?+v:+v*1000);
 function zyzPlan(){
   // work out, without saving anything, what each row would become
-  const now=Date.now(),out=[],keys=new Set();let bad=0,exist=0,blanks=0;
+  const now=Date.now(),out=[],keys=new Set();let bad=0,exist=0,blanks=0,notBoxed=0;
   for(const r of zyz.rows){
+    // Zyzzyva also keeps quiz results for questions that were never added to a cardbox; those have no cardbox number
+    if(zyz.cols.box&&(r[zyz.cols.box]===null||r[zyz.cols.box]==="")){notBoxed++;continue}
     let q=String(r[zyz.cols.q]??"").toUpperCase().replace(/[^A-Z?]/g,"");if(!q){bad++;continue}
     let qt=zyz.qt,key;
     const nb=(q.match(/\?/g)||[]).length;
@@ -1576,19 +1578,19 @@ function zyzPlan(){
     }
     out.push([ck,rec,key]);
   }
-  return {out,keys,bad,exist,blanks,dueNow:out.filter(x=>x[1][0]===2&&x[1][3]<=now).length};
+  return {out,keys,bad,exist,blanks,notBoxed,dueNow:out.filter(x=>x[1][0]===2&&x[1][3]<=now).length};
 }
 function renderZyz(){
   if(!zyz){$("zyzPanel").hidden=true;return}
-  const P=zyzPlan(),boxes=zyz.cols.box?zyz.rows.map(r=>+r[zyz.cols.box]||0):[];
+  const P=zyzPlan(),boxes=zyz.cols.box?zyz.rows.filter(r=>r[zyz.cols.box]!==null&&r[zyz.cols.box]!=="").map(r=>+r[zyz.cols.box]||0):[];
   const bmin=boxes.length?Math.min(...boxes):null,bmax=boxes.length?Math.max(...boxes):null;
   $("zyzPanel").hidden=false;
   $("zyzPanel").innerHTML=`<div class="label">Import ${esc(zyz.file)}</div>
-    <div class="note">Table “${esc(zyz.table)}”: ${fmtN(zyz.rows.length)} cards${bmin!=null?`, cardboxes ${bmin}–${bmax}`:""}. Columns used: ${Object.entries(zyz.cols).filter(([,v])=>v).map(([k,v])=>esc(v)).join(", ")}.</div>
+    <div class="note">Table “${esc(zyz.table)}”: ${fmtN(zyz.rows.length)} quiz records${zyz.cols.box?`, ${fmtN(boxes.length)} of them in a cardbox`:""}${bmin!=null?` (cardboxes ${bmin}–${bmax})`:""}. Columns used: ${Object.entries(zyz.cols).filter(([,v])=>v).map(([k,v])=>esc(v)).join(", ")}.</div>
     <div class="actions"><label class="note" for="zyzQt">Import into</label><select id="zyzQt">${Object.entries(QT).filter(([k])=>k!=="S").map(([k,q])=>`<option value="${k}" ${k===zyz.qt?"selected":""}>${q.name}</option>`).join("")}</select>
       <label class="note"><input type="checkbox" id="zyzReplace" ${zyz.replace?"checked":""}> Replace cards already in my cardbox</label>
       <label class="note"><input type="checkbox" id="zyzDeck" ${zyz.deck?"checked":""}> Make a deck of these cards</label></div>
-    <div class="note">Ready to import <b>${fmtN(P.out.length)}</b>${P.blanks?` (${fmtN(P.blanks)} blank questions go to Blanks)`:""}. ${P.exist?`${fmtN(P.exist)} ${P.exist===1?"is":"are"} already in your cardbox and ${zyz.replace?"will be replaced with Zyzzyva's progress":"will keep their progress here"}. `:""}${P.bad?`${fmtN(P.bad)} skipped: not in NWL2023 or not a question this app can quiz. `:""}${P.dueNow?`${fmtN(P.dueNow)} were due in Zyzzyva and will be due right away.`:""}</div>
+    <div class="note">Ready to import <b>${fmtN(P.out.length)}</b> cards from your Zyzzyva cardbox${P.notBoxed?` (${fmtN(P.notBoxed)} quiz results for words that aren't in a cardbox are left out)`:""}${P.blanks?` (${fmtN(P.blanks)} blank questions go to Blanks)`:""}. ${P.exist?`${fmtN(P.exist)} ${P.exist===1?"is":"are"} already in your cardbox and ${zyz.replace?"will be replaced with Zyzzyva's progress":"will keep their progress here"}. `:""}${P.bad?`${fmtN(P.bad)} skipped: not in NWL2023 or not a question this app can quiz. `:""}${P.dueNow?`${fmtN(P.dueNow)} were due in Zyzzyva and will be due right away.`:""}</div>
     <div class="note">Each card keeps its Zyzzyva due date. Its FSRS memory strength comes from its last interval (or its cardbox), and its difficulty from your right and wrong counts. Zyzzyva doesn't keep a history of individual reviews, so Statistics and fitting start from your next reviews.</div>
     <div class="actions"><button class="btn" id="zyzGo" ${P.out.length?"":"disabled"}>Import ${fmtN(P.out.length)} cards</button><button class="btn ghost" id="zyzCancel">Cancel</button></div>`;
 }
