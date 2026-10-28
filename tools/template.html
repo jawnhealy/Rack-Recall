@@ -207,7 +207,8 @@ html.reviewing,html.reviewing body{overflow:hidden}
 .rv-prog{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .rv-phony{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;padding-block:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line)}
 .rv-body{flex:1 0 auto;display:flex;flex-direction:column;gap:14px;width:100%;max-width:900px;margin:0 auto;padding-block:16px max(16px,env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-.rv-body .card{flex:1 0 auto;min-height:min(60vh,520px)}
+.rv-body .card{flex:1 0 auto;min-height:min(60vh,520px);transition:transform .15s}
+@media (prefers-reduced-motion:reduce){.rv-body .card{transition:none}}
 .game-head{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
 .game-head>div:first-child{flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:6px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:12px}
@@ -353,7 +354,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <div class="game-head">
         <div>
           <h2 class="sec">Valid or phony?</h2>
-          <p class="note" style="margin:0">A word appears; decide whether it would survive a challenge. Half are real words from the deck you pick, half are phonies. It's practice only and doesn't change your schedule. Keys: <kbd>V</kbd> valid, <kbd>P</kbd> phony, <kbd>Space</kbd> next.</p>
+          <p class="note" style="margin:0">A word appears; decide whether it would survive a challenge. Half are real words from the deck you pick, half are phonies. It's practice only and doesn't change your schedule. Valid: <kbd>V</kbd>, <kbd>Y</kbd> or <kbd>→</kbd>. Phony: <kbd>P</kbd>, <kbd>N</kbd> or <kbd>←</kbd>. On a touch screen, swipe the card right for valid and left for phony. <kbd>Space</kbd> or <kbd>Return</kbd> for the next word.</p>
         </div>
         <div class="tiles demo" aria-hidden="true" style="--n:6"><div class="tile">P<sub>3</sub></div><div class="tile">H<sub>4</sub></div><div class="tile">O<sub>1</sub></div><div class="tile">N<sub>1</sub></div><div class="tile">E<sub>1</sub></div><div class="tile">Y<sub>4</sub></div></div>
       </div>
@@ -528,7 +529,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 
     <footer class="panel">
       <h2 class="sec">Keys and notes</h2>
-      <p class="note" style="margin:0">While studying: <kbd>Return</kbd> checks typed answers or flips the card, as do <kbd>Space</kbd> and <kbd>0</kbd>–<kbd>3</kbd> in flashcard mode. On the back, <kbd>0</kbd> Again · <kbd>1</kbd> Hard · <kbd>2</kbd> Good · <kbd>3</kbd> Easy (<kbd>Space</kbd> also means Good). In Games › Valid or phony?, <kbd>V</kbd> valid and <kbd>P</kbd> phony. <kbd>F</kbd> toggles fullscreen and <kbd>Esc</kbd> leaves the study screen.</p>
+      <p class="note" style="margin:0">While studying: <kbd>Return</kbd> checks typed answers or flips the card, as do <kbd>Space</kbd> and <kbd>0</kbd>–<kbd>3</kbd> in flashcard mode. On the back, <kbd>0</kbd> Again · <kbd>1</kbd> Hard · <kbd>2</kbd> Good · <kbd>3</kbd> Easy (<kbd>Space</kbd> also means Good). In Games › Valid or phony?, <kbd>V</kbd>/<kbd>Y</kbd>/<kbd>→</kbd> or a swipe right for valid, <kbd>P</kbd>/<kbd>N</kbd>/<kbd>←</kbd> or a swipe left for phony. <kbd>F</kbd> toggles fullscreen and <kbd>Esc</kbd> leaves the study screen.</p>
       <p class="note" style="margin:0">Quiz types: Anagrams, Anagrams + hooks, Hooks, Build, Blanks (letters plus one blank), Extensions (longer words containing the word) and Definitions each keep their own cardbox. Valid or phony? is practice and doesn't change your schedule; it mixes words from the deck with made-up words, real words with endings they don't take, and Collins-only words. Probability ranks use two-blank probability. Hooks appear either side of each word. A red <span class="ih">·</span> before or after a word marks an inner hook: it's still a word without that first or last letter, so <span class="ih">·</span>LOBELIAS<span class="ih">·</span> means OBELIAS and LOBELIA are words. A red <sup class="nw">+</sup> marks words and hooks new in NWL2023. In Look up, <kbd>?</kbd> is a blank.</p>
       <p class="note" style="margin:0">Lexicon: <span id="lexInfo">NWL2023</span>.</p>
     </footer>
@@ -1247,6 +1248,16 @@ function toggleFullscreen(){
   if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});
   else document.documentElement.requestFullscreen?.().catch(()=>{});
 }
+// swipes in Valid or phony?: right = valid, left = phony
+let swipe=null;
+$("card").addEventListener("touchstart",e=>{if(store.mode==="phony"&&e.touches.length===1)swipe={x:e.touches[0].clientX,y:e.touches[0].clientY,t:Date.now()};else swipe=null},{passive:true});
+$("card").addEventListener("touchmove",e=>{if(!swipe)return;const dx=e.touches[0].clientX-swipe.x;$("card").style.transform=`translateX(${Math.max(-60,Math.min(60,dx/3))}px)`},{passive:true});
+$("card").addEventListener("touchend",e=>{
+  $("card").style.transform="";if(!swipe)return;
+  const t=e.changedTouches[0],dx=t.clientX-swipe.x,dy=t.clientY-swipe.y;swipe=null;
+  if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.5)return;
+  if(phonyAns===null)answerPhony(dx<0);else next();
+});
 document.addEventListener("fullscreenchange",()=>{if(reviewing)renderReviewBar()});
 
 function render(){
@@ -1333,7 +1344,7 @@ function render(){
     html=`<div class="corner"><span class="badge">practice</span></div><div class="corner r">${score(k)} pts</div>${tiles(k)}`;
     if(phonyAns===null){
       html+=`<div class="hint">Would this play stand up to a challenge?</div>`;
-      gr.className="grade two";gr.innerHTML=`<button class="good" id="g-valid">Valid<small>V</small></button><button class="again" id="g-phony">Phony<small>P</small></button>`;
+      gr.className="grade two";gr.innerHTML=`<button class="again" id="g-phony">Phony<small>P · N · ← · swipe left</small></button><button class="good" id="g-valid">Valid<small>V · Y · → · swipe right</small></button>`;
     }else{
       const ok=phonyAns===cur.phony;
       html+=`<div class="verdict ${ok?"ok":"no"}">${ok?"Correct":"Wrong"}: ${cur.phony?"phony":"valid"}</div>`;
@@ -1347,7 +1358,7 @@ function render(){
       }
       const pk=session.pk||{},tally=Object.entries({valid:"Valid words",...PHONY_KINDS}).filter(([k])=>pk[k]).map(([k,n])=>`${n} ${pk[k][0]}/${pk[k][1]}`).join(" · ");
       if(tally)html+=`<div class="meta">This session: ${tally}</div>`;
-      gr.className="grade two";gr.innerHTML=`<button class="full" id="g-next">Next word<small>Space</small></button>`;
+      gr.className="grade two";gr.innerHTML=`<button class="full" id="g-next">Next word<small>Space · Return · swipe</small></button>`;
     }
   }
   card.innerHTML=html;
@@ -2175,8 +2186,8 @@ document.addEventListener("keydown",e=>{
     else if(phonyAns!==null)next();
   }
   else if(["0","1","2","3"].includes(k)){e.preventDefault();if(store.mode==="learn"&&!flipped)reveal(false);else grade(+k+1)} // 0 Again · 1 Hard · 2 Good · 3 Easy
-  else if(k==="v"){e.preventDefault();answerPhony(false)}
-  else if(k==="p"){e.preventDefault();answerPhony(true)}
+  else if(store.mode==="phony"&&["v","y","arrowright"].includes(k)){e.preventDefault();answerPhony(false)}
+  else if(store.mode==="phony"&&["p","n","arrowleft"].includes(k)){e.preventDefault();answerPhony(true)}
   else if(k==="f")toggleFullscreen();
 });
 setInterval(()=>{
