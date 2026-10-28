@@ -78,6 +78,33 @@ input[type=number],input[type=text],select{font:inherit;padding:6px 8px;border:1
 .tiles{--g:6px;--t:min(96px,calc((min(100vw,900px) - 80px - (var(--n,7) - 1)*var(--g))/var(--n,7)));gap:var(--g)!important;flex-wrap:nowrap!important;max-width:100%} /* always one row: tiles shrink to fit */
 .tile{width:var(--t);aspect-ratio:1;background:var(--tile);border-radius:6px;box-shadow:inset 0 -3px 0 var(--tile-edge),0 1px 2px rgba(0,0,0,.18);position:relative;display:grid;place-items:center;font-family:var(--f-display);font-weight:700;font-size:calc(var(--t)*.56);color:var(--tile-ink)}
 .tile sub{position:absolute;right:calc(var(--t)*.07);bottom:calc(var(--t)*.05);font-size:max(8px,calc(var(--t)*.19));font-weight:700;line-height:1}
+/* tile styles (Settings > Tile style) */
+:root[data-points="off"] .tile sub{display:none!important}
+:root[data-tiles="flat"] .tile{box-shadow:none;border-radius:4px}
+:root[data-tiles="slate"] .tile{background:#2b3a42;color:#f3ead6;box-shadow:inset 0 -3px 0 #16222a,0 1px 2px rgba(0,0,0,.25)}
+:root[data-tiles="contrast"] .tile{background:#fff;color:#000;box-shadow:0 0 0 2px #000 inset;font-weight:800}
+:root[data-tiles="outline"] .tile{background:transparent;color:var(--ink);box-shadow:0 0 0 1.5px var(--muted) inset}
+:root[data-tiles="outline"] .tile.blank,:root[data-tiles="slate"] .tile.blank,:root[data-tiles="contrast"] .tile.blank{color:var(--muted)}
+.tiles.demo{display:inline-flex;--t:34px}
+.shuf{font-size:12px;margin-top:-6px}
+.timer{width:min(420px,100%);height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+.timer i{display:block;height:100%;background:var(--tw);transform-origin:left;animation-name:drain;animation-timing-function:linear;animation-fill-mode:forwards}
+@keyframes drain{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+@media (prefers-reduced-motion:reduce){.timer i{animation-timing-function:steps(10)}}
+.cal-wrap{padding-bottom:4px}
+.cal{display:grid;grid-template-rows:repeat(7,11px);grid-auto-flow:column;grid-auto-columns:11px;gap:3px;width:max-content}
+.cal i{border-radius:2px;background:var(--line)}
+.cal i.fut{background:transparent}
+.cal i.l1{background:color-mix(in srgb,var(--tl) 35%,var(--surface))}
+.cal i.l2{background:color-mix(in srgb,var(--tl) 60%,var(--surface))}
+.cal i.l3{background:color-mix(in srgb,var(--tl) 80%,var(--surface))}
+.cal i.l4{background:var(--tl)}
+svg.prog{width:100%;max-width:680px;height:auto;display:block}
+svg.prog text{fill:var(--muted);font-family:var(--f-mono);font-size:11px}
+svg.prog .grid{stroke:var(--line);stroke-width:1}
+svg.prog .studied{fill:none;stroke:var(--tl);stroke-width:2.5}
+svg.prog .mature{fill:none;stroke:var(--good);stroke-width:2.5}
+svg.prog .studied-dot{fill:var(--tl)} svg.prog .mature-dot{fill:var(--good)}
 .tile.blank{color:var(--tile-edge);font-weight:600}
 .tile.slot{background:transparent;box-shadow:none;border:2px dashed var(--line);color:var(--muted)}
 .tile{flex:none}
@@ -366,6 +393,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div class="forecast" id="forecast"></div>
         <div class="fc-axis"><span>today</span><span>+15</span><span>+30</span></div>
       </div>
+      <div><div class="label">Progress over time</div><div id="progChart"></div></div>
       <details id="seenBox">
         <summary>Cards from this deck in your cardbox</summary>
         <div class="wl" id="wordlist"></div>
@@ -380,7 +408,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
   <!-- ============ SETTINGS ============ -->
   <section class="view" id="settingsView" hidden>
     <div class="panel">
-      <h2 class="sec">Study</h2>
+      <h2 class="sec">Schedule</h2>
       <div class="settings">
         <label for="retention">Target retention</label>
         <div><input type="number" id="retention" min="0.7" max="0.99" step="0.01"> <span class="note">0.90 is the FSRS default. Higher means more reviews.</span></div>
@@ -390,23 +418,45 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div><input type="number" id="revLimit" min="0" max="10000" step="1"> <span class="note">per deck and quiz type; 0 means no limit. When more are due, the cards you're most likely to have forgotten come first.</span></div>
         <label for="newOrder">Order of added cards</label>
         <div><select id="newOrder"><option value="prob">Order added (most probable first)</option><option value="random">Random</option></select></div>
-        <label for="typing">Type your answers</label>
-        <div><select id="typing"><option value="on">On: type the answers, then check</option><option value="off">Off: flashcard mode</option></select></div>
+        <label for="buryOn">Bury siblings</label>
+        <div><select id="buryOn"><option value="on">On: one quiz type per set of letters per day</option><option value="off">Off</option></select> <span class="note">stops an Anagrams card from priming its Build or Hooks sibling the same day</span></div>
+        <label for="leech">Leech after</label>
+        <div><input type="number" id="leech" min="2" max="50" step="1"> <span class="note">lapses (forgetting a card you had learned)</span></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2 class="sec">Cards and tiles</h2>
+      <div class="settings">
         <label for="theme">Appearance</label>
         <div><select id="theme"><option value="system">Match system</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
+        <label for="tileStyle">Tile style</label>
+        <div class="actions"><select id="tileStyle"><option value="classic">Classic wood</option><option value="flat">Flat</option><option value="slate">Slate</option><option value="contrast">High contrast</option><option value="outline">Outline</option></select>
+          <select id="tilePoints" aria-label="Point values on tiles"><option value="on">Show point values</option><option value="off">Hide point values</option></select>
+          <span class="tiles demo" id="tileDemo" style="--n:5"></span></div>
+        <label for="tileOrder">Tile order</label>
+        <div><select id="tileOrder"><option value="alpha">Alphabetical (alphagram)</option><option value="shuffle">Shuffled, like a real rack</option></select> <span class="note">for Anagrams, Anagrams + hooks, Build and Blanks; press <kbd>;</kbd> or Shuffle to reshuffle</span></div>
         <label for="showRank">Show probability rank on cards</label>
         <div><select id="showRank"><option value="on">On</option><option value="off">Off</option></select> <span class="note">the “#1 of 21,223” in the card's corner</span></div>
         <label for="showCount">Show answer count</label>
         <div><select id="showCount"><option value="on">On</option><option value="off">Off</option></select></div>
+        <label for="typing">Type your answers</label>
+        <div><select id="typing"><option value="on">On: type the answers, then check</option><option value="off">Off: flashcard mode</option></select></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2 class="sec">Quiz options</h2>
+      <div class="settings">
+        <label for="slowSecs">Slow answer</label>
+        <div><input type="number" id="slowSecs" min="0" max="300" step="1"> <span class="note">seconds, plus 4 for each extra answer; a right answer slower than this suggests Hard. 0 turns it off.</span></div>
+        <label for="timeLimit">Time limit per card</label>
+        <div><input type="number" id="timeLimit" min="0" max="600" step="1"> <span class="note">seconds; when it runs out the card flips and your typed answers are checked. 0 means no limit.</span></div>
         <label for="buildMin">Build: shortest word</label>
         <div><input type="number" id="buildMin" min="2" max="15" step="1"> <span class="note">letters; Build asks for every word this long or longer that fits in the rack</span></div>
         <label for="extDir">Extensions</label>
         <div class="actions"><select id="extDir"><option value="both">Front or back</option><option value="back">Back only (AUDIO → AUDIOBOOK)</option><option value="front">Front only (CHAIR → ARMCHAIR)</option><option value="any">Anywhere (includes words with it in the middle)</option></select>
           <span class="note">adding</span> <input type="number" id="extMin" min="1" max="13" step="1" aria-label="Fewest letters added"> <span class="note">to</span> <input type="number" id="extMax" min="1" max="13" step="1" aria-label="Most letters added"> <span class="note">letters</span></div>
-        <label for="buryOn">Bury siblings</label>
-        <div><select id="buryOn"><option value="on">On: one quiz type per set of letters per day</option><option value="off">Off</option></select> <span class="note">stops an Anagrams card from priming its Build or Hooks sibling the same day</span></div>
-        <label for="leech">Leech after</label>
-        <div><input type="number" id="leech" min="2" max="50" step="1"> <span class="note">lapses (forgetting a card you had learned)</span></div>
       </div>
     </div>
 
@@ -466,6 +516,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     <button class="btn ghost sm" id="rvExit" title="Back to decks (Esc)">✕ Done</button>
     <div class="rv-title" id="rvTitle"></div>
     <div class="rv-prog" id="rvProg"></div>
+    <button class="btn ghost sm" id="rvUndo" title="Undo the last grade (Ctrl+Z)">Undo</button>
     <button class="btn ghost sm" id="rvFull" title="Fullscreen (F)">Fullscreen</button>
   </div>
   <div class="rv-phony" id="rvPhony" hidden>
@@ -635,6 +686,7 @@ const deckCache={};
 function deckKeys(id,u){
   u=u||unit();
   if(id==="leech")return leechKeys();
+  if(id==="susp")return suspKeys();
   const ck=id+"|"+u;if(deckCache[ck])return deckCache[ck];
   let keys;
   if(id.startsWith("len")){const L=+id.slice(3);keys=u==="alpha"?LEX.byLen[L]:LEX.wordsByLen[L]}
@@ -645,8 +697,9 @@ function deckKeys(id,u){
   return deckCache[ck]=keys||[];
 }
 const clearCache=pre=>{for(const k in deckCache)if(!pre||k.startsWith(pre))delete deckCache[k]};
-function deckExists(id){return LISTS[id]||id==="leech"||(id==="custom"&&store.custom)||(id.startsWith("s:")&&store.searches.some(s=>s.id===id))}
+function deckExists(id){return LISTS[id]||id==="leech"||id==="susp"||(id==="custom"&&store.custom)||(id.startsWith("s:")&&store.searches.some(s=>s.id===id))}
 function deckName(id){
+  if(id==="susp")return "Suspended";
   if(id==="none")return "No deck";
   if(id.startsWith("len"))return LEN_NAMES[id.slice(3)];
   if(id.startsWith("s:")&&!store.searches.some(s=>s.id===id))return "Deleted deck";
@@ -822,8 +875,8 @@ const recallNow=(r,now)=>r&&r[0]>0?retrievability(Math.max(0,(now-r[4])/DAY),Mat
 const KEY="rack-recall-nwl23-v2",LOGKEY="rack-recall-log-v1";
 const SEED_DECKS=[{id:"s:sev8",name:"Bingos",conds:[{t:"lengths",a:"7,8"}],order:"prob"}];
 const DEFAULTS={cards:{},custom:"",deck:"s:sev8",migr:{bingo:1,ext:1},mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"length",a:7,b:7},{t:"prob",a:1,b:100}],
-  notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},
-  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"on",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",theme:"system",phonyKinds:{made:true,ending:true,collins:true},w:null,fit:null}};
+  notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},autoAdd:{},autoDay:{},hist:{},
+  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"on",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,collins:true},w:null,fit:null}};
 let store=structuredClone(DEFAULTS),LOG="";
 function mergeStore(s){
   store={...structuredClone(DEFAULTS),...s,settings:{...DEFAULTS.settings,...(s.settings||{})}};
@@ -839,7 +892,10 @@ function saveLog(){try{localStorage.setItem(LOGKEY,LOG)}catch(e){note("settingsN
 // card record: [state, stability, difficulty, due, last, reps, lapses]. No record = not in cardbox. State 0 = added, not yet studied (due = time added).
 const SC=["new","learning","review","relearning"];
 const ckey=k=>store.qtype+":"+k;
-function cardState(k){const r=store.cards[ckey(k)];return r?{state:SC[r[0]],s:r[1],d:r[2],due:r[3],last:r[4],reps:r[5],lapses:r[6]}:{state:"new",s:0,d:0,due:0,last:0,reps:0,lapses:0}}
+const isSusp=r=>r&&r[0]>=10;
+function setSusp(ck,on){const r=store.cards[ck];if(!r||isSusp(r)===on)return;r[0]+=on?10:-10;r[7]=Date.now()}
+function suspKeys(){const pre=store.qtype+":",out=[];for(const ck in store.cards)if(ck.startsWith(pre)&&isSusp(store.cards[ck]))out.push(ck.slice(pre.length));return out}
+function cardState(k){const r=store.cards[ckey(k)];return r?{state:SC[r[0]%10],suspended:r[0]>=10,s:r[1],d:r[2],due:r[3],last:r[4],reps:r[5],lapses:r[6]}:{state:"new",s:0,d:0,due:0,last:0,reps:0,lapses:0}}
 // index 7 = time this record last changed (for sync)
 function setCard(k,c){store.cards[ckey(k)]=[SC.indexOf(c.state),+c.s.toFixed(4),+c.d.toFixed(4),c.due,c.last,c.reps,c.lapses,Date.now()];save();syncSoon()}
 function addKeys(keys,pre){pre=pre||store.qtype+":";let n=0;const t=Date.now();for(const k of keys){if(store.cards[pre+k])continue;store.cards[pre+k]=[0,0,0,t+n,0,0,0,t+n];delete store.tomb[pre+k];n++}if(n){save();syncSoon()}return n}
@@ -854,10 +910,17 @@ function bumpNew(deck){const k=todayKey();store.newLog={[k]:{...(store.newLog[k]
 function revDoneToday(deck){return (store.newLog[todayKey()]||{})["r|"+logKey(deck)]||0}
 function bumpRev(deck){const k=todayKey(),lk="r|"+logKey(deck);store.newLog={[k]:{...(store.newLog[k]||{}),[lk]:revDoneToday(deck)+1}}}
 // log line: time(base36 s) key grade stateBefore predictedRecall%(review cards only, else -)
-function logReview(key,g,stateBefore,now,r){
-  const line=Math.round(now/1000).toString(36)+" "+key+" "+g+" "+stateBefore+" "+(r==null?"-":Math.round(r*1000)/10)+"\n";
+// log line: time(base36 s) key grade stateBefore predictedRecall% answerSeconds
+function logReview(key,g,stateBefore,now,r,secs){
+  const line=Math.round(now/1000).toString(36)+" "+key+" "+g+" "+stateBefore+" "+(r==null?"-":Math.round(r*1000)/10)+" "+(secs==null?"-":Math.round(secs*10)/10)+"\n";
   LOG+=line;saveLog();
   if(syncCfg.session){const d=todayKey(),pend=store.sync.pend=store.sync.pend||{};pend[d]=(pend[d]||"")+line}
+  return line;
+}
+function unlogLine(line){
+  if(!line)return;
+  if(LOG.endsWith(line)){LOG=LOG.slice(0,-line.length);saveLog()}
+  const pend=store.sync.pend||{};for(const d in pend)if(pend[d].endsWith(line))pend[d]=pend[d].slice(0,-line.length);
 }
 
 /* =================== sibling burying =================== */
@@ -871,10 +934,11 @@ function markSibling(k){const f=buryMap(),fam=famOf(k);if(!(f[fam]||"").includes
 const LEARN_AHEAD=20*MIN;
 function scan(deck,now){
   const keys=deckKeys(deck),pre=store.qtype+":";
-  let dueLearn=[],dueRev=[],soon=[],newKeys=[],mature=0,seen=0,nw=0,out=0,leeches=0,buried=0;
+  let dueLearn=[],dueRev=[],soon=[],newKeys=[],mature=0,seen=0,nw=0,out=0,leeches=0,buried=0,susp=0;
   for(const k of keys){
     const r=store.cards[pre+k];
     if(!r){out++;continue}
+    if(r[0]>=10){susp++;continue}
     if(r[0]===0){nw++;if(isBuried(k))buried++;else newKeys.push([k,r[3]]);continue}
     seen++;if(r[1]>=21)mature++;if(r[6]>=store.settings.leech)leeches++;
     if(r[3]<=now){if(isBuried(k))buried++;else if(r[0]===2)dueRev.push([k,recallNow(r,now)]);else dueLearn.push([k,r[3]])}
@@ -886,7 +950,7 @@ function scan(deck,now){
   const lim=store.settings.revLimit,revAvail=lim>0?Math.max(0,lim-revDoneToday(deck)):Infinity;
   const due=dueLearn.concat(dueRev.slice(0,revAvail)),held=Math.max(0,dueRev.length-revAvail);
   const newAvail=Math.min(nw,Math.max(0,store.settings.newLimit-newDoneToday(deck)));
-  return {keys,due,held,overdue:dueRev.length,soon,newKeys:newKeys.map(x=>x[0]),newAvail:Math.min(newAvail,newKeys.length),nw,mature,seen,out,leeches,buried,boxed:keys.length-out,total:keys.length};
+  return {keys,due,held,susp,overdue:dueRev.length,soon,newKeys:newKeys.map(x=>x[0]),newAvail:Math.min(newAvail,newKeys.length),nw,mature,seen,out,leeches,buried,boxed:keys.length-out,total:keys.length};
 }
 function pickNext(deck,now,exclude){
   const s=scan(deck,now);
@@ -951,10 +1015,19 @@ function phonyFor(w){
 /* =================== session =================== */
 let noteEditing=false;
 let ready=false,cur=null,flipped=false,preview=null,typed=null,phonyAns=null,lastK=null,session={n:0,again:0};
-let PAGE="decks",reviewing=false,expanded=null,addNVal=20;
+let PAGE="decks",reviewing=false,expanded=null,addNVal=20,autoNVal=20,undoStack=[],timerId=null;
+const shuffleStr=w=>{const a=w.split("");for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a.join("")};
+function clearTimer(){if(timerId){clearTimeout(timerId);timerId=null}}
+function armTimer(){
+  clearTimer();const lim=store.settings.timeLimit;
+  if(!reviewing||store.mode!=="learn"||!cur||flipped||!lim)return;
+  const left=lim*1000-(Date.now()-cur.t0);
+  timerId=setTimeout(()=>{if(cur&&!flipped){cur.timedOut=true;reveal(true)}},Math.max(0,left));
+}
 function next(){
   if(!ready)return;
-  if(!reviewing){cur=null;flipped=false;render();return}
+  if(!reviewing){cur=null;flipped=false;clearTimer();render();return}
+  clearTimer();
   flipped=false;phonyAns=null;preview=null;typed=null;noteEditing=false;
   if(store.mode==="phony"){
     const keys=deckKeys(store.deck,"word");
@@ -964,9 +1037,16 @@ function next(){
     cur=f?{...f,phony:true}:{key:w,phony:false};
   }else if(store.mode==="learn"){
     const k=pickNext(store.deck,Date.now(),lastK);cur=k?{key:k,ans:answersFor(k)}:null;
+    if(cur&&unit()==="alpha"&&store.settings.tileOrder==="shuffle")cur.order=shuffleStr(k);
   }
-  render();
+  if(cur)cur.t0=Date.now();
+  render();armTimer();
   const inp=$("ansIn");if(inp)inp.focus({preventScroll:true});
+}
+function reshuffle(){
+  if(!reviewing||store.mode!=="learn"||!cur||unit()!=="alpha")return;
+  cur.order=shuffleStr(cur.order||cur.key);
+  const el=$("tiles");if(el)el.outerHTML=tiles(cur.order,store.qtype==="S");
 }
 function reveal(fromForm){
   if(!cur||store.mode!=="learn"||flipped)return;
@@ -978,18 +1058,32 @@ function reveal(fromForm){
       typed={guesses,hit:new Set(hit),wrong:guesses.filter(g=>!ans.has(g)),missed:cur.ans.filter(a=>!hit.includes(a))};
     }
   }
+  clearTimer();if(cur.secs==null)cur.secs=(Date.now()-cur.t0)/1000;
   flipped=true;preview=schedule(cardState(cur.key),Date.now());
   render();$("card").focus({preventScroll:true});
 }
 function grade(g){
   if(store.mode!=="learn"||!cur||!flipped)return;
-  const now=Date.now(),st=cardState(cur.key);
+  const now=Date.now(),st=cardState(cur.key),ck=ckey(cur.key);
+  const snap={ck,prev:store.cards[ck]?store.cards[ck].slice():null,newLog:JSON.stringify(store.newLog),bury:JSON.stringify(store.bury),n:session.n,again:session.again,cur:{key:cur.key,order:cur.order}};
   if(st.state==="new")bumpNew(store.deck);else if(st.state==="review")bumpRev(store.deck);
   const rPred=st.state==="review"?retrievability(Math.max(0,(now-st.last)/DAY),Math.max(.01,st.s)):null;
-  logReview(ckey(cur.key),g,SC.indexOf(st.state),now,rPred);markSibling(cur.key);
+  snap.line=logReview(ck,g,SC.indexOf(st.state),now,rPred,cur.secs);markSibling(cur.key);
+  undoStack.push(snap);if(undoStack.length>30)undoStack.shift();
   setCard(cur.key,schedule(st,now)[g]);
   session.n++;if(g===AGAIN)session.again++;
   lastK=cur.key;if(store.deck==="leech")clearCache("leech");next();
+}
+function undoGrade(){
+  // take back the last grade: the card, the log line and today's counters return to how they were
+  const u=undoStack.pop();if(!u||!reviewing||store.mode!=="learn")return;
+  if(u.prev)store.cards[u.ck]=u.prev.slice(0,7).concat(Date.now());else delete store.cards[u.ck];
+  unlogLine(u.line);
+  store.newLog=JSON.parse(u.newLog);store.bury=JSON.parse(u.bury);session.n=u.n;session.again=u.again;
+  clearCache("leech");save();syncSoon();
+  clearTimer();flipped=false;typed=null;preview=null;noteEditing=false;
+  cur={key:u.cur.key,order:u.cur.order,ans:answersFor(u.cur.key),t0:Date.now()};lastK=null;
+  render();armTimer();const inp=$("ansIn");if(inp)inp.focus({preventScroll:true});
 }
 function answerPhony(saidPhony){
   if(store.mode!=="phony"||!cur||phonyAns!==null)return;
@@ -1035,11 +1129,12 @@ function renderChrome(){
   $("flashMode").checked=store.settings.typing==="off";
   $("hideCount").checked=store.settings.showCount==="off";
 }
-function deckIds(){const ids=store.searches.map(s=>s.id);if(store.custom&&deckKeys("custom").length)ids.push("custom");if(leechKeys().length)ids.push("leech");return ids}
+function deckIds(){const ids=store.searches.map(s=>s.id);if(store.custom&&deckKeys("custom").length)ids.push("custom");if(leechKeys().length)ids.push("leech");if(suspKeys().length)ids.push("susp");return ids}
 function renderDecks(){
   const now=Date.now(),ids=deckIds(),u=unit()==="alpha"?"alphagrams":"words";
   if(expanded&&!ids.includes(expanded))expanded=null;
   $("deckList").innerHTML=ids.length?ids.map(id=>{
+    if(id==="susp"){const n=suspKeys().length;return `<div class="deckrow"><div style="min-width:0"><div class="nm">Suspended</div><div class="ct"><b>${fmtN(n)}</b> ${esc(qt().name)} ${n===1?"card":"cards"} set aside; they keep their schedule history</div></div><div class="dact"><button class="btn ghost" id="unsuspAll">Unsuspend all</button></div></div>`}
     const s=scan(id,now),readyN=s.due.length+s.newAvail,leech=id==="leech",open=expanded===id;
     const counts=leech?`<b>${fmtN(s.total)}</b> ${qt().name} cards lapsed ${store.settings.leech}+ times · <b class="${s.due.length?"due":""}">${fmtN(s.due.length)}</b> due`
       :`<b class="${s.due.length?"due":""}">${fmtN(s.due.length)}</b> due${s.held?` (${fmtN(s.held)} more held by your daily limit)`:""} · <b>${s.newAvail}</b> new today${s.nw>s.newAvail?` (${fmtN(s.nw)} waiting)`:""} · ${fmtN(s.boxed)} of ${fmtN(s.total)} ${u} in your ${esc(qt().name)} cardbox${s.seen?` · ${Math.round(s.mature/s.seen*100)}% mature`:""}${s.buried?` · ${fmtN(s.buried)} buried today`:""}`;
@@ -1049,6 +1144,7 @@ function renderDecks(){
       const confirm=$("deckList").dataset.confirm===id;
       row+=`<div class="more">${leech?"":`<div class="boxinfo"><div class="boxbar"><i style="width:${s.total?s.boxed/s.total*100:0}%"></i></div></div>
         <div class="addctl"><label for="addN">Add next</label><input type="number" id="addN" min="1" max="5000" step="1" value="${addNVal}"><button class="btn" id="addBtn" ${s.out?"":"disabled"}>Add to cardbox</button><button class="btn ghost" id="addAll" ${s.out?"":"disabled"}>${confirm?`Tap again to add ${fmtN(s.out)}`:`Add all (${fmtN(s.out)})`}</button></div>`}
+        ${leech?`<div class="actions"><button class="btn ghost sm" id="suspLeeches">Suspend all ${fmtN(s.total)} leeches</button></div>`:`<div class="addctl"><label class="switch"><input type="checkbox" id="autoOn" ${store.autoAdd[id+"|"+store.qtype]?"checked":""}> <span>Keep</span></label><input type="number" id="autoN" min="1" max="1000" step="1" value="${store.autoAdd[id+"|"+store.qtype]||autoNVal}" aria-label="New cards to keep ready"><span class="note">new cards ready each day, added automatically in deck order</span></div>`}
         ${s.overdue>1?`<div class="addctl"><label for="spreadDays">Spread ${fmtN(s.overdue)} due reviews over</label><input type="number" id="spreadDays" min="2" max="60" step="1" value="${spreadDays}"><span class="note">days</span><button class="btn ghost" id="spreadBtn">Spread out</button></div>`:""}
         <div class="actions">${id.startsWith("s:")?`<button class="btn ghost sm" id="editDeck">Edit deck</button>`:""}<button class="btn ghost sm" id="resetDeck">Remove this deck from your ${esc(qt().name)} cardbox</button><span class="note" id="rowNote"></span></div></div>`;
     }
@@ -1059,6 +1155,7 @@ function renderStatsPage(){
   if(!deckExists(store.deck))store.deck=firstDeck();
   $("statsDecks").innerHTML=deckIds().map(id=>chip(id,deckName(id))).join("");
   $("statsTitle").textContent=deckName(store.deck);$("statsQt").textContent=`${qt().name} cardbox · change the quiz type on Decks`;
+  snapshotProgress();$("progChart").innerHTML=progressChart(store.deck);
   renderStats();renderStatsPanel();
 }
 function renderReviewBar(){
@@ -1068,6 +1165,7 @@ function renderReviewBar(){
   let prog="";
   if(!ph){const s=scan(store.deck,Date.now());prog=`${fmtN(s.due.length)} due · ${s.newAvail} new · `}
   $("rvProg").textContent=`${prog}${session.n} done${acc?`, ${acc} right`:""}`;
+  $("rvUndo").hidden=ph;$("rvUndo").disabled=!undoStack.length;
   $("rvFull").hidden=!document.fullscreenEnabled;$("rvFull").textContent=document.fullscreenElement?"Exit fullscreen":"Fullscreen";
   $("rvPhony").hidden=!ph;
   if(ph)$("phonyKinds").innerHTML=Object.entries(PHONY_KINDS).filter(([k])=>k!=="collins"||hasCSW()).map(([k,n])=>`<label class="switch"><input type="checkbox" data-pk="${k}" ${store.settings.phonyKinds[k]?"checked":""}> <span>${n}</span></label>`).join("");
@@ -1083,11 +1181,26 @@ function spreadBacklog(deck,days){
   save();syncSoon();return {n:list.length,per,days:Math.ceil(list.length/per)};
 }
 let spreadDays=7;
+/* keep N added-but-unstudied cards ready in a deck, topped up once a day */
+function runAutoAdd(){
+  const today=todayKey();let changed=false;
+  for(const key in store.autoAdd){
+    if(store.autoDay[key]===today)continue;
+    const i=key.lastIndexOf("|"),deck=key.slice(0,i),q=key.slice(i+1),n=store.autoAdd[key];
+    store.autoDay[key]=today;changed=true;
+    if(!QT[q]||!deckExists(deck))continue;
+    const pre=q+":",keys=deckKeys(deck,QT[q].unit);let waiting=0;
+    for(const k of keys){const r=store.cards[pre+k];if(r&&r[0]===0)waiting++}
+    const pick=[];for(const k of keys){if(pick.length>=n-waiting)break;if(!store.cards[pre+k])pick.push(k)}
+    if(pick.length)addKeys(pick,pre);
+  }
+  if(changed)save();
+}
 function startReview(id,mode){
-  store.deck=id;store.mode=mode;save();reviewing=true;lastK=null;session={n:0,again:0,start:Date.now()};next();
+  store.deck=id;store.mode=mode;save();runAutoAdd();reviewing=true;lastK=null;undoStack=[];session={n:0,again:0,start:Date.now()};next();
 }
 function exitReview(){
-  reviewing=false;cur=null;flipped=false;noteEditing=false;
+  reviewing=false;cur=null;flipped=false;noteEditing=false;clearTimer();snapshotProgress();
   if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});
   render();
 }
@@ -1133,8 +1246,10 @@ function render(){
     const st=cardState(k),r=store.cards[ckey(k)],ans=cur.ans,isAlpha=unit()==="alpha";
     const rankTxt=isAlpha?`#${fmtN(LEX.rank.get(k))} of ${fmtN(LEX.byLen[k.length].length)}`:`#${fmtN(LEX.wrank.get(k))} of ${fmtN(LEX.wordsByLen[k.length].length)}`;
     const rc=recallNow(r,now),leech=st.lapses>=store.settings.leech;
-    html=`<div class="corner"><span class="badge ${st.state}">${st.state}</span>${leech?'<span class="badge leech">leech</span>':""}${store.settings.showRank==="off"?"":`<span>${rankTxt}</span>`}</div><div class="corner r"><span class="qname">${esc(qt().name)}</span>${rc!=null?`<span title="Estimated chance you recall this card right now">recall ${Math.round(rc*100)}%</span>`:""}</div>${tiles(k,store.qtype==="S")}`;
+    html=`<div class="corner"><span class="badge ${st.state}">${st.state}</span>${leech?'<span class="badge leech">leech</span>':""}${store.settings.showRank==="off"?"":`<span>${rankTxt}</span>`}</div><div class="corner r"><span class="qname">${esc(qt().name)}</span>${rc!=null?`<span title="Estimated chance you recall this card right now">recall ${Math.round(rc*100)}%</span>`:""}</div>${tiles(!flipped&&cur.order?cur.order:k,store.qtype==="S")}`;
     if(!flipped){
+      if(isAlpha)html+=`<button class="linkbtn shuf" id="shuffleBtn" title="Shuffle the tiles (;)">Shuffle <kbd>;</kbd></button>`;
+      if(store.settings.timeLimit)html+=`<div class="timer" aria-hidden="true"><i style="animation-duration:${store.settings.timeLimit}s;animation-delay:-${Math.min(store.settings.timeLimit,(Date.now()-cur.t0)/1000)}s"></i></div>`;
       if(qt().typed&&store.settings.showCount==="on")html+=`<div class="count">${countText(k,ans)}</div>`;
       if(qt().typed&&store.settings.typing==="on"){
         html+=`<form class="typebox" id="ansForm" autocomplete="off"><input id="ansIn" aria-label="Your answers" placeholder="Type the words, space between" spellcheck="false" autocapitalize="characters"><button class="btn" type="submit">Check</button></form>`;
@@ -1146,8 +1261,10 @@ function render(){
         const nAns=ans.length,nHit=typed.hit.size;
         const ok=!typed.missed.length&&!typed.wrong.length;
         html+=`<div class="verdict ${ok?"ok":"no"}">${nAns?`${nHit} of ${nAns} found`:(ok?`Right: there are none`:`There are none`)}${typed.wrong.length?`, ${typed.wrong.length} wrong`:""}</div>`;
-        if(typed.wrong.length)html+=`<div class="typed">${typed.wrong.map(w=>`<span class="bad" title="${LEX.words.has(w)?"Valid word, but not an answer here":"Not in NWL2023"}">${esc(w)}</span>`).join("")}</div>`;
-        suggest=ok?GOOD:(!typed.wrong.length&&nAns&&nHit/nAns>=.8?HARD:AGAIN);
+        if(typed.wrong.length)html+=`<div class="typed">${typed.wrong.map(w=>{const m=typed.missed.find(a=>oneEdit(w,a));return `<span class="bad" title="${LEX.words.has(w)?"Valid word, but not an answer here":"Not in NWL2023"}">${esc(w)}</span>${m?` <button class="linkbtn" data-typo="${esc(w)}|${esc(m)}">Typo for ${esc(m)}? Count it</button>`:""}`}).join(" ")}</div>`;
+        const slow=store.settings.slowSecs>0&&cur.secs>store.settings.slowSecs+4*Math.max(0,nAns-1);
+        suggest=ok?(slow?HARD:GOOD):(!typed.wrong.length&&nAns&&nHit/nAns>=.8?HARD:AGAIN);
+        if(ok&&slow)html+=`<div class="meta">Right, but slower than ${store.settings.slowSecs+4*Math.max(0,nAns-1)} s, so Hard is suggested.</div>`;
       }
       switch(store.qtype){
         case "A":html+=ansRows(ans,{found});break;
@@ -1167,7 +1284,8 @@ function render(){
       const nt=store.notes[k];
       html+=noteEditing?`<div class="notebox"><textarea id="noteText" aria-label="Note for ${esc(k)}" placeholder="A mnemonic, a reminder, anything that helps">${esc(nt||"")}</textarea><div class="actions"><button class="btn sm" id="noteSave">Save note</button><button class="btn ghost sm" id="noteCancel">Cancel</button>${nt?'<button class="btn ghost sm" id="noteDelete">Delete note</button>':""}</div></div>`
         :nt?`<div class="notebox"><div class="label">Your note</div><div class="notetext">${esc(nt)}</div><button class="linkbtn" id="noteEdit">Edit note</button></div>`:"";
-      html+=`<div class="meta">${nt||noteEditing?"":'<button class="linkbtn" id="noteEdit">Add note</button> · '}${st.state==="new"?"First time seen":`Stability ${st.s.toFixed(1)}d · difficulty ${st.d.toFixed(1)} · ${st.lapses} lapse${st.lapses===1?"":"s"}`} · <button class="linkbtn" id="removeCur">Remove from cardbox</button></div>`;
+      if(cur.timedOut)html+=`<div class="meta">Time's up.</div>`;
+      html+=`<div class="meta">${cur.secs!=null?`${cur.secs.toFixed(1)} s · `:""}${nt||noteEditing?"":'<button class="linkbtn" id="noteEdit">Add note</button> · '}${st.state==="new"?"First time seen":`Stability ${st.s.toFixed(1)}d · difficulty ${st.d.toFixed(1)} · ${st.lapses} lapse${st.lapses===1?"":"s"}`} · <button class="linkbtn" id="suspendCur">Suspend</button> · <button class="linkbtn" id="removeCur">Remove from cardbox</button></div>`;
       const L=g=>fmtIvl(preview[g].due-now),cls={1:"again",2:"",3:"good",4:"easy"},nm={1:"Again",2:"Hard",3:"Good",4:"Easy"};
       gr.className="grade";
       gr.innerHTML=[1,2,3,4].map(g=>`<button class="${cls[g]} ${suggest===g?"suggest":""}" data-g="${g}">${nm[g]}<small>${L(g)} · ${g-1}</small></button>`).join("");
@@ -1215,7 +1333,7 @@ function renderSeen(rows,now){
   if(!rows){rows=[];const pre=store.qtype+":";for(const k of deckKeys(store.deck)){const r=store.cards[pre+k];if(r)rows.push([k,r])}}
   rows.sort((a,b)=>(a[1][0]===0)-(b[1][0]===0)||a[1][3]-b[1][3]);
   const shown=rows.slice(0,500),isAlpha=unit()==="alpha";
-  $("wordlist").innerHTML=rows.length?`<table><thead><tr><th>Card</th><th>Status</th><th>Next</th><th class="num">Recall</th><th class="num">Stability</th><th class="num">Lapses</th><th>${isAlpha?"Words":"Meaning"}</th></tr></thead><tbody>${shown.map(([k,r])=>{const rc=recallNow(r,now);return `<tr><td class="w">${k}</td><td>${r[0]===0?"added":SC[r[0]]}${r[6]>=store.settings.leech?' <span class="badge leech">leech</span>':""}</td><td>${r[0]===0?"–":r[3]<=now?"due":fmtIvl(r[3]-now)}</td><td class="num">${rc==null?"–":Math.round(rc*100)+"%"}</td><td class="num">${r[0]===0?"–":r[1].toFixed(1)+"d"}</td><td class="num">${r[6]}</td><td class="d">${isAlpha?LEX.anag.get(k).join(" "):esc(LEX.words.get(k).def)}</td></tr>`}).join("")}</tbody></table>${rows.length>500?`<p>Showing the next 500 of ${fmtN(rows.length)}.</p>`:""}`:`<p>None of this deck is in your ${esc(qt().name)} cardbox yet.</p>`;
+  $("wordlist").innerHTML=rows.length?`<table><thead><tr><th>Card</th><th>Status</th><th>Next</th><th class="num">Recall</th><th class="num">Stability</th><th class="num">Lapses</th><th>${isAlpha?"Words":"Meaning"}</th></tr></thead><tbody>${shown.map(([k,r])=>{const rc=recallNow(r,now);return `<tr><td class="w">${k}</td><td>${r[0]>=10?"suspended":r[0]===0?"added":SC[r[0]]}${r[6]>=store.settings.leech?' <span class="badge leech">leech</span>':""}</td><td>${r[0]>=10||r[0]===0?"–":r[3]<=now?"due":fmtIvl(r[3]-now)}</td><td class="num">${rc==null?"–":Math.round(rc*100)+"%"}</td><td class="num">${r[0]===0?"–":r[1].toFixed(1)+"d"}</td><td class="num">${r[6]}</td><td class="d">${isAlpha?LEX.anag.get(k).join(" "):esc(LEX.words.get(k).def)}</td></tr>`}).join("")}</tbody></table>${rows.length>500?`<p>Showing the next 500 of ${fmtN(rows.length)}.</p>`:""}`:`<p>None of this deck is in your ${esc(qt().name)} cardbox yet.</p>`;
 }
 
 /* =================== search UI =================== */
@@ -1297,30 +1415,83 @@ function lookup(){
     html+=`<p class="note">Alphagram ${esc(a)} · two-blank probability rank ${fmtN(LEX.rank.get(a))} of ${fmtN(LEX.byLen[a.length].length)} · ${g.length} ${g.length===1?"word":"words"}${valid?` · ${esc(q)} playability rank ${fmtN(LEX.words.get(q).play)} (score ${fmtN(LEX.words.get(q).pscore)})`:""}</p>`+ansRows(g);
   }else html+=`<p class="note">No valid anagrams of these letters.</p>`;
   if(valid){const ex=extensions(q,"both",1,13);if(ex.length){const shown=ex.slice(0,60);html+=`<p class="note">${fmtN(ex.length)} front or back extension${ex.length===1?"":"s"}${ex.length>60?" (first 60)":""}:</p>`+extHTML(q,shown)}}
-  const desc=r=>!r?"not in cardbox":r[0]===0?"added, not yet studied":`${SC[r[0]]}, next ${r[3]<=Date.now()?"now":fmtIvl(r[3]-Date.now())}`;
+  const desc=r=>!r?"not in cardbox":r[0]>=10?"suspended":r[0]===0?"added, not yet studied":`${SC[r[0]]}, next ${r[3]<=Date.now()?"now":fmtIvl(r[3]-Date.now())}`;
   const rows=[];
   for(const [t,d] of Object.entries(QT)){
     const k=d.unit==="alpha"?(g?a:null):(valid?q:null);if(!k)continue;
     const r=store.cards[t+":"+k];
-    rows.push(`<div><b>${d.name}</b><span class="note">${esc(k)}: ${desc(r)}</span>${r?`<button class="btn ghost sm" data-remove="${t}:${k}">Remove</button>`:`<button class="btn sm" data-add="${t}:${k}">Add</button>`}</div>`);
+    rows.push(`<div><b>${d.name}</b><span class="note">${esc(k)}: ${desc(r)}</span>${r?`<button class="btn ghost sm" data-susp="${t}:${k}">${r[0]>=10?"Unsuspend":"Suspend"}</button><button class="btn ghost sm" data-remove="${t}:${k}">Remove</button>`:`<button class="btn sm" data-add="${t}:${k}">Add</button>`}</div>`);
   }
   if(rows.length)html+=`<div class="ltypes">${rows.join("")}</div>`;
   for(const nk of [...new Set([g?a:null,valid?q:null].filter(Boolean))])if(store.notes[nk])html+=`<div class="notebox"><div class="label">Your note on ${esc(nk)}</div><div class="notetext">${esc(store.notes[nk])}</div></div>`;
   $("lookupOut").innerHTML=html;
 }
 
+/* =================== progress history =================== */
+// once a day (and again as you study) record, per deck and quiz type: cards in cardbox, studied, mature
+const isoDay=t=>{const d=new Date(t);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+function snapshotProgress(){
+  if(!ready)return;
+  const day=isoDay(Date.now()),entry={},now=Date.now(),qBefore=store.qtype;
+  for(const q in QT){
+    const pre=q+":";let any=false;for(const ck in store.cards)if(ck.startsWith(pre)){any=true;break}
+    if(!any)continue;store.qtype=q;
+    for(const id of store.searches.map(s=>s.id).concat(store.custom?["custom"]:[])){
+      const s=scan(id,now);if(s.boxed)entry[id+"|"+q]=[s.boxed,s.seen+s.susp,s.mature];
+    }
+  }
+  store.qtype=qBefore;
+  const prev=JSON.stringify(store.hist[day]||{}),next=JSON.stringify(entry);
+  if(prev!==next){store.hist={...store.hist,[day]:entry};const days=Object.keys(store.hist).sort();while(days.length>400)delete store.hist[days.shift()];save()}
+}
+function progressChart(deck){
+  const key=deck+"|"+store.qtype,days=Object.keys(store.hist).sort().filter(d=>store.hist[d][key]);
+  if(days.length<2)return `<p class="note">This chart fills in as you study: the app records ${esc(deckName(deck))} once a day. ${days.length?"The first point is today, so check back in a few days.":"Add cards to start it."}</p>`;
+  const pts=days.map(d=>({d,v:store.hist[d][key]})),W=640,H=170,L=46,R=12,T=12,B=26;
+  const t0=new Date(pts[0].d).getTime(),t1=Math.max(t0+DAY,new Date(pts.at(-1).d).getTime());
+  const ymax=Math.max(1,...pts.map(p=>p.v[1]));const nice=n=>{const e=Math.pow(10,Math.floor(Math.log10(n))),f=n/e;return (f<=1?1:f<=2?2:f<=5?5:10)*e};const top=nice(ymax);
+  const x=t=>L+(W-L-R)*(t-t0)/(t1-t0),y=v=>T+(H-T-B)*(1-v/top);
+  const line=i=>pts.map((p,j)=>`${j?"L":"M"}${x(new Date(p.d).getTime()).toFixed(1)},${y(p.v[i]).toFixed(1)}`).join("");
+  const ticks=[0,top/2,top].map(v=>`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" class="grid"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end">${fmtN(v)}</text>`).join("");
+  const last=pts.at(-1);
+  return `<div class="wl"><svg class="prog" viewBox="0 0 ${W} ${H}" role="img" aria-label="Studied and mature cards over time">${ticks}
+    <path d="${line(1)}" class="studied"/><path d="${line(2)}" class="mature"/>
+    <circle cx="${x(new Date(last.d).getTime())}" cy="${y(last.v[1])}" r="3.5" class="studied-dot"/><circle cx="${x(new Date(last.d).getTime())}" cy="${y(last.v[2])}" r="3.5" class="mature-dot"/>
+    <text x="${L}" y="${H-6}">${new Date(pts[0].d+"T12:00").toLocaleDateString(undefined,{month:"short",day:"numeric"})}</text><text x="${W-R}" y="${H-6}" text-anchor="end">${new Date(last.d+"T12:00").toLocaleDateString(undefined,{month:"short",day:"numeric"})}</text></svg></div>
+    <div class="legend"><span style="--c:var(--tl)">studied (${fmtN(last.v[1])})</span><span style="--c:var(--good)">mature, 21+ days (${fmtN(last.v[2])})</span></div>`;
+}
+function calendarHTML(L){
+  const byDay=new Map();for(const e of L){const d=isoDay(e.t);byDay.set(d,(byDay.get(d)||0)+1)}
+  const today=new Date();today.setHours(12,0,0,0);
+  const weeks=26,start=new Date(today);start.setDate(start.getDate()-start.getDay()-7*(weeks-1));
+  let cells="",mx=Math.max(1,...byDay.values());
+  for(let i=0;i<weeks*7;i++){const d=new Date(start);d.setDate(start.getDate()+i);if(d>today){cells+=`<i class="fut"></i>`;continue}
+    const n=byDay.get(isoDay(d))||0,lvl=n?Math.min(4,1+Math.floor(3*n/mx)):0;
+    cells+=`<i class="l${lvl}" title="${d.toLocaleDateString()}: ${n} ${n===1?"review":"reviews"}"></i>`}
+  // streaks
+  let cur=0;const d=new Date(today);if(!byDay.get(isoDay(d)))d.setDate(d.getDate()-1);
+  while(byDay.get(isoDay(d))){cur++;d.setDate(d.getDate()-1)}
+  const all=[...byDay.keys()].sort();let best=0,run=0,prev=null;
+  for(const k of all){const t=new Date(k+"T12:00").getTime();run=prev!==null&&Math.round((t-prev)/DAY)===1?run+1:1;best=Math.max(best,run);prev=t}
+  let last30=0;for(let i=0;i<30;i++){const x=new Date(today);x.setDate(x.getDate()-i);if(byDay.get(isoDay(x)))last30++}
+  return `<div class="st-sec"><div class="label">Study calendar, last 26 weeks</div>
+    <p style="margin:0">Current streak <b>${cur} ${cur===1?"day":"days"}</b> · longest <b>${best} ${best===1?"day":"days"}</b> · studied on <b>${last30}</b> of the last 30 days</p>
+    <div class="wl cal-wrap"><div class="cal">${cells}</div></div>
+    <div class="legend"><span style="--c:var(--line)">no reviews</span><span style="--c:color-mix(in srgb,var(--tl) 40%,var(--surface))">a few</span><span style="--c:var(--tl)">many</span></div></div>`;
+}
+
 /* =================== statistics =================== */
-function parseLog(){const out=[];for(const line of LOG.split("\n")){if(!line)continue;const p=line.split(" ");out.push({t:parseInt(p[0],36)*1000,key:p[1],q:p[1][0],g:+p[2],st:+p[3],r:p[4]&&p[4]!=="-"?+p[4]/100:null})}return out}
+function parseLog(){const out=[];for(const line of LOG.split("\n")){if(!line)continue;const p=line.split(" ");out.push({t:parseInt(p[0],36)*1000,key:p[1],q:p[1][0],g:+p[2],st:+p[3],r:p[4]&&p[4]!=="-"?+p[4]/100:null,secs:p[5]&&p[5]!=="-"?+p[5]:null})}return out}
 function renderStatsPanel(){
   const L=parseLog(),now=Date.now(),since=now-30*DAY,target=store.settings.retention;
   // per quiz type
-  const per={};for(const q in QT)per[q]={box:0,studied:0,mature:0,rev:0,pass:0,n30:0};
+  const per={};for(const q in QT)per[q]={box:0,studied:0,mature:0,rev:0,pass:0,n30:0,tsum:0,tn:0};
   for(const ck in store.cards){const q=ck[0],r=store.cards[ck];if(!per[q])continue;per[q].box++;if(r[0]>0)per[q].studied++;if(r[1]>=21&&r[0]>0)per[q].mature++}
-  for(const e of L){if(e.t<since||!per[e.q])continue;per[e.q].n30++;if(e.st===2){per[e.q].rev++;if(e.g>1)per[e.q].pass++}}
+  for(const e of L){if(e.t<since||!per[e.q])continue;per[e.q].n30++;if(e.secs!=null){per[e.q].tsum+=e.secs;per[e.q].tn++}if(e.st===2){per[e.q].rev++;if(e.g>1)per[e.q].pass++}}
   const pct=(a,b)=>b?Math.round(a/b*1000)/10+"%":"–";
   let allRev=0,allPass=0;for(const q in per){allRev+=per[q].rev;allPass+=per[q].pass}
-  let html=`<div class="st-sec"><div class="label">True retention, last 30 days</div><p>Share of reviews of learned cards (not new or relearning) that you got right: <b>${pct(allPass,allRev)}</b> across ${fmtN(allRev)} reviews, against a target of ${Math.round(target*100)}%. ${allRev>=100?(allPass/allRev<target-0.03?"You're recalling less than FSRS aims for; fitting your parameters should help.":allPass/allRev>target+0.03?"You're recalling more than FSRS aims for; fitting your parameters, or lowering target retention, would cut reviews.":"You're close to target."):"Needs about 100 reviews of learned cards to say much."}</p>
-  <div class="wl"><table><thead><tr><th>Quiz type</th><th class="num">In cardbox</th><th class="num">Studied</th><th class="num">Mature</th><th class="num">Reviews (30d)</th><th class="num">True retention</th></tr></thead><tbody>${Object.entries(QT).map(([q,d])=>{const x=per[q];return `<tr><td>${d.name}</td><td class="num">${fmtN(x.box)}</td><td class="num">${fmtN(x.studied)}</td><td class="num">${fmtN(x.mature)}</td><td class="num">${fmtN(x.n30)}</td><td class="num">${pct(x.pass,x.rev)}</td></tr>`}).join("")}</tbody></table></div></div>`;
+  let html=calendarHTML(L)+`<div class="st-sec"><div class="label">True retention, last 30 days</div><p>Share of reviews of learned cards (not new or relearning) that you got right: <b>${pct(allPass,allRev)}</b> across ${fmtN(allRev)} reviews, against a target of ${Math.round(target*100)}%. ${allRev>=100?(allPass/allRev<target-0.03?"You're recalling less than FSRS aims for; fitting your parameters should help.":allPass/allRev>target+0.03?"You're recalling more than FSRS aims for; fitting your parameters, or lowering target retention, would cut reviews.":"You're close to target."):"Needs about 100 reviews of learned cards to say much."}</p>
+  <div class="wl"><table><thead><tr><th>Quiz type</th><th class="num">In cardbox</th><th class="num">Studied</th><th class="num">Mature</th><th class="num">Reviews (30d)</th><th class="num">True retention</th><th class="num">Avg time</th></tr></thead><tbody>${Object.entries(QT).map(([q,d])=>{const x=per[q];return `<tr><td>${d.name}</td><td class="num">${fmtN(x.box)}</td><td class="num">${fmtN(x.studied)}</td><td class="num">${fmtN(x.mature)}</td><td class="num">${fmtN(x.n30)}</td><td class="num">${pct(x.pass,x.rev)}</td><td class="num">${x.tn?(x.tsum/x.tn).toFixed(1)+" s":"–"}</td></tr>`}).join("")}</tbody></table></div></div>`;
   // reviews per day
   const start=new Date();start.setHours(0,0,0,0);const day0=start.getTime()-29*DAY;
   const ok=new Array(30).fill(0),bad=new Array(30).fill(0);
@@ -1432,6 +1603,13 @@ function openEditor(id){
   $("deExtra").textContent=extra.length?`Also keeps these conditions from Search: ${describeConds(extra)}.`:"";
   $("deDelete").hidden=!s;$("deDelete").dataset.confirm="";$("deDelete").textContent="Delete deck";note("deNote","");
   $("deckEditor").hidden=false;$("deName").focus();
+}
+// true when a and b differ by one letter changed, added or dropped, or two neighbours swapped
+function oneEdit(a,b){
+  if(a===b)return false;const la=a.length,lb=b.length;if(Math.abs(la-lb)>1)return false;
+  if(la===lb){const d=[];for(let i=0;i<la;i++)if(a[i]!==b[i]){d.push(i);if(d.length>2)return false}
+    return d.length===1||(d.length===2&&d[1]===d[0]+1&&a[d[0]]===b[d[1]]&&a[d[1]]===b[d[0]])}
+  const [s,l]=la<lb?[a,b]:[b,a];let i=0;while(i<s.length&&s[i]===l[i])i++;return s.slice(i)===l.slice(i+1);
 }
 function editorConds(){
   const s=deEditing&&store.searches.find(x=>x.id===deEditing);
@@ -1636,6 +1814,8 @@ const META={
   decks:{get:()=>store.searches,set:v=>{store.searches=v;clearCache("s:");searchCache.clear();if(!deckExists(store.deck))store.deck=firstDeck()}},
   custom:{get:()=>store.custom,set:v=>{store.custom=v;clearCache("custom");$("customText").value=v||""}},
   bury:{get:()=>store.bury,set:v=>{store.bury=v}},
+  auto:{get:()=>store.autoAdd,set:v=>{store.autoAdd=v||{}}},
+  hist:{get:()=>store.hist,set:v=>{store.hist=v||{}}},
 };
 function syncStatus(msg,ok){syncState={msg,ok,at:Date.now()};renderSyncUI()}
 function renderSyncUI(){
@@ -1715,6 +1895,11 @@ async function syncNow(){
         }else if(row.kind==="m"&&META[row.key]){
           const name=row.key,mtKey="mt_"+name;if(row.mt<=(S[mtKey]||0))continue;
           const localJ=JSON.stringify(META[name].get());
+          if(name==="hist"){ // progress history from every device is merged, keeping the fuller entry for each day
+            const v=JSON.parse(row.val)||{},h={...store.hist};
+            for(const d in v){h[d]={...(h[d]||{})};for(const k in v[d])if(!h[d][k]||v[d][k][1]>h[d][k][1])h[d][k]=v[d][k]}
+            store.hist=h;S[mtKey]=row.mt;S.sent[name]="";changed=true;continue;
+          }
           if(S.inited&&localJ!==S.sent[name])continue; // unsynced local change wins; it is pushed below
           let v=JSON.parse(row.val);
           if(name==="bury"){
@@ -1795,6 +1980,8 @@ document.addEventListener("click",e=>{
   if(ds.qt){store.qtype=ds.qt;save();lastK=null;clearCache("leech");next();return}
   if(ds.g){grade(+ds.g);return}
   if(ds.add){const i=ds.add.indexOf(":");addKeys([ds.add.slice(i+1)],ds.add.slice(0,i+1));lookup();if(!cur&&store.mode==="learn")next();else render();return}
+  if(ds.susp){const r=store.cards[ds.susp];if(r){setSusp(ds.susp,!isSusp(r));save();syncSoon()}lookup();render();return}
+  if(ds.typo&&typed){const [w,m]=ds.typo.split("|");typed.wrong=typed.wrong.filter(x=>x!==w);typed.missed=typed.missed.filter(x=>x!==m);typed.hit.add(m);render();return}
   if(ds.remove){delCard(ds.remove);save();syncSoon();lookup();if(cur&&ckey(cur.key)===ds.remove)next();else render();return}
   if(ds.rm){store.draft.splice(+ds.rm,1);save();renderSearch();return}
   if(ds.preset){const pr=PRESETS[+ds.preset];store.draft=structuredClone(pr.conds);editingId=null;$("saveOrder").value="prob";save();doSearch();$("saveName").value=pr.name;$("saveSearch").textContent="Save as deck";$("resultsPanel").scrollIntoView({behavior:"smooth",block:"start"});return}
@@ -1811,6 +1998,11 @@ document.addEventListener("click",e=>{
     case "n-decks":case "n-search":case "n-stats":case "n-settings":setPage(t.id.slice(2));break;
     case "rvExit":case "rvExit2":exitReview();break;
     case "rvFull":toggleFullscreen();break;
+    case "rvUndo":undoGrade();break;
+    case "shuffleBtn":reshuffle();$("ansIn")?.focus({preventScroll:true});break;
+    case "suspendCur":if(cur){setSusp(ckey(cur.key),true);save();syncSoon();lastK=null;next()}break;
+    case "unsuspAll":{const pre=store.qtype+":";for(const k of suspKeys())setSusp(pre+k,false);save();syncSoon();render();break}
+    case "suspLeeches":{const pre=store.qtype+":";for(const k of leechKeys())setSusp(pre+k,true);clearCache("leech");save();syncSoon();render();break}
     case "lookupClose":$("lookupPanel").hidden=true;$("lookupIn").value="";break;
 
     case "spreadBtn":{
@@ -1881,7 +2073,15 @@ $("conds").addEventListener("change",e=>{const el=e.target;if(el.dataset.f==="t"
 $("conds").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.tagName==="INPUT"){e.preventDefault();doSearch()}});
 $("addCond").addEventListener("change",e=>{const t=e.target.value;if(!t)return;const d=COND[t];store.draft.push({t,a:d.def?d.def[0]:"",b:d.def?d.def[1]:""});save();renderSearch()});
 $("seenBox").addEventListener("toggle",()=>{if($("seenBox").open&&ready)renderSeen()});
-$("deckList").addEventListener("input",e=>{if(e.target.id==="addN")addNVal=Math.max(1,Math.round(+e.target.value||20));if(e.target.id==="spreadDays")spreadDays=Math.max(2,Math.min(60,Math.round(+e.target.value||7)))});
+$("deckList").addEventListener("change",e=>{
+  const id=e.target.id;if(id!=="autoOn"&&id!=="autoN")return;
+  const key=store.deck+"|"+store.qtype,n=Math.max(1,Math.min(1000,Math.round(+$("autoN").value||20)));autoNVal=n;
+  if(id==="autoN"&&!$("autoOn").checked)return;
+  if($("autoOn").checked){store.autoAdd={...store.autoAdd,[key]:n};delete store.autoDay[key];runAutoAdd()}
+  else{const a={...store.autoAdd};delete a[key];store.autoAdd=a}
+  save();render();
+});
+$("deckList").addEventListener("input",e=>{if(e.target.id==="autoN")autoNVal=Math.max(1,Math.min(1000,Math.round(+e.target.value||20)));if(e.target.id==="addN")addNVal=Math.max(1,Math.round(+e.target.value||20));if(e.target.id==="spreadDays")spreadDays=Math.max(2,Math.min(60,Math.round(+e.target.value||7)))});
 $("lookupForm").addEventListener("submit",e=>{e.preventDefault();const v=$("lookupIn").value.trim();if(!v){$("lookupPanel").hidden=true;return}$("lookupPanel").hidden=false;$("lookupOut").innerHTML=`<p class="note">Looking up…</p>`;lookup();$("lookupPanel").scrollIntoView({block:"nearest"})});
 $("zyzFile").addEventListener("change",e=>{const f=e.target.files[0];if(f)openZyz(f);e.target.value=""});
 $("zyzPanel").addEventListener("change",e=>{if(!zyz)return;const id=e.target.id;if(id==="zyzQt")zyz.qt=e.target.value;if(id==="zyzReplace")zyz.replace=e.target.checked;if(id==="zyzDeck")zyz.deck=e.target.checked;renderZyz()});
@@ -1895,17 +2095,23 @@ $("importFile").addEventListener("change",e=>{
   }catch(err){note("settingsNote","That file isn't a Rack & Recall backup.")}};
   rd.readAsText(f);e.target.value="";
 });
-const NUMS={retention:[.7,.99,.9],newLimit:[0,1000,20],revLimit:[0,10000,0],buildMin:[2,15,4],leech:[2,50,6],extMin:[1,13,2],extMax:[1,13,7]};
-function syncInputs(){for(const id of ["retention","newLimit","revLimit","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn","showRank","theme"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
+const NUMS={retention:[.7,.99,.9],newLimit:[0,1000,20],revLimit:[0,10000,0],slowSecs:[0,300,20],timeLimit:[0,600,0],buildMin:[2,15,4],leech:[2,50,6],extMin:[1,13,2],extMax:[1,13,7]};
+function syncInputs(){for(const id of ["retention","newLimit","revLimit","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn","showRank","theme","tileOrder","tileStyle","tilePoints","slowSecs","timeLimit"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
 for(const id in NUMS)$(id).addEventListener("change",e=>{const [lo,hi,def]=NUMS[id];let v=+e.target.value;if(isNaN(v)||e.target.value==="")v=def;v=Math.min(hi,Math.max(lo,v));if(id!=="retention")v=Math.round(v);store.settings[id]=v;e.target.value=v;save();
   if(id==="leech")clearCache("leech");
   if(id==="extMin"&&store.settings.extMax<v){store.settings.extMax=v;$("extMax").value=v}
   if(id==="extMax"&&store.settings.extMin>v){store.settings.extMin=v;$("extMin").value=v}
   if(cur&&store.mode==="learn"){cur.ans=answersFor(cur.key);if(flipped)preview=schedule(cardState(cur.key),Date.now())}
   if(!cur&&store.mode==="learn")next();else render()});
-for(const id of ["newOrder","typing","showCount","buryOn","showRank"])$(id).addEventListener("change",e=>{store.settings[id]=e.target.value;save();if(!flipped)next();else render()});
+for(const id of ["newOrder","typing","showCount","buryOn","showRank","tileOrder"])$(id).addEventListener("change",e=>{store.settings[id]=e.target.value;save();if(!flipped)next();else render()});
 $("extDir").addEventListener("change",e=>{store.settings.extDir=e.target.value;save();if(cur&&store.mode==="learn")cur.ans=answersFor(cur.key);render()});
-function applyTheme(){const t=store.settings.theme;if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;else delete document.documentElement.dataset.theme}
+function applyTheme(){
+  const t=store.settings.theme,el=document.documentElement;
+  if(t==="light"||t==="dark")el.dataset.theme=t;else delete el.dataset.theme;
+  el.dataset.tiles=store.settings.tileStyle||"classic";el.dataset.points=store.settings.tilePoints||"on";
+  const demo=$("tileDemo");if(demo)demo.innerHTML="RACKS".split("").map(l=>`<div class="tile">${l}<sub>${SCORES[l]}</sub></div>`).join("");
+}
+for(const id of ["tileStyle","tilePoints"])$(id).addEventListener("change",e=>{store.settings[id]=e.target.value;save();applyTheme()});
 $("theme").addEventListener("change",e=>{store.settings.theme=e.target.value;save();applyTheme()});
 $("hideCount").addEventListener("change",e=>{store.settings.showCount=e.target.checked?"off":"on";$("showCount").value=store.settings.showCount;save();render()});
 $("phonyKinds").addEventListener("change",e=>{const k=e.target.dataset.pk;if(!k)return;store.settings.phonyKinds={...store.settings.phonyKinds,[k]:e.target.checked};save();next()});
@@ -1914,6 +2120,8 @@ document.addEventListener("keydown",e=>{
   if(!ready)return;
   if(e.key==="Escape"&&reviewing&&e.target.tagName!=="TEXTAREA"){e.preventDefault();exitReview();return}
   if(!reviewing)return;
+  if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.key.toLowerCase()==="z"&&!(e.target.tagName==="INPUT"&&e.target.value)&&e.target.tagName!=="TEXTAREA"){e.preventDefault();undoGrade();return}
+  if(e.key===";"&&e.target.tagName!=="TEXTAREA"){e.preventDefault();reshuffle();return}
   const tag=e.target.tagName;if(tag==="TEXTAREA"||tag==="SELECT"||(tag==="INPUT"&&e.target.type!=="checkbox")||e.metaKey||e.ctrlKey||e.altKey)return;
   const k=e.key.toLowerCase();
   if(k===" "||k==="enter"){
@@ -1924,21 +2132,21 @@ document.addEventListener("keydown",e=>{
     if(store.mode==="learn"){if(!flipped)reveal(false);else if(k===" ")grade(GOOD)}
     else if(phonyAns!==null)next();
   }
-  else if(["0","1","2","3"].includes(k)){if(store.mode==="learn"&&!flipped)reveal(false);else grade(+k+1)} // 0 Again · 1 Hard · 2 Good · 3 Easy
-  else if(k==="v")answerPhony(false);
-  else if(k==="p")answerPhony(true);
+  else if(["0","1","2","3"].includes(k)){e.preventDefault();if(store.mode==="learn"&&!flipped)reveal(false);else grade(+k+1)} // 0 Again · 1 Hard · 2 Good · 3 Easy
+  else if(k==="v"){e.preventDefault();answerPhony(false)}
+  else if(k==="p"){e.preventDefault();answerPhony(true)}
   else if(k==="f")toggleFullscreen();
 });
 setInterval(()=>{
   if(!ready)return;
   if(reviewing){if(store.mode==="learn"&&!cur)next();else renderReviewBar();return}
-  if(PAGE==="decks"&&!$("deckList").contains(document.activeElement))renderDecks();
+  if(PAGE==="decks"&&!$("deckList").contains(document.activeElement)){runAutoAdd();renderDecks()}
 },30e3);
 
 syncInputs();applyTheme();
 $("lexInfo").textContent=`${LEX_META.name}, ${LEX_META.count.toLocaleString()} words (lexicon dated ${LEX_META.date}). App build ${LEX_META.build||"unknown"}`;
 loadLexicon().then(()=>{
-  ready=true;migrateDecks();renderFitInfo();syncReady=true;renderSyncUI();if(syncCfg.session)syncNow();
+  ready=true;migrateDecks();runAutoAdd();snapshotProgress();renderFitInfo();syncReady=true;renderSyncUI();if(syncCfg.session)syncNow();
   if(store.deck.startsWith("len")){const L=store.deck.slice(3),m=store.searches.find(s=>s.conds.length===1&&s.conds[0].t==="lengths"&&[...parseLens(s.conds[0].a)].join()===L);store.deck=m?m.id:firstDeck()}
   if(!deckExists(store.deck))store.deck=firstDeck();
   PAGE=PAGES.includes(store.page)?store.page:"decks";
