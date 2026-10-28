@@ -4,6 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="rr-build" content="__RRBUILD__">
+<script>
+/* Android single-file updates. The app serves this page from https://localhost/. If a newer page was
+   installed from Settings, open it instead (it runs on the same address, so all progress carries over).
+   If an installed page fails to start twice, stay on this built-in one. */
+(function(){try{
+  if(!(location.protocol==="https:"&&location.hostname==="localhost"))return;
+  if(location.pathname.indexOf("/_capacitor_file_/")>=0)return;
+  var own=+document.querySelector('meta[name="rr-build"]').content||0,key="rr-update",u=JSON.parse(localStorage.getItem(key)||"null");
+  if(!u)return;
+  if(!(u.build>own)){localStorage.removeItem(key);return}
+  if(u.failed||(u.tries||0)>=2){u.failed=true;localStorage.setItem(key,JSON.stringify(u));return}
+  u.tries=(u.tries||0)+1;localStorage.setItem(key,JSON.stringify(u));location.replace(u.url);
+}catch(e){}})();
+</script>
 <title>Rack &amp; Recall</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
@@ -513,6 +527,17 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <div class="note" id="syncMsg"></div>
     </div>
 
+    <div class="panel" id="updBox" hidden>
+      <h2 class="sec">App updates</h2>
+      <p class="note" style="margin:0" id="updInfo"></p>
+      <div class="actions">
+        <button class="btn" id="updBtn">Install update from file</button>
+        <input type="file" id="updFile" accept=".html,text/html" hidden>
+        <button class="btn ghost" id="updRevert" hidden>Use the built-in version</button>
+      </div>
+      <div class="note" id="updNote"></div>
+    </div>
+
     <div class="panel">
       <h2 class="sec">Your data</h2>
       <div class="actions">
@@ -532,6 +557,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <p class="note" style="margin:0">While studying: <kbd>Return</kbd> checks typed answers or flips the card, as do <kbd>Space</kbd> and <kbd>0</kbd>–<kbd>3</kbd> in flashcard mode. On the back, <kbd>0</kbd> Again · <kbd>1</kbd> Hard · <kbd>2</kbd> Good · <kbd>3</kbd> Easy (<kbd>Space</kbd> also means Good). In Games › Valid or phony?, <kbd>V</kbd>/<kbd>Y</kbd>/<kbd>→</kbd> or a swipe right for valid, <kbd>P</kbd>/<kbd>N</kbd>/<kbd>←</kbd> or a swipe left for phony. <kbd>F</kbd> toggles fullscreen and <kbd>Esc</kbd> leaves the study screen.</p>
       <p class="note" style="margin:0">Quiz types: Anagrams, Anagrams + hooks, Hooks, Build, Blanks (letters plus one blank), Extensions (longer words containing the word) and Definitions each keep their own cardbox. Valid or phony? is practice and doesn't change your schedule; it mixes words from the deck with made-up words, real words with endings they don't take, and Collins-only words. Probability ranks use two-blank probability. Hooks appear either side of each word. A red <span class="ih">·</span> before or after a word marks an inner hook: it's still a word without that first or last letter, so <span class="ih">·</span>LOBELIAS<span class="ih">·</span> means OBELIAS and LOBELIA are words. A red <sup class="nw">+</sup> marks words and hooks new in NWL2023. In Look up, <kbd>?</kbd> is a blank.</p>
       <p class="note" style="margin:0">Lexicon: <span id="lexInfo">NWL2023</span>.</p>
+      <p class="note" style="margin:0">Updating: on Windows, save a newer rack-and-recall.html next to RackAndRecall.exe and restart. On Android, use App updates above.</p>
     </footer>
   </section>
 </div>
@@ -1178,7 +1204,7 @@ function renderDecks(){
       row+=`<div class="more">${leech?"":`<div class="boxinfo"><div class="boxbar"><i style="width:${s.total?s.boxed/s.total*100:0}%"></i></div></div>
         <div class="addctl"><label for="addN">Add next</label><input type="number" id="addN" min="1" max="5000" step="1" value="${addNVal}"><button class="btn" id="addBtn" ${s.out?"":"disabled"}>Add to cardbox</button><button class="btn ghost" id="addAll" ${s.out?"":"disabled"}>${confirm?`Tap again to add ${fmtN(s.out)}`:`Add all (${fmtN(s.out)})`}</button></div>`}
         ${leech?`<div class="actions"><button class="btn ghost sm" id="suspLeeches">Suspend all ${fmtN(s.total)} leeches</button></div>`:`<div class="addctl"><label class="switch"><input type="checkbox" id="autoOn" ${store.autoAdd[id+"|"+store.qtype]?"checked":""}> <span>Keep</span></label><input type="number" id="autoN" min="1" max="1000" step="1" value="${store.autoAdd[id+"|"+store.qtype]||autoNVal}" aria-label="New cards to keep ready"><span class="note">new cards ready each day, added automatically in deck order</span></div>`}
-        ${s.overdue>1?`<div class="addctl"><label for="spreadDays">Spread ${fmtN(s.overdue)} due reviews over</label><input type="number" id="spreadDays" min="2" max="60" step="1" value="${spreadDays}"><span class="note">days</span><button class="btn ghost" id="spreadBtn">Spread out</button></div>`:""}
+        ${leech?"":`<div class="addctl"><label for="spreadDays">${s.overdue>1?`Spread ${fmtN(s.overdue)} due reviews over`:"Spread due reviews over"}</label><input type="number" id="spreadDays" min="2" max="60" step="1" value="${spreadDays}" ${s.overdue>1?"":"disabled"}><span class="note">days</span><button class="btn ghost" id="spreadBtn" ${s.overdue>1?"":"disabled"}>Spread out</button>${s.overdue>1?"":`<span class="note">No backlog in your ${esc(qt().name)} cardbox for this deck right now.</span>`}</div>`}
         <div class="actions">${id.startsWith("s:")?`<button class="btn ghost sm" id="editDeck">Edit deck</button>`:""}<button class="btn ghost sm" id="resetDeck">Remove this deck from your ${esc(qt().name)} cardbox</button><span class="note" id="rowNote"></span></div></div>`;
     }
     return row+`</div>`;
@@ -1264,7 +1290,7 @@ function render(){
   if(!ready)return;
   renderChrome();
   if(!reviewing){
-    if(PAGE==="search")renderSearch();else if(PAGE==="games")renderGames();else if(PAGE==="stats")renderStatsPage();else if(PAGE==="settings")renderFitInfo();else renderDecks();
+    if(PAGE==="search")renderSearch();else if(PAGE==="games")renderGames();else if(PAGE==="stats")renderStatsPage();else if(PAGE==="settings"){renderFitInfo();renderUpdates()}else renderDecks();
     return;
   }
   renderReviewBar();
@@ -1835,6 +1861,45 @@ function doZyzImport(){
   zyz=null;$("zyzPanel").hidden=true;note("settingsNote",msg);next();
 }
 
+/* =================== Android single-file updates =================== */
+const UPD_KEY="rr-update";
+const onAndroidApp=()=>{const C=window.Capacitor;return !!(C&&C.isNativePlatform&&C.isNativePlatform()&&C.getPlatform&&C.getPlatform()==="android")};
+const runningUpdate=()=>location.pathname.includes("/_capacitor_file_/");
+const ownBuild=()=>+(document.querySelector('meta[name="rr-build"]')?.content||0);
+const readUpd=()=>{try{return JSON.parse(localStorage.getItem(UPD_KEY)||"null")}catch(e){return null}};
+function renderUpdates(){
+  const on=onAndroidApp();$("updBox").hidden=!on;if(!on)return;
+  const u=readUpd();
+  $("updInfo").textContent=runningUpdate()
+    ?`Running an installed update, build ${ownBuild()}. Install a newer file the same way; installing a new APK replaces it.`
+    :`Running the built-in version, build ${ownBuild()}.${u&&u.failed?` An installed update (build ${u.build}) didn't start, so the app went back to this one.`:""} To update without a new APK, download a newer rack-and-recall.html and install it here.`;
+  $("updRevert").hidden=!runningUpdate()&&!(u&&u.failed);
+}
+async function installUpdate(file){
+  const C=window.Capacitor,FS=C&&C.Plugins&&C.Plugins.Filesystem;
+  if(!FS){note("updNote","This app can't save files. Install the latest APK first.");return}
+  note("updNote","Checking the file…");
+  try{
+    const text=await file.text(),m=text.slice(0,8192).match(/<meta name="rr-build" content="(\d+)"/);
+    if(!m||!text.includes('id="lexdata"'))throw new Error("That file isn't a Rack & Recall page.");
+    const build=+m[1];
+    if(build<=ownBuild())throw new Error(`That file is build ${build}, and the app is already on build ${ownBuild()}.`);
+    note("updNote","Installing… this takes a few seconds.");
+    try{const d=await FS.readdir({path:"updates",directory:"DATA"});for(const f of d.files||[]){const n=typeof f==="string"?f:f.name;await FS.deleteFile({path:"updates/"+n,directory:"DATA"}).catch(()=>{})}}catch(e){}
+    const path=`updates/rack-and-recall-${build}.html`;
+    await FS.writeFile({path,data:text,directory:"DATA",encoding:"utf8",recursive:true});
+    const {uri}=await FS.getUri({path,directory:"DATA"});
+    save();saveLog();
+    localStorage.setItem(UPD_KEY,JSON.stringify({build,url:C.convertFileSrc(uri),tries:1}));
+    location.replace(C.convertFileSrc(uri));
+  }catch(e){note("updNote",e.message||String(e))}
+}
+function revertUpdate(){try{localStorage.removeItem(UPD_KEY)}catch(e){}location.replace("https://localhost/")}
+function updateStarted(){ // the installed page loaded: reset its failure counter
+  if(!runningUpdate())return;const u=readUpd();
+  if(u&&u.build===ownBuild()){u.tries=0;delete u.failed;localStorage.setItem(UPD_KEY,JSON.stringify(u))}
+}
+
 /* =================== backup file =================== */
 async function saveBackup(){
   const name=`rack-recall-backup-${todayKey()}.json`,text=JSON.stringify({app:"rack-recall",version:4,store:{...store,sync:{}},log:LOG});
@@ -2113,6 +2178,8 @@ document.addEventListener("click",e=>{
     case "exportBtn":{
       saveBackup();break}
     case "importBtn":$("importFile").click();break;
+    case "updBtn":$("updFile").click();break;
+    case "updRevert":revertUpdate();break;
     case "zyzBtn":$("zyzFile").click();break;
     case "zyzGo":if(zyz)doZyzImport();break;
     case "zyzCancel":zyz=null;renderZyz();break;
@@ -2136,6 +2203,7 @@ $("deckList").addEventListener("input",e=>{if(e.target.id==="autoN")autoNVal=Mat
 $("lookupForm").addEventListener("submit",e=>{e.preventDefault();const v=$("lookupIn").value.trim();if(!v){$("lookupPanel").hidden=true;return}$("lookupPanel").hidden=false;$("lookupOut").innerHTML=`<p class="note">Looking up…</p>`;lookup();$("lookupPanel").scrollIntoView({block:"nearest"})});
 $("zyzFile").addEventListener("change",e=>{const f=e.target.files[0];if(f)openZyz(f);e.target.value=""});
 $("zyzPanel").addEventListener("change",e=>{if(!zyz)return;const id=e.target.id;if(id==="zyzQt")zyz.qt=e.target.value;if(id==="zyzReplace")zyz.replace=e.target.checked;if(id==="zyzDeck")zyz.deck=e.target.checked;renderZyz()});
+$("updFile").addEventListener("change",e=>{const f=e.target.files[0];if(f)installUpdate(f);e.target.value=""});
 $("importFile").addEventListener("change",e=>{
   const f=e.target.files[0];if(!f)return;
   const rd=new FileReader();
@@ -2199,7 +2267,7 @@ setInterval(()=>{
 syncInputs();applyTheme();
 $("lexInfo").textContent=`${LEX_META.name}, ${LEX_META.count.toLocaleString()} words (lexicon dated ${LEX_META.date}). App build ${LEX_META.build||"unknown"}`;
 loadLexicon().then(()=>{
-  ready=true;migrateDecks();runAutoAdd();snapshotProgress();renderFitInfo();syncReady=true;renderSyncUI();if(syncCfg.session)syncNow();
+  ready=true;updateStarted();migrateDecks();runAutoAdd();snapshotProgress();renderFitInfo();syncReady=true;renderSyncUI();if(syncCfg.session)syncNow();
   if(store.deck.startsWith("len")){const L=store.deck.slice(3),m=store.searches.find(s=>s.conds.length===1&&s.conds[0].t==="lengths"&&[...parseLens(s.conds[0].a)].join()===L);store.deck=m?m.id:firstDeck()}
   if(!deckExists(store.deck))store.deck=firstDeck();
   PAGE=PAGES.includes(store.page)?store.page:"decks";
