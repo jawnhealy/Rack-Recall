@@ -386,6 +386,8 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div><input type="number" id="retention" min="0.7" max="0.99" step="0.01"> <span class="note">0.90 is the FSRS default. Higher means more reviews.</span></div>
         <label for="newLimit">New cards per day</label>
         <div><input type="number" id="newLimit" min="0" max="1000" step="1"> <span class="note">how many of the cards you've added are introduced each day, per deck and quiz type</span></div>
+        <label for="revLimit">Reviews per day</label>
+        <div><input type="number" id="revLimit" min="0" max="10000" step="1"> <span class="note">per deck and quiz type; 0 means no limit. When more are due, the cards you're most likely to have forgotten come first.</span></div>
         <label for="newOrder">Order of added cards</label>
         <div><select id="newOrder"><option value="prob">Order added (most probable first)</option><option value="random">Random</option></select></div>
         <label for="typing">Type your answers</label>
@@ -821,7 +823,7 @@ const KEY="rack-recall-nwl23-v2",LOGKEY="rack-recall-log-v1";
 const SEED_DECKS=[{id:"s:sev8",name:"Bingos",conds:[{t:"lengths",a:"7,8"}],order:"prob"}];
 const DEFAULTS={cards:{},custom:"",deck:"s:sev8",migr:{bingo:1,ext:1},mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"length",a:7,b:7},{t:"prob",a:1,b:100}],
   notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},
-  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"on",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",showRank:"on",theme:"system",phonyKinds:{made:true,ending:true,collins:true},w:null,fit:null}};
+  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"on",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",theme:"system",phonyKinds:{made:true,ending:true,collins:true},w:null,fit:null}};
 let store=structuredClone(DEFAULTS),LOG="";
 function mergeStore(s){
   store={...structuredClone(DEFAULTS),...s,settings:{...DEFAULTS.settings,...(s.settings||{})}};
@@ -849,6 +851,8 @@ const todayKey=()=>{const d=new Date();return d.getFullYear()+"-"+(d.getMonth()+
 const logKey=deck=>deck+"|"+store.qtype;
 function newDoneToday(deck){return (store.newLog[todayKey()]||{})[logKey(deck)]||0}
 function bumpNew(deck){const k=todayKey();store.newLog={[k]:{...(store.newLog[k]||{}),[logKey(deck)]:newDoneToday(deck)+1}}}
+function revDoneToday(deck){return (store.newLog[todayKey()]||{})["r|"+logKey(deck)]||0}
+function bumpRev(deck){const k=todayKey(),lk="r|"+logKey(deck);store.newLog={[k]:{...(store.newLog[k]||{}),[lk]:revDoneToday(deck)+1}}}
 // log line: time(base36 s) key grade stateBefore predictedRecall%(review cards only, else -)
 function logReview(key,g,stateBefore,now,r){
   const line=Math.round(now/1000).toString(36)+" "+key+" "+g+" "+stateBefore+" "+(r==null?"-":Math.round(r*1000)/10)+"\n";
@@ -867,18 +871,22 @@ function markSibling(k){const f=buryMap(),fam=famOf(k);if(!(f[fam]||"").includes
 const LEARN_AHEAD=20*MIN;
 function scan(deck,now){
   const keys=deckKeys(deck),pre=store.qtype+":";
-  let due=[],soon=[],newKeys=[],mature=0,seen=0,nw=0,out=0,leeches=0,buried=0;
+  let dueLearn=[],dueRev=[],soon=[],newKeys=[],mature=0,seen=0,nw=0,out=0,leeches=0,buried=0;
   for(const k of keys){
     const r=store.cards[pre+k];
     if(!r){out++;continue}
     if(r[0]===0){nw++;if(isBuried(k))buried++;else newKeys.push([k,r[3]]);continue}
     seen++;if(r[1]>=21)mature++;if(r[6]>=store.settings.leech)leeches++;
-    if(r[3]<=now){if(isBuried(k))buried++;else due.push([k,r[3]])}
+    if(r[3]<=now){if(isBuried(k))buried++;else if(r[0]===2)dueRev.push([k,recallNow(r,now)]);else dueLearn.push([k,r[3]])}
     else if((r[0]===1||r[0]===3)&&r[3]<=now+LEARN_AHEAD)soon.push([k,r[3]]);
   }
-  due.sort((a,b)=>a[1]-b[1]);soon.sort((a,b)=>a[1]-b[1]);newKeys.sort((a,b)=>a[1]-b[1]);
+  // learning steps first, then reviews with the cards you're most likely to have forgotten first;
+  // a daily review limit holds back the rest
+  dueLearn.sort((a,b)=>a[1]-b[1]);dueRev.sort((a,b)=>a[1]-b[1]);soon.sort((a,b)=>a[1]-b[1]);newKeys.sort((a,b)=>a[1]-b[1]);
+  const lim=store.settings.revLimit,revAvail=lim>0?Math.max(0,lim-revDoneToday(deck)):Infinity;
+  const due=dueLearn.concat(dueRev.slice(0,revAvail)),held=Math.max(0,dueRev.length-revAvail);
   const newAvail=Math.min(nw,Math.max(0,store.settings.newLimit-newDoneToday(deck)));
-  return {keys,due,soon,newKeys:newKeys.map(x=>x[0]),newAvail:Math.min(newAvail,newKeys.length),nw,mature,seen,out,leeches,buried,boxed:keys.length-out,total:keys.length};
+  return {keys,due,held,overdue:dueRev.length,soon,newKeys:newKeys.map(x=>x[0]),newAvail:Math.min(newAvail,newKeys.length),nw,mature,seen,out,leeches,buried,boxed:keys.length-out,total:keys.length};
 }
 function pickNext(deck,now,exclude){
   const s=scan(deck,now);
@@ -976,7 +984,7 @@ function reveal(fromForm){
 function grade(g){
   if(store.mode!=="learn"||!cur||!flipped)return;
   const now=Date.now(),st=cardState(cur.key);
-  if(st.state==="new")bumpNew(store.deck);
+  if(st.state==="new")bumpNew(store.deck);else if(st.state==="review")bumpRev(store.deck);
   const rPred=st.state==="review"?retrievability(Math.max(0,(now-st.last)/DAY),Math.max(.01,st.s)):null;
   logReview(ckey(cur.key),g,SC.indexOf(st.state),now,rPred);markSibling(cur.key);
   setCard(cur.key,schedule(st,now)[g]);
@@ -1034,13 +1042,14 @@ function renderDecks(){
   $("deckList").innerHTML=ids.length?ids.map(id=>{
     const s=scan(id,now),readyN=s.due.length+s.newAvail,leech=id==="leech",open=expanded===id;
     const counts=leech?`<b>${fmtN(s.total)}</b> ${qt().name} cards lapsed ${store.settings.leech}+ times · <b class="${s.due.length?"due":""}">${fmtN(s.due.length)}</b> due`
-      :`<b class="${s.due.length?"due":""}">${fmtN(s.due.length)}</b> due · <b>${s.newAvail}</b> new today${s.nw>s.newAvail?` (${fmtN(s.nw)} waiting)`:""} · ${fmtN(s.boxed)} of ${fmtN(s.total)} ${u} in your ${esc(qt().name)} cardbox${s.seen?` · ${Math.round(s.mature/s.seen*100)}% mature`:""}${s.buried?` · ${fmtN(s.buried)} buried today`:""}`;
+      :`<b class="${s.due.length?"due":""}">${fmtN(s.due.length)}</b> due${s.held?` (${fmtN(s.held)} more held by your daily limit)`:""} · <b>${s.newAvail}</b> new today${s.nw>s.newAvail?` (${fmtN(s.nw)} waiting)`:""} · ${fmtN(s.boxed)} of ${fmtN(s.total)} ${u} in your ${esc(qt().name)} cardbox${s.seen?` · ${Math.round(s.mature/s.seen*100)}% mature`:""}${s.buried?` · ${fmtN(s.buried)} buried today`:""}`;
     let row=`<div class="deckrow"><div style="min-width:0"><div class="nm">${esc(deckName(id))}</div><div class="ct">${counts}</div></div>
       <div class="dact"><button class="btn" data-review="${esc(id)}">${readyN?`Study ${fmtN(readyN)}`:"Study"}</button><button class="btn ghost" data-phony="${esc(id)}">Valid or phony?</button><button class="btn ghost" data-expand="${esc(id)}" aria-expanded="${open}">${open?"Less":"More"}</button></div>`;
     if(open){
       const confirm=$("deckList").dataset.confirm===id;
       row+=`<div class="more">${leech?"":`<div class="boxinfo"><div class="boxbar"><i style="width:${s.total?s.boxed/s.total*100:0}%"></i></div></div>
         <div class="addctl"><label for="addN">Add next</label><input type="number" id="addN" min="1" max="5000" step="1" value="${addNVal}"><button class="btn" id="addBtn" ${s.out?"":"disabled"}>Add to cardbox</button><button class="btn ghost" id="addAll" ${s.out?"":"disabled"}>${confirm?`Tap again to add ${fmtN(s.out)}`:`Add all (${fmtN(s.out)})`}</button></div>`}
+        ${s.overdue>1?`<div class="addctl"><label for="spreadDays">Spread ${fmtN(s.overdue)} due reviews over</label><input type="number" id="spreadDays" min="2" max="60" step="1" value="${spreadDays}"><span class="note">days</span><button class="btn ghost" id="spreadBtn">Spread out</button></div>`:""}
         <div class="actions">${id.startsWith("s:")?`<button class="btn ghost sm" id="editDeck">Edit deck</button>`:""}<button class="btn ghost sm" id="resetDeck">Remove this deck from your ${esc(qt().name)} cardbox</button><span class="note" id="rowNote"></span></div></div>`;
     }
     return row+`</div>`;
@@ -1063,6 +1072,17 @@ function renderReviewBar(){
   $("rvPhony").hidden=!ph;
   if(ph)$("phonyKinds").innerHTML=Object.entries(PHONY_KINDS).filter(([k])=>k!=="collins"||hasCSW()).map(([k,n])=>`<label class="switch"><input type="checkbox" data-pk="${k}" ${store.settings.phonyKinds[k]?"checked":""}> <span>${n}</span></label>`).join("");
 }
+function spreadBacklog(deck,days){
+  // keep the most at-risk share for today and move the rest onto the following days, evenly
+  const now=Date.now(),pre=store.qtype+":",list=[];
+  for(const k of deckKeys(deck)){const r=store.cards[pre+k];if(r&&r[0]===2&&r[3]<=now)list.push([pre+k,recallNow(r,now)])}
+  if(!list.length)return {n:0,per:0};
+  list.sort((a,b)=>a[1]-b[1]);
+  const per=Math.ceil(list.length/days),start=new Date();start.setHours(0,0,0,0);
+  list.forEach(([ck],i)=>{const d=Math.floor(i/per);if(!d)return;const r=store.cards[ck];r[3]=start.getTime()+d*DAY+(i%per);r[7]=now+i});
+  save();syncSoon();return {n:list.length,per,days:Math.ceil(list.length/per)};
+}
+let spreadDays=7;
 function startReview(id,mode){
   store.deck=id;store.mode=mode;save();reviewing=true;lastK=null;session={n:0,again:0,start:Date.now()};next();
 }
@@ -1097,6 +1117,7 @@ function render(){
     else if(!s.boxed){h=`No ${nm} in your ${esc(qt().name)} cardbox yet`;hint=`Add some below, or from the deck's More menu. They come in most probable first.`}
     else{h=`All caught up on ${nm}`;
       if(nextDue)hint+=`Next review in ${fmtIvl(Math.max(MIN,nextDue-now))}. `;
+      if(s.held)hint+=`${fmtN(s.held)} more ${s.held===1?"review is":"reviews are"} due but held back by your limit of ${fmtN(store.settings.revLimit)} reviews a day (change it in Settings). `;
       if(s.buried)hint+=`${fmtN(s.buried)} ${s.buried===1?"card is":"cards are"} held until tomorrow because you've already answered ${s.buried===1?"its":"their"} letters in another quiz type today (sibling burying, in Settings). `;
       if(s.nw-s.buried>0&&!s.newAvail)hint+=`${fmtN(s.nw)} added ${s.nw===1?"card is":"cards are"} waiting; you've reached today's limit of ${store.settings.newLimit} new cards (change it in Settings). `;
       else if(s.out)hint+=`Add more ${u} to keep going.`;
@@ -1178,7 +1199,7 @@ function renderStats(){
   const now=Date.now(),s=scan(store.deck,now);
   const acc=session.n?Math.round((1-session.again/session.n)*100)+"%":"–";
   $("stats").innerHTML=
-    `<div class="stat"><b>${fmtN(s.due.length)}</b><span>due now${s.buried?` · ${fmtN(s.buried)} buried`:""}</span></div>`+
+    `<div class="stat"><b>${fmtN(s.due.length)}</b><span>due now${s.held?` · ${fmtN(s.held)} held by daily limit`:""}${s.buried?` · ${fmtN(s.buried)} buried`:""}</span></div>`+
     `<div class="stat"><b>${s.newAvail}</b><span>new today, of ${fmtN(s.nw)} added</span></div>`+
     `<div class="stat"><b>${fmtN(s.mature)}</b><span>mature (21d+) of ${fmtN(s.seen)} studied${s.leeches?` · ${s.leeches} leech${s.leeches===1?"":"es"}`:""}</span></div>`+
     `<div class="stat"><b>${acc}</b><span>right, last study session (${session.n})</span></div>`;
@@ -1790,6 +1811,11 @@ document.addEventListener("click",e=>{
     case "rvFull":toggleFullscreen();break;
     case "lookupClose":$("lookupPanel").hidden=true;$("lookupIn").value="";break;
 
+    case "spreadBtn":{
+      spreadDays=Math.max(2,Math.min(60,Math.round(+$("spreadDays").value||7)));
+      const r=spreadBacklog(store.deck,spreadDays);render();
+      if(r.n)note("rowNote",`${fmtN(Math.min(r.per,r.n))} stay due today; the other ${fmtN(Math.max(0,r.n-r.per))} come back over the next ${r.days-1} ${r.days-1===1?"day":"days"}, about ${fmtN(r.per)} a day.`);
+      break}
     case "addBtn":case "addBtn2":{if($("addN"))addNVal=Math.max(1,Math.round(+$("addN").value||20));addNext(store.deck,addNVal);if(reviewing&&!cur)next();else render();break}
     case "addAll":{
       const out=scan(store.deck,Date.now()).out;
@@ -1853,7 +1879,7 @@ $("conds").addEventListener("change",e=>{const el=e.target;if(el.dataset.f==="t"
 $("conds").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.tagName==="INPUT"){e.preventDefault();doSearch()}});
 $("addCond").addEventListener("change",e=>{const t=e.target.value;if(!t)return;const d=COND[t];store.draft.push({t,a:d.def?d.def[0]:"",b:d.def?d.def[1]:""});save();renderSearch()});
 $("seenBox").addEventListener("toggle",()=>{if($("seenBox").open&&ready)renderSeen()});
-$("deckList").addEventListener("input",e=>{if(e.target.id==="addN")addNVal=Math.max(1,Math.round(+e.target.value||20))});
+$("deckList").addEventListener("input",e=>{if(e.target.id==="addN")addNVal=Math.max(1,Math.round(+e.target.value||20));if(e.target.id==="spreadDays")spreadDays=Math.max(2,Math.min(60,Math.round(+e.target.value||7)))});
 $("lookupForm").addEventListener("submit",e=>{e.preventDefault();const v=$("lookupIn").value.trim();if(!v){$("lookupPanel").hidden=true;return}$("lookupPanel").hidden=false;$("lookupOut").innerHTML=`<p class="note">Looking up…</p>`;lookup();$("lookupPanel").scrollIntoView({block:"nearest"})});
 $("zyzFile").addEventListener("change",e=>{const f=e.target.files[0];if(f)openZyz(f);e.target.value=""});
 $("zyzPanel").addEventListener("change",e=>{if(!zyz)return;const id=e.target.id;if(id==="zyzQt")zyz.qt=e.target.value;if(id==="zyzReplace")zyz.replace=e.target.checked;if(id==="zyzDeck")zyz.deck=e.target.checked;renderZyz()});
@@ -1867,8 +1893,8 @@ $("importFile").addEventListener("change",e=>{
   }catch(err){note("settingsNote","That file isn't a Rack & Recall backup.")}};
   rd.readAsText(f);e.target.value="";
 });
-const NUMS={retention:[.7,.99,.9],newLimit:[0,1000,20],buildMin:[2,15,4],leech:[2,50,6],extMin:[1,13,2],extMax:[1,13,7]};
-function syncInputs(){for(const id of ["retention","newLimit","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn","showRank","theme"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
+const NUMS={retention:[.7,.99,.9],newLimit:[0,1000,20],revLimit:[0,10000,0],buildMin:[2,15,4],leech:[2,50,6],extMin:[1,13,2],extMax:[1,13,7]};
+function syncInputs(){for(const id of ["retention","newLimit","revLimit","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn","showRank","theme"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
 for(const id in NUMS)$(id).addEventListener("change",e=>{const [lo,hi,def]=NUMS[id];let v=+e.target.value;if(isNaN(v)||e.target.value==="")v=def;v=Math.min(hi,Math.max(lo,v));if(id!=="retention")v=Math.round(v);store.settings[id]=v;e.target.value=v;save();
   if(id==="leech")clearCache("leech");
   if(id==="extMin"&&store.settings.extMax<v){store.settings.extMax=v;$("extMax").value=v}
