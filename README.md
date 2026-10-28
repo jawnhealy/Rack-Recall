@@ -25,7 +25,7 @@ The free plan pauses a project after a week with no activity. Studying every few
 2. Upload every file in this folder, including the hidden `.github` folder. The easiest way is to drag the folder's contents onto the repository's **Add file → Upload files** page. You can also use GitHub Desktop or git.
 3. Open the repository's **Actions** tab. A run called **Build apps** starts by itself. You can also start one with **Run workflow**. It takes about 10–15 minutes.
 4. When it shows a green check, open the run and download the two files under **Artifacts**:
-   - **windows-installer**: unzip it and run `Rack-and-Recall-Setup-1.3.0.exe`. Windows may say "Windows protected your PC", because the app isn't signed with a paid certificate. Choose **More info → Run anyway**.
+   - **windows-installer**: unzip it and run `Rack-and-Recall-Setup-1.4.0.exe`. Windows may say "Windows protected your PC", because the app isn't signed with a paid certificate. Choose **More info → Run anyway**.
    - **windows-portable**: the same app with no installer. Unzip it anywhere, such as Documents, and run `RackAndRecall.exe`.
 
    If the app won't open after installing ("Windows cannot access the specified device, path, or file"), Windows Security has probably quarantined it. Open **Windows Security → Virus & threat protection → Protection history**, find the Rack & Recall entry, and choose **Actions → Restore** (or **Allow on device**). Then reinstall.

@@ -99,6 +99,15 @@ input[type=number],input[type=text],select{font:inherit;padding:6px 8px;border:1
 :root[data-tiles="contrast"] .tile{background:#fff;color:#000;box-shadow:0 0 0 2px #000 inset;font-weight:800}
 :root[data-tiles="outline"] .tile{background:transparent;color:var(--ink);box-shadow:0 0 0 1.5px var(--muted) inset}
 :root[data-tiles="outline"] .tile.blank,:root[data-tiles="slate"] .tile.blank,:root[data-tiles="contrast"] .tile.blank{color:var(--muted)}
+.revdef{font-size:clamp(17px,2.6vw,22px);font-weight:500;text-align:center;max-width:40ch;text-wrap:balance}
+.tile.slot{background:transparent;box-shadow:none;border:2px dashed var(--line)}
+.bgrp.rack{grid-template-columns:minmax(9ch,max-content) 1fr;gap:12px}
+.bgrp.rack .blen{font-family:var(--f-mono);font-weight:600;text-align:left;letter-spacing:.04em}
+.mistakes{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.mistakes sup{color:var(--bad);font-size:.7em}
+.best{text-align:right;display:flex;flex-direction:column;align-items:flex-end}
+.best b{font-family:var(--f-display);font-size:28px;line-height:1}
+table.cov td.num{background:color-mix(in srgb,var(--good) calc(var(--p,0)*70%),transparent)}
 .tiles.demo{display:inline-flex;--t:34px}
 .shuf{font-size:12px;margin-top:-6px}
 .timer{width:min(420px,100%);height:5px;border-radius:3px;background:var(--line);overflow:hidden}
@@ -364,6 +373,23 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 
   <!-- ============ GAMES ============ -->
   <section class="view" id="gamesView" hidden>
+    <div class="panel game" id="speedPanel">
+      <div class="game-head">
+        <div>
+          <h2 class="sec">Speed round</h2>
+          <p class="note" style="margin:0">Find as many words as you can before the clock runs out. Type each word and press <kbd>Return</kbd>; the next rack comes when you've found them all, or press <kbd>Return</kbd> on an empty box to skip. Doesn't change your schedule.</p>
+        </div>
+        <div class="best" id="speedBest"></div>
+      </div>
+      <div class="settings" style="margin-top:0">
+        <label for="speedDeck">Racks from</label>
+        <div class="actions"><select id="speedDeck"></select><select id="speedPool" aria-label="Which racks"><option value="200">its 200 most probable</option><option value="1000">its 1,000 most probable</option><option value="5000">its 5,000 most probable</option><option value="0">all of it</option></select></div>
+        <label for="speedSecs">Time</label>
+        <div><select id="speedSecs"><option value="60">1 minute</option><option value="120">2 minutes</option><option value="180">3 minutes</option><option value="300">5 minutes</option></select></div>
+      </div>
+      <div class="actions"><button class="btn" id="speedPlay">Play</button><span class="note" id="speedNote"></span></div>
+    </div>
+
     <div class="panel game">
       <div class="game-head">
         <div>
@@ -379,6 +405,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div class="actions" id="gamePhonyKinds"></div>
       </div>
       <div class="actions"><button class="btn" id="gamePlay">Play</button><span class="note" id="gameNote"></span></div>
+      <div class="mistakes" id="gameMistakes"></div>
     </div>
   </section>
 
@@ -412,6 +439,8 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <label class="note" for="resQt">Add results to cardbox as</label>
         <select id="resQt"></select>
         <button class="btn ghost" id="addResults">Add to cardbox</button>
+        <button class="btn ghost sm" data-resexport="txt">Export word list</button>
+        <button class="btn ghost sm" data-resexport="csv">Export spreadsheet</button>
         <span class="note" id="resNote"></span>
       </div>
       <div class="results" id="results"></div>
@@ -672,6 +701,7 @@ const QT={
   E:{name:"Extensions",unit:"word",typed:true},
   S:{name:"Blanks",unit:"alpha",typed:true},
   W:{name:"Definitions",unit:"word",typed:false},
+  R:{name:"Reverse definitions",unit:"word",typed:true},
 };
 const qt=()=>QT[store.qtype];
 const unit=()=>qt().unit;
@@ -683,6 +713,7 @@ function answersFor(k){
     case "H":return hookWords(k);
     case "B":return buildWords(k,buildMinFor(k));
     case "E":return extensions(k);
+    case "R":{const d=LEX.words.get(k).def;return LEX.wordsByLen[k.length].filter(w=>LEX.words.get(w).def===d)}
     case "S":return blankAnswers(k).flatMap(x=>x[1]);
     default:return [];
   }
@@ -694,6 +725,7 @@ function countText(k,ans){
     case "X":{const n=LEX.anag.get(k).length;return `${pl(n,"anagram")} · ${pl(ans.length-n,"hook word")}`}
     case "H":return ans.length?pl(ans.length,"hook word"):"No hooks";
     case "B":return `${pl(ans.length,"word")} of ${buildMinFor(k)}+ letters`;
+    case "R":return `${k.length} letters${ans.length>1?` · ${ans.length} words share this definition`:""}`;
     case "S":return ans.length?`${pl(ans.length,"word")} of ${k.length+1} letters with the blank`:"No words with the blank";
     case "E":return ans.length?`${pl(ans.length,"extension")} ${extDesc()}`:`No extensions ${extDesc()}`;
   }
@@ -705,6 +737,7 @@ const PROMPT={
   H:"Type every word made by adding one letter to the front or back. Check with the box empty if you think there are none.",
   B:"Find every word that can be made from these tiles.",
   W:"Recall the meaning and hooks.",
+  R:"Name the word.",
   S:"The last tile is a blank. Type every word these tiles can make.",
   E:"Type every longer word that contains this word, as set in Settings. Check with the box empty if you think there are none.",
 };
@@ -927,8 +960,8 @@ const recallNow=(r,now)=>r&&r[0]>0?retrievability(Math.max(0,(now-r[4])/DAY),Mat
 const KEY="rack-recall-nwl23-v2",LOGKEY="rack-recall-log-v1";
 const SEED_DECKS=[{id:"s:sev8",name:"Bingos",conds:[{t:"lengths",a:"7,8"}],order:"prob"}];
 const DEFAULTS={cards:{},custom:"",deck:"s:sev8",migr:{bingo:1,ext:1},mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"length",a:7,b:7},{t:"prob",a:1,b:100}],
-  notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},autoAdd:{},autoDay:{},hist:{},
-  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"on",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,collins:true},w:null,fit:null}};
+  notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},autoAdd:{},autoDay:{},hist:{},fooled:{},doubted:{},speedBest:{},
+  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"on",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",mixMistakes:"on",speedSecs:60,speedPool:1000,tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,collins:true},w:null,fit:null}};
 let store=structuredClone(DEFAULTS),LOG="";
 function mergeStore(s){
   store={...structuredClone(DEFAULTS),...s,settings:{...DEFAULTS.settings,...(s.settings||{})}};
@@ -1079,14 +1112,23 @@ function armTimer(){
 function next(){
   if(!ready)return;
   if(!reviewing){cur=null;flipped=false;clearTimer();render();return}
+  if(store.mode==="speed"){if(!sp)startSpeed();else render();return}
   clearTimer();
   flipped=false;phonyAns=null;preview=null;typed=null;noteEditing=false;
   if(store.mode==="phony"){
-    const keys=deckKeys(store.deck,"word");
+    cur=null;const keys=deckKeys(store.deck,"word");
     if(!keys.length){cur=null;render();return}
     if(store.settings.phonyKinds.collins&&hasCSW()&&!CSW.ready){$("card").innerHTML=`<div class="loading">Unpacking Collins words…</div>`;ensureCSW().then(next);return}
-    const w=keys[Math.floor(Math.random()*keys.length)],f=Math.random()<.5?phonyFor(w):null;
-    cur=f?{...f,phony:true}:{key:w,phony:false};
+    const mf=Object.keys(store.fooled),md=Object.keys(store.doubted);
+    if(store.settings.mixMistakes==="on"&&mf.length+md.length&&Math.random()<.3){
+      const i=Math.floor(Math.random()*(mf.length+md.length));
+      if(i<mf.length){const k=mf[i],r=store.fooled[k];cur={key:k,phony:true,kind:r.kind||"made",src:r.src,base:r.base,type:r.type,again:true}}
+      else{const k=md[i-mf.length];cur={key:k,phony:false,again:true}}
+      if(cur.phony&&LEX.words.has(cur.key)){delete store.fooled[cur.key];cur=null}
+      else if(!cur.phony&&!LEX.words.has(cur.key)){delete store.doubted[cur.key];cur=null}
+    }
+    if(!cur){const w=keys[Math.floor(Math.random()*keys.length)],f=Math.random()<.5?phonyFor(w):null;
+      cur=f?{...f,phony:true}:{key:w,phony:false}}
   }else if(store.mode==="learn"){
     const k=pickNext(store.deck,Date.now(),lastK);cur=k?{key:k,ans:answersFor(k)}:null;
     if(cur&&unit()==="alpha"&&store.settings.tileOrder==="shuffle")cur.order=shuffleStr(k);
@@ -1096,6 +1138,7 @@ function next(){
   const inp=$("ansIn");if(inp)inp.focus({preventScroll:true});
 }
 function reshuffle(){
+  if(reviewing&&store.mode==="speed"&&sp&&!sp.done){const r=sp.racks.at(-1);r.order=shuffleStr(r.order);const el=$("tiles");if(el)el.outerHTML=tiles(r.order,false);return}
   if(!reviewing||store.mode!=="learn"||!cur||unit()!=="alpha")return;
   cur.order=shuffleStr(cur.order||cur.key);
   const el=$("tiles");if(el)el.outerHTML=tiles(cur.order,store.qtype==="S");
@@ -1141,6 +1184,11 @@ function answerPhony(saidPhony){
   if(store.mode!=="phony"||!cur||phonyAns!==null)return;
   phonyAns=saidPhony;session.n++;const right=saidPhony===cur.phony;if(!right)session.again++;
   const kind=cur.phony?cur.kind:"valid",pk=session.pk=session.pk||{};pk[kind]=pk[kind]||[0,0];pk[kind][1]++;if(right)pk[kind][0]++;
+  // remember mistakes so they come back; two right in a row retires one
+  const k=cur.key,book=cur.phony?"fooled":"doubted",list={...store[book]},rec=list[k];
+  if(!right){list[k]={...(cur.phony?{kind:cur.kind,src:cur.src,base:cur.base,type:cur.type}:{}),n:(rec?.n||0)+1,ok:0,t:Date.now()}}
+  else if(rec){if(rec.ok+1>=2)delete list[k];else list[k]={...rec,ok:rec.ok+1}}
+  store[book]=list;save();syncSoon();
   render();
 }
 
@@ -1173,6 +1221,8 @@ function extHTML(base,words,found){
     return `${esc(w.slice(0,i))}<span class="base">${esc(base)}</span>${esc(w.slice(i+base.length))}`};
   return `<div class="build">${Object.keys(by).sort((a,b)=>a-b).map(n=>`<div class="bgrp"><span class="blen">+${n}</span><div class="bwords">${by[n].map(w=>`<span class="${found?(found.has(w)?"hit":"miss"):""}" title="${esc(LEX.words.get(w).def)}">${mark(w)}${isNew(w)?'<sup class="nw">+</sup>':""}</span>`).join("")}</div></div>`).join("")}</div>`;
 }
+// a definition with its inflections and derived words taken out, so it doesn't give the answer away
+function clueOf(w){return LEX.words.get(w).def.replace(/\s*:\s*[A-Z][A-Z, ]*\[[^\]]*\].*$/,"").replace(/\[(\w+)[^\]]*\]/g,"[$1]").trim()}
 const sizeClass=n=>n>=10?"long":n>=6?"mid":"";
 
 function chip(id,label,cls){
@@ -1193,7 +1243,7 @@ function renderDecks(){
   const now=Date.now(),ids=deckIds(),u=unit()==="alpha"?"alphagrams":"words";
   if(expanded&&!ids.includes(expanded))expanded=null;
   $("deckList").innerHTML=ids.length?ids.map(id=>{
-    if(id==="susp"){const n=suspKeys().length;return `<div class="deckrow"><div style="min-width:0"><div class="nm">Suspended</div><div class="ct"><b>${fmtN(n)}</b> ${esc(qt().name)} ${n===1?"card":"cards"} set aside; they keep their schedule history</div></div><div class="dact"><button class="btn ghost" id="unsuspAll">Unsuspend all</button></div></div>`}
+    if(id==="susp"){const n=suspKeys().length;return `<div class="deckrow"><div style="min-width:0"><div class="nm">Suspended</div><div class="ct"><b>${fmtN(n)}</b> ${esc(qt().name)} ${n===1?"card":"cards"} set aside; they keep their schedule history</div></div><div class="dact"><button class="btn ghost" id="unsuspAll">Unsuspend all</button><button class="btn ghost" data-expand="susp" aria-expanded="${expanded==="susp"}">${expanded==="susp"?"Less":"More"}</button></div>${expanded==="susp"?`<div class="more"><div class="actions"><span class="note">Export</span><button class="btn ghost sm" data-export="txt">Word list (.txt)</button><button class="btn ghost sm" data-export="csv">Spreadsheet (.csv)</button><span class="note" id="rowNote"></span></div></div>`:""}</div>`}
     const s=scan(id,now),readyN=s.due.length+s.newAvail,leech=id==="leech",open=expanded===id;
     const counts=leech?`<b>${fmtN(s.total)}</b> ${qt().name} cards lapsed ${store.settings.leech}+ times · <b class="${s.due.length?"due":""}">${fmtN(s.due.length)}</b> due`
       :`<b class="${s.due.length?"due":""}">${fmtN(s.due.length)}</b> due${s.held?` (${fmtN(s.held)} more held by your daily limit)`:""} · <b>${s.newAvail}</b> new today${s.nw>s.newAvail?` (${fmtN(s.nw)} waiting)`:""} · ${fmtN(s.boxed)} of ${fmtN(s.total)} ${u} in your ${esc(qt().name)} cardbox${s.seen?` · ${Math.round(s.mature/s.seen*100)}% mature`:""}${s.buried?` · ${fmtN(s.buried)} buried today`:""}`;
@@ -1205,6 +1255,7 @@ function renderDecks(){
         <div class="addctl"><label for="addN">Add next</label><input type="number" id="addN" min="1" max="5000" step="1" value="${addNVal}"><button class="btn" id="addBtn" ${s.out?"":"disabled"}>Add to cardbox</button><button class="btn ghost" id="addAll" ${s.out?"":"disabled"}>${confirm?`Tap again to add ${fmtN(s.out)}`:`Add all (${fmtN(s.out)})`}</button></div>`}
         ${leech?`<div class="actions"><button class="btn ghost sm" id="suspLeeches">Suspend all ${fmtN(s.total)} leeches</button></div>`:`<div class="addctl"><label class="switch"><input type="checkbox" id="autoOn" ${store.autoAdd[id+"|"+store.qtype]?"checked":""}> <span>Keep</span></label><input type="number" id="autoN" min="1" max="1000" step="1" value="${store.autoAdd[id+"|"+store.qtype]||autoNVal}" aria-label="New cards to keep ready"><span class="note">new cards ready each day, added automatically in deck order</span></div>`}
         ${leech?"":`<div class="addctl"><label for="spreadDays">${s.overdue>1?`Spread ${fmtN(s.overdue)} due reviews over`:"Spread due reviews over"}</label><input type="number" id="spreadDays" min="2" max="60" step="1" value="${spreadDays}" ${s.overdue>1?"":"disabled"}><span class="note">days</span><button class="btn ghost" id="spreadBtn" ${s.overdue>1?"":"disabled"}>Spread out</button>${s.overdue>1?"":`<span class="note">No backlog in your ${esc(qt().name)} cardbox for this deck right now.</span>`}</div>`}
+        <div class="actions"><span class="note">Export</span><button class="btn ghost sm" data-export="txt">Word list (.txt)</button><button class="btn ghost sm" data-export="csv">Spreadsheet (.csv)</button></div>
         <div class="actions">${id.startsWith("s:")?`<button class="btn ghost sm" id="editDeck">Edit deck</button>`:""}<button class="btn ghost sm" id="resetDeck">Remove this deck from your ${esc(qt().name)} cardbox</button><span class="note" id="rowNote"></span></div></div>`;
     }
     return row+`</div>`;
@@ -1216,7 +1267,81 @@ function renderGames(){
   $("gameDeck").innerHTML=ids.map(id=>`<option value="${esc(id)}" ${id===pick?"selected":""}>${esc(deckName(id))} (${fmtN(deckKeys(id,"word").length)} words)</option>`).join("");
   $("gamePlay").disabled=!ids.length;note("gameNote",ids.length?"":"Make a deck first, on Decks or Search.");
   $("gamePhonyKinds").innerHTML=phonyKindsHTML();
+  const mf=Object.entries(store.fooled),md=Object.entries(store.doubted),why=r=>r.kind==="collins"?"Collins only":r.kind==="ending"?`${r.base} doesn't take -${r.type}`:r.src?`made from ${r.src}`:"phony";
+  $("gameMistakes").innerHTML=mf.length+md.length?`<div class="label">Your mistakes</div>
+    <label class="switch" style="width:max-content"><input type="checkbox" id="mixMistakes" ${store.settings.mixMistakes==="on"?"checked":""}> <span>Mix them back in (about 3 in 10 words)</span></label>
+    ${mf.length?`<p class="note" style="margin:0">Phonies you called valid (${mf.length}):</p><div class="bwords">${mf.sort((a,b)=>b[1].t-a[1].t).map(([k,r])=>`<span title="${esc(why(r))}">${esc(k)}${r.n>1?`<sup>×${r.n}</sup>`:""}</span>`).join("")}</div>`:""}
+    ${md.length?`<p class="note" style="margin:0">Real words you called phony (${md.length}):</p><div class="bwords">${md.sort((a,b)=>b[1].t-a[1].t).map(([k,r])=>`<span title="${esc(LEX.words.get(k)?.def||"")}">${esc(k)}${r.n>1?`<sup>×${r.n}</sup>`:""}</span>`).join("")}</div>`:""}
+    <p class="note" style="margin:0">A word leaves the list after you get it right twice in a row.</p>
+    <div class="actions"><button class="btn ghost sm" id="clearMistakes">${$("gameMistakes").dataset.confirm==="1"?"Tap again to clear the list":"Clear the list"}</button></div>`:`<p class="note" style="margin:0">Phonies you call valid, and real words you call phony, will be listed here and mixed back into the game.</p>`;
+  renderSpeedSetup();
 }
+/* ---------- speed round ---------- */
+let sp=null,spTick=null;
+const speedKey=()=>`${store.gameSpeedDeck}|${store.settings.speedSecs}|${store.settings.speedPool}`;
+function renderSpeedSetup(){
+  const ids=deckIds().filter(id=>id!=="susp"&&id!=="leech"),pick=ids.includes(store.gameSpeedDeck)?store.gameSpeedDeck:ids.includes(store.deck)?store.deck:ids[0];
+  store.gameSpeedDeck=pick;
+  $("speedDeck").innerHTML=ids.map(id=>`<option value="${esc(id)}" ${id===pick?"selected":""}>${esc(deckName(id))}</option>`).join("");
+  $("speedPool").value=String(store.settings.speedPool);$("speedSecs").value=String(store.settings.speedSecs);
+  $("speedPlay").disabled=!ids.length;
+  const b=store.speedBest[speedKey()];$("speedBest").innerHTML=b?`<div class="label">Best</div><b>${b.score}</b><span class="note">words</span>`:"";
+}
+function speedPool(){const keys=deckKeys(store.deck,"alpha"),n=+store.settings.speedPool;return n>0?keys.slice(0,n):keys}
+function speedNextRack(){
+  const pool=speedPool();if(!pool.length){sp.done=true;return}
+  let k;for(let t=0;t<20;t++){k=pool[Math.floor(Math.random()*pool.length)];if(!sp.racks.some(r=>r.key===k))break}
+  sp.racks.push({key:k,ans:LEX.anag.get(k).slice(),found:new Set(),order:store.settings.tileOrder==="shuffle"?shuffleStr(k):k});
+}
+function startSpeed(){
+  sp={end:Date.now()+store.settings.speedSecs*1000,score:0,racks:[],done:false};speedNextRack();
+  clearInterval(spTick);spTick=setInterval(speedTickFn,250);render();$("spIn")?.focus();
+}
+function speedTickFn(){
+  if(!sp||sp.done){clearInterval(spTick);return}
+  const left=Math.max(0,sp.end-Date.now());const el=$("spTime");if(el)el.textContent=Math.ceil(left/1000)+" s";
+  if(!left)speedFinish();
+}
+function speedFinish(){
+  if(!sp||sp.done)return;sp.done=true;clearInterval(spTick);
+  const key=speedKey(),best=store.speedBest[key];sp.newBest=!best||sp.score>best.score;
+  if(sp.newBest&&sp.score>0){store.speedBest={...store.speedBest,[key]:{score:sp.score,t:Date.now()}};save();syncSoon()}
+  sp.prevBest=best?best.score:null;render();
+}
+function speedSubmit(){
+  const inp=$("spIn");if(!sp||sp.done||!inp)return;
+  const r=sp.racks.at(-1),words=inp.value.toUpperCase().split(/[^A-Z]+/).filter(Boolean);inp.value="";
+  if(!words.length){speedNextRack();render();$("spIn")?.focus();return}
+  let msg="";
+  for(const w of words){
+    if(r.found.has(w))msg=`${w}: already found`;
+    else if(r.ans.includes(w)){r.found.add(w);sp.score++;msg=""}
+    else msg=LEX.words.has(w)?`${w} is a word, but not from these tiles`:`${w} isn't in NWL2023`;
+  }
+  if(r.found.size===r.ans.length){speedNextRack();render();$("spIn")?.focus();return}
+  $("spFound").innerHTML=speedFoundHTML(r);$("spScore").textContent=sp.score;$("spMsg").textContent=msg;
+}
+const speedFoundHTML=r=>`${[...r.found].map(w=>`<span class="hit">${esc(w)}</span>`).join("")}${r.ans.length>r.found.size?`<span class="note">${r.ans.length-r.found.size} to go</span>`:""}`;
+function renderSpeed(card,gr){
+  card.className="card";
+  if(!sp){card.innerHTML="";gr.innerHTML="";return}
+  if(sp.done){
+    const total=sp.racks.reduce((n,r)=>n+r.ans.length,0);
+    card.innerHTML=`<div class="done"><h2>${sp.score} ${sp.score===1?"word":"words"}${sp.newBest&&sp.score?" · new best":""}</h2></div>
+      <div class="hint">${sp.racks.length} ${sp.racks.length===1?"rack":"racks"} · ${sp.score} of ${total} possible words${sp.prevBest!=null&&!sp.newBest?` · your best is ${sp.prevBest}`:""}</div>
+      <div class="build">${sp.racks.map(r=>`<div class="bgrp rack"><span class="blen">${esc(r.key)}</span><div class="bwords">${r.ans.map(w=>`<span class="${r.found.has(w)?"hit":"miss"}" title="${esc(LEX.words.get(w).def)}">${esc(w)}</span>`).join("")}</div></div>`).join("")}</div>`;
+    gr.className="grade two";gr.innerHTML=`<button class="good" id="spAgain">Play again</button><button id="rvExit2">Back to games</button>`;
+    return;
+  }
+  const r=sp.racks.at(-1);
+  card.innerHTML=`<div class="corner"><span>Score <b id="spScore">${sp.score}</b></span></div><div class="corner r"><b id="spTime">${Math.ceil(Math.max(0,sp.end-Date.now())/1000)} s</b></div>
+    ${tiles(r.order,false)}<button class="linkbtn shuf" id="shuffleBtn" title="Shuffle the tiles (;)">Shuffle <kbd>;</kbd></button>
+    <div class="count">${r.ans.length} ${r.ans.length===1?"word":"words"}</div>
+    <form class="typebox" id="spForm" autocomplete="off"><input id="spIn" aria-label="A word" placeholder="Type a word, then Return" spellcheck="false" autocapitalize="characters"><button class="btn" type="submit">Enter</button></form>
+    <div class="typed" id="spFound">${speedFoundHTML(r)}</div><div class="meta" id="spMsg"></div>`;
+  gr.className="grade two";gr.innerHTML=`<button id="spSkip">Skip rack<small>Return on an empty box</small></button><button id="spStop">End now</button>`;
+}
+
 function renderStatsPage(){
   if(!deckExists(store.deck))store.deck=firstDeck();
   $("statsDecks").innerHTML=deckIds().map(id=>chip(id,deckName(id))).join("");
@@ -1225,6 +1350,7 @@ function renderStatsPage(){
   renderStats();renderStatsPanel();
 }
 function renderReviewBar(){
+  if(store.mode==="speed"){$("rvTitle").textContent=`${deckName(store.deck)} · Speed round`;$("rvProg").textContent=sp?`${sp.racks.length} ${sp.racks.length===1?"rack":"racks"}`:"";$("rvUndo").hidden=true;$("rvPhony").hidden=true;$("rvFull").hidden=!document.fullscreenEnabled;return}
   const ph=store.mode==="phony";
   $("rvTitle").textContent=`${deckName(store.deck)} · ${ph?"Valid or phony?":qt().name}`;
   const acc=session.n?Math.round((1-session.again/session.n)*100)+"%":"";
@@ -1266,7 +1392,7 @@ function startReview(id,mode){
   store.deck=id;store.mode=mode;save();runAutoAdd();reviewing=true;lastK=null;undoStack=[];session={n:0,again:0,start:Date.now()};next();
 }
 function exitReview(){
-  reviewing=false;cur=null;flipped=false;noteEditing=false;clearTimer();snapshotProgress();
+  reviewing=false;cur=null;flipped=false;noteEditing=false;clearTimer();clearInterval(spTick);sp=null;snapshotProgress();
   if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});
   render();
 }
@@ -1295,6 +1421,7 @@ function render(){
   }
   renderReviewBar();
   const now=Date.now(),card=$("card"),gr=$("grade");
+  if(store.mode==="speed"){renderSpeed(card,gr);return}
   if(!cur){
     card.className="card";gr.className="grade two";gr.innerHTML="";
     if(store.mode==="phony"){card.innerHTML=`<div class="done"><h2>This deck is empty</h2></div><div class="actions" style="justify-content:center"><button class="btn ghost" id="rvExit2">Back to games</button></div>`;return}
@@ -1322,13 +1449,13 @@ function render(){
     const st=cardState(k),r=store.cards[ckey(k)],ans=cur.ans,isAlpha=unit()==="alpha";
     const rankTxt=isAlpha?`#${fmtN(LEX.rank.get(k))} of ${fmtN(LEX.byLen[k.length].length)}`:`#${fmtN(LEX.wrank.get(k))} of ${fmtN(LEX.wordsByLen[k.length].length)}`;
     const rc=recallNow(r,now),leech=st.lapses>=store.settings.leech;
-    html=`<div class="corner"><span class="badge ${st.state}">${st.state}</span>${leech?'<span class="badge leech">leech</span>':""}${store.settings.showRank==="off"?"":`<span>${rankTxt}</span>`}</div><div class="corner r"><span class="qname">${esc(qt().name)}</span>${rc!=null?`<span title="Estimated chance you recall this card right now">recall ${Math.round(rc*100)}%</span>`:""}</div>${tiles(!flipped&&cur.order?cur.order:k,store.qtype==="S")}`;
+    html=`<div class="corner"><span class="badge ${st.state}">${st.state}</span>${leech?'<span class="badge leech">leech</span>':""}${store.settings.showRank==="off"?"":`<span>${rankTxt}</span>`}</div><div class="corner r"><span class="qname">${esc(qt().name)}</span>${rc!=null?`<span title="Estimated chance you recall this card right now">recall ${Math.round(rc*100)}%</span>`:""}</div>${store.qtype==="R"?`<div class="revdef">${esc(clueOf(k))}</div><div class="tiles" id="tiles" title="Tap to reveal" style="--n:${k.length}">${'<div class="tile slot"></div>'.repeat(k.length)}</div>`:tiles(!flipped&&cur.order?cur.order:k,store.qtype==="S")}`;
     if(!flipped){
       if(isAlpha)html+=`<button class="linkbtn shuf" id="shuffleBtn" title="Shuffle the tiles (;)">Shuffle <kbd>;</kbd></button>`;
       if(store.settings.timeLimit)html+=`<div class="timer" aria-hidden="true"><i style="animation-duration:${store.settings.timeLimit}s;animation-delay:-${Math.min(store.settings.timeLimit,(Date.now()-cur.t0)/1000)}s"></i></div>`;
       if(qt().typed&&store.settings.showCount==="on")html+=`<div class="count">${countText(k,ans)}</div>`;
       if(qt().typed&&store.settings.typing==="on"){
-        html+=`<form class="typebox" id="ansForm" autocomplete="off"><input id="ansIn" aria-label="Your answers" placeholder="Type the words, space between" spellcheck="false" autocapitalize="characters"><button class="btn" type="submit">Check</button></form>`;
+        html+=`<form class="typebox" id="ansForm" autocomplete="off"><input id="ansIn" aria-label="Your answers" placeholder="${store.qtype==="R"?"Type the word":"Type the words, space between"}" spellcheck="false" autocapitalize="characters"><button class="btn" type="submit">Check</button></form>`;
       }
       gr.className="grade";gr.innerHTML=`<button class="full" id="g-show">Show answer<small>${qt().typed&&store.settings.typing==="on"?"Return":"Return, Space or 0–3"}</small></button>`;
     }else{
@@ -1353,6 +1480,9 @@ function render(){
         case "E":{const e=LEX.words.get(k);
           html+=`<div class="single"><div class="hooksline"><b>${wordHTML(k,"",true)}</b></div><div class="def">${esc(e.def)}</div></div>`;
           html+=ans.length?extHTML(k,ans,found):`<div class="hint">No extensions ${extDesc()}.</div>`;break}
+        case "R":{const e=LEX.words.get(k);
+          html+=`<div class="single"><div class="hooksline">${hooksHTML(k,"f",found)||"–"} <b>${wordHTML(k,typed?(found.has(k)?"hit":"miss"):"",true)}</b> ${hooksHTML(k,"b",found)||"–"}</div><div class="def">${esc(e.def)}</div></div>`;
+          if(ans.length>1)html+=ansRows(ans.filter(w=>w!==k),{found});break}
         case "W":{const e=LEX.words.get(k);
           html+=`<div class="single"><div class="hooksline">${hooksHTML(k,"f")||"–"} <b>${wordHTML(k,"",true)}</b> ${hooksHTML(k,"b")||"–"}</div><div class="def">${esc(e.def)}</div></div>`;
           const sibs=LEX.anag.get(e.a).filter(w=>w!==k);if(sibs.length)html+=`<div class="meta">Anagrams: ${sibs.map(w=>wordHTML(w)).join(" ")}</div>`;break}
@@ -1374,6 +1504,7 @@ function render(){
     }else{
       const ok=phonyAns===cur.phony;
       html+=`<div class="verdict ${ok?"ok":"no"}">${ok?"Correct":"Wrong"}: ${cur.phony?"phony":"valid"}</div>`;
+      if(cur.again)html+=`<div class="meta"><span class="badge leech">${cur.phony?"you fell for this one before":"you doubted this one before"}</span></div>`;
       if(!cur.phony)html+=ansRows([k]);
       else{
         const cs=CSW.def.get(k),tag={made:"made-up",ending:"wrong ending",collins:"Collins only"}[cur.kind];
@@ -1536,6 +1667,27 @@ function progressChart(deck){
     <text x="${L}" y="${H-6}">${new Date(pts[0].d+"T12:00").toLocaleDateString(undefined,{month:"short",day:"numeric"})}</text><text x="${W-R}" y="${H-6}" text-anchor="end">${new Date(last.d+"T12:00").toLocaleDateString(undefined,{month:"short",day:"numeric"})}</text></svg></div>
     <div class="legend"><span style="--c:var(--tl)">studied (${fmtN(last.v[1])})</span><span style="--c:var(--good)">mature, 21+ days (${fmtN(last.v[2])})</span></div>`;
 }
+function coverageHTML(){
+  // how much of each length's most probable words you know: studied, out of learning, and recall now at 85%+
+  const q=store.qtype,u=QT[q].unit,pre=q+":",now=Date.now(),bands=[100,500,1000,2000,5000,0];
+  const rows=[];
+  for(const L of LENGTHS){
+    const list=u==="alpha"?LEX.byLen[L]:LEX.wordsByLen[L];if(!list)continue;
+    let any=false;const cells=[];
+    bands.forEach((n,bi)=>{
+      const top=n?Math.min(n,list.length):list.length;let solid=0,studied=0;
+      for(let i=0;i<top;i++){const r=store.cards[pre+list[i]];if(!r||r[0]===0||r[0]>=10)continue;studied++;if(r[0]===2&&recallNow(r,now)>=.85)solid++}
+      if(studied)any=true;
+      const dup=bi>0&&(bands[bi-1]>=list.length);  // band already covers the whole length
+      cells.push({top,solid,studied,dup});
+    });
+    if(any||L===7||L===8)rows.push({L,cells});
+  }
+  const head=bands.map(n=>`<th class="num">${n?"Top "+fmtN(n):"All"}</th>`).join("");
+  return `<div class="st-sec"><div class="label">Coverage by probability · ${esc(QT[q].name)}</div>
+    <p style="margin:0" class="note">The share of each length's most probable ${u==="alpha"?"alphagrams":"words"} (two-blank probability) that you know solidly: studied, out of learning, and with an 85% or better chance of recall right now. Change the quiz type on Decks.</p>
+    <div class="wl"><table class="cov"><thead><tr><th>Length</th>${head}</tr></thead><tbody>${rows.map(r=>`<tr><td><b>${r.L}</b></td>${r.cells.map(c=>{if(c.dup)return `<td class="num"></td>`;const pct=c.top?c.solid/c.top:0;return `<td class="num" style="--p:${pct.toFixed(3)}" title="${fmtN(c.solid)} solid and ${fmtN(c.studied)} studied of ${fmtN(c.top)}">${c.solid?(pct<.01?"<1%":Math.round(pct*100)+"%"):c.studied?"0%":"–"}</td>`}).join("")}</tr>`).join("")}</tbody></table></div></div>`;
+}
 function calendarHTML(L){
   const byDay=new Map();for(const e of L){const d=isoDay(e.t);byDay.set(d,(byDay.get(d)||0)+1)}
   const today=new Date();today.setHours(12,0,0,0);
@@ -1566,7 +1718,7 @@ function renderStatsPanel(){
   for(const e of L){if(e.t<since||!per[e.q])continue;per[e.q].n30++;if(e.secs!=null){per[e.q].tsum+=e.secs;per[e.q].tn++}if(e.st===2){per[e.q].rev++;if(e.g>1)per[e.q].pass++}}
   const pct=(a,b)=>b?Math.round(a/b*1000)/10+"%":"–";
   let allRev=0,allPass=0;for(const q in per){allRev+=per[q].rev;allPass+=per[q].pass}
-  let html=calendarHTML(L)+`<div class="st-sec"><div class="label">True retention, last 30 days</div><p>Share of reviews of learned cards (not new or relearning) that you got right: <b>${pct(allPass,allRev)}</b> across ${fmtN(allRev)} reviews, against a target of ${Math.round(target*100)}%. ${allRev>=100?(allPass/allRev<target-0.03?"You're recalling less than FSRS aims for; fitting your parameters should help.":allPass/allRev>target+0.03?"You're recalling more than FSRS aims for; fitting your parameters, or lowering target retention, would cut reviews.":"You're close to target."):"Needs about 100 reviews of learned cards to say much."}</p>
+  let html=coverageHTML()+calendarHTML(L)+`<div class="st-sec"><div class="label">True retention, last 30 days</div><p>Share of reviews of learned cards (not new or relearning) that you got right: <b>${pct(allPass,allRev)}</b> across ${fmtN(allRev)} reviews, against a target of ${Math.round(target*100)}%. ${allRev>=100?(allPass/allRev<target-0.03?"You're recalling less than FSRS aims for; fitting your parameters should help.":allPass/allRev>target+0.03?"You're recalling more than FSRS aims for; fitting your parameters, or lowering target retention, would cut reviews.":"You're close to target."):"Needs about 100 reviews of learned cards to say much."}</p>
   <div class="wl"><table><thead><tr><th>Quiz type</th><th class="num">In cardbox</th><th class="num">Studied</th><th class="num">Mature</th><th class="num">Reviews (30d)</th><th class="num">True retention</th><th class="num">Avg time</th></tr></thead><tbody>${Object.entries(QT).map(([q,d])=>{const x=per[q];return `<tr><td>${d.name}</td><td class="num">${fmtN(x.box)}</td><td class="num">${fmtN(x.studied)}</td><td class="num">${fmtN(x.mature)}</td><td class="num">${fmtN(x.n30)}</td><td class="num">${pct(x.pass,x.rev)}</td><td class="num">${x.tn?(x.tsum/x.tn).toFixed(1)+" s":"–"}</td></tr>`}).join("")}</tbody></table></div></div>`;
   // reviews per day
   const start=new Date();start.setHours(0,0,0,0);const day0=start.getTime()-29*DAY;
@@ -1900,6 +2052,39 @@ function updateStarted(){ // the installed page loaded: reset its failure counte
   if(u&&u.build===ownBuild()){u.tries=0;delete u.failed;localStorage.setItem(UPD_KEY,JSON.stringify(u))}
 }
 
+/* =================== export =================== */
+async function saveTextFile(name,text,mime,noteId){
+  const Cap=window.Capacitor;
+  if(Cap&&Cap.isNativePlatform&&Cap.isNativePlatform()&&Cap.Plugins.Filesystem){
+    try{const r=await Cap.Plugins.Filesystem.writeFile({path:name,data:text,directory:"CACHE",encoding:"utf8"});
+      await Cap.Plugins.Share.share({title:name,files:[r.uri]});note(noteId,"Ready. Save or send it from the share sheet.")}
+    catch(e){note(noteId,"Couldn't save it: "+(e.message||e))}
+    return;
+  }
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([text],{type:mime}));a.download=name;document.body.appendChild(a);a.click();a.remove();
+  note(noteId,`Saved ${name}.`);
+}
+const csvCell=v=>{v=v==null?"":String(v);return /[",\n]/.test(v)?`"${v.replace(/"/g,'""')}"`:v};
+const fileSafe=s=>s.replace(/[^A-Za-z0-9&+ -]+/g,"").trim().replace(/\s+/g,"-").toLowerCase()||"list";
+function exportWords(words,label,fmt,noteId,withCards){
+  const base=`${fileSafe(label)}-${isoDay(Date.now())}`;
+  if(fmt==="txt")return saveTextFile(base+".txt",words.join("\n")+"\n","text/plain",noteId);
+  const pre=store.qtype+":",u=unit();
+  const head=["word","alphagram","length","probability rank","playability rank","front hooks","back hooks","definition"].concat(withCards?[`${qt().name} status`,"next due","stability (days)","lapses"]:[]);
+  const lines=[head.map(csvCell).join(",")];
+  for(const w of words){
+    const e=LEX.words.get(w);if(!e)continue;
+    const row=[w,e.a,w.length,LEX.rank.get(e.a),e.play,hookList(e.fh).map(h=>h.l).join(""),hookList(e.bh).map(h=>h.l).join(""),e.def];
+    if(withCards){const r=store.cards[pre+(u==="alpha"?e.a:w)];row.push(!r?"not in cardbox":r[0]>=10?"suspended":r[0]===0?"added":SC[r[0]],r&&r[0]>0&&r[0]<10?isoDay(r[3]):"",r&&r[0]>0?r[1].toFixed(1):"",r?r[6]:"")}
+    lines.push(row.map(csvCell).join(","));
+  }
+  return saveTextFile(base+".csv","\ufeff"+lines.join("\r\n")+"\r\n","text/csv",noteId);
+}
+function deckWords(id){
+  if(id==="leech"||id==="susp"){const ks=deckKeys(id);return unit()==="alpha"?ks.flatMap(k=>LEX.anag.get(k)||[]):ks}
+  return deckKeys(id,"word");
+}
+
 /* =================== backup file =================== */
 async function saveBackup(){
   const name=`rack-recall-backup-${todayKey()}.json`,text=JSON.stringify({app:"rack-recall",version:4,store:{...store,sync:{}},log:LOG});
@@ -1931,6 +2116,7 @@ const META={
   bury:{get:()=>store.bury,set:v=>{store.bury=v}},
   auto:{get:()=>store.autoAdd,set:v=>{store.autoAdd=v||{}}},
   hist:{get:()=>store.hist,set:v=>{store.hist=v||{}}},
+  games:{get:()=>({fooled:store.fooled,doubted:store.doubted,speedBest:store.speedBest}),set:v=>{store.fooled=v.fooled||{};store.doubted=v.doubted||{};const b={...store.speedBest};for(const k in v.speedBest||{})if(!b[k]||v.speedBest[k].score>b[k].score)b[k]=v.speedBest[k];store.speedBest=b}},
 };
 function syncStatus(msg,ok){syncState={msg,ok,at:Date.now()};renderSyncUI()}
 function renderSyncUI(){
@@ -2081,7 +2267,7 @@ function migrateDecks(){
   save();
 }
 function setDeck(id){store.deck=id;save();lastK=null;render()}
-document.addEventListener("submit",e=>{if(e.target.id==="ansForm"){e.preventDefault();reveal(true)}});
+document.addEventListener("submit",e=>{if(e.target.id==="ansForm"){e.preventDefault();reveal(true)}if(e.target.id==="spForm"){e.preventDefault();speedSubmit()}});
 document.addEventListener("click",e=>{
   if(!ready)return;
   if(e.target.closest("#tiles")){if(store.mode==="learn")reveal(false);else if(phonyAns!==null)next();return}
@@ -2097,6 +2283,8 @@ document.addEventListener("click",e=>{
   if(ds.add){const i=ds.add.indexOf(":");addKeys([ds.add.slice(i+1)],ds.add.slice(0,i+1));lookup();if(!cur&&store.mode==="learn")next();else render();return}
   if(ds.susp){const r=store.cards[ds.susp];if(r){setSusp(ds.susp,!isSusp(r));save();syncSoon()}lookup();render();return}
   if(ds.typo&&typed){const [w,m]=ds.typo.split("|");typed.wrong=typed.wrong.filter(x=>x!==w);typed.missed=typed.missed.filter(x=>x!==m);typed.hit.add(m);render();return}
+  if(ds.export){exportWords(deckWords(store.deck),deckName(store.deck),ds.export,"rowNote",true);return}
+  if(ds.resexport&&lastResult){exportWords(lastResult.words,$("saveName").value||"search",ds.resexport,"resNote",false);return}
   if(ds.remove){delCard(ds.remove);save();syncSoon();lookup();if(cur&&ckey(cur.key)===ds.remove)next();else render();return}
   if(ds.rm){store.draft.splice(+ds.rm,1);save();renderSearch();return}
   if(ds.preset){const pr=PRESETS[+ds.preset];store.draft=structuredClone(pr.conds);editingId=null;$("saveOrder").value="prob";save();doSearch();$("saveName").value=pr.name;$("saveSearch").textContent="Save as deck";$("resultsPanel").scrollIntoView({behavior:"smooth",block:"start"});return}
@@ -2115,6 +2303,11 @@ document.addEventListener("click",e=>{
     case "rvExit":case "rvExit2":exitReview();break;
     case "rvFull":toggleFullscreen();break;
     case "rvUndo":undoGrade();break;
+    case "speedPlay":{const d=$("speedDeck").value;store.gameSpeedDeck=d;if(!deckKeys(d,"alpha").length){note("speedNote","That deck is empty.");break}sp=null;startReview(d,"speed");break}
+    case "spAgain":startSpeed();break;
+    case "spSkip":if(sp&&!sp.done){speedNextRack();render();$("spIn")?.focus()}break;
+    case "spStop":speedFinish();break;
+    case "clearMistakes":{const g=$("gameMistakes").dataset;if(g.confirm!=="1"){g.confirm="1";renderGames();setTimeout(()=>{g.confirm="";if(PAGE==="games"&&!reviewing)renderGames()},4000);break}g.confirm="";store.fooled={};store.doubted={};save();syncSoon();renderGames();break}
     case "shuffleBtn":reshuffle();$("ansIn")?.focus({preventScroll:true});break;
     case "suspendCur":if(cur){setSusp(ckey(cur.key),true);save();syncSoon();lastK=null;next()}break;
     case "unsuspAll":{const pre=store.qtype+":";for(const k of suspKeys())setSusp(pre+k,false);save();syncSoon();render();break}
@@ -2236,11 +2429,15 @@ $("hideCount").addEventListener("change",e=>{store.settings.showCount=e.target.c
 $("phonyKinds").addEventListener("change",e=>{const k=e.target.dataset.pk;if(!k)return;store.settings.phonyKinds={...store.settings.phonyKinds,[k]:e.target.checked};save();next()});
 $("gamePhonyKinds").addEventListener("change",e=>{const k=e.target.dataset.pk;if(!k)return;store.settings.phonyKinds={...store.settings.phonyKinds,[k]:e.target.checked};save()});
 $("gameDeck").addEventListener("change",e=>{store.gameDeck=e.target.value;save()});
+$("gameMistakes").addEventListener("change",e=>{if(e.target.id==="mixMistakes"){store.settings.mixMistakes=e.target.checked?"on":"off";save()}});
+$("speedDeck").addEventListener("change",e=>{store.gameSpeedDeck=e.target.value;save();renderSpeedSetup()});
+for(const id of ["speedSecs","speedPool"])$(id).addEventListener("change",e=>{store.settings[id]=+e.target.value;save();renderSpeedSetup()});
 $("flashMode").addEventListener("change",e=>{store.settings.typing=e.target.checked?"off":"on";$("typing").value=store.settings.typing;save();if(!flipped)next();else render()});
 document.addEventListener("keydown",e=>{
   if(!ready)return;
   if(e.key==="Escape"&&reviewing&&e.target.tagName!=="TEXTAREA"){e.preventDefault();exitReview();return}
   if(!reviewing)return;
+  if(store.mode==="speed"){if(e.key===";"){e.preventDefault();reshuffle()}return}
   if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.key.toLowerCase()==="z"&&!(e.target.tagName==="INPUT"&&e.target.value)&&e.target.tagName!=="TEXTAREA"){e.preventDefault();undoGrade();return}
   if(e.key===";"&&e.target.tagName!=="TEXTAREA"){e.preventDefault();reshuffle();return}
   const tag=e.target.tagName;if(tag==="TEXTAREA"||tag==="SELECT"||(tag==="INPUT"&&e.target.type!=="checkbox")||e.metaKey||e.ctrlKey||e.altKey)return;
