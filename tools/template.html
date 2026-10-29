@@ -178,6 +178,7 @@ sup.nw{color:var(--tw);font-size:.7em;margin-left:1px}
 .ih.off{visibility:hidden;cursor:default}
 .ih:focus-visible{outline:2px solid var(--tw);outline-offset:1px;border-radius:3px}
 #ihTip{position:fixed;z-index:100;max-width:300px;padding:7px 10px;border-radius:8px;background:var(--ink);color:var(--surface);font:13px/1.4 var(--f-body);box-shadow:0 6px 20px rgba(0,0,0,.2);pointer-events:none}
+#ihTip.wide{max-width:420px}
 #ihTip b{font-family:var(--f-mono);letter-spacing:.04em;margin-right:6px}
 .cousins .chg{color:var(--tw);font-weight:700}
 .bwords .bl{color:var(--tw);font-weight:600}
@@ -291,6 +292,12 @@ html.reviewing,html.reviewing body{overflow:hidden}
 @media (max-width:600px){.cond{grid-template-columns:1fr auto auto}.cond .params{grid-column:1/-1;grid-row:2}}
 .chint{font-size:12px;color:var(--muted)}
 .results{overflow-x:auto}
+.vwrap{overflow:auto;border:1px solid var(--line);border-radius:8px;overscroll-behavior:contain}
+.vtable{table-layout:fixed}
+.vtable thead th{position:sticky;top:0;z-index:2;background:var(--surface);box-shadow:0 1px 0 var(--line)}
+.vtable tbody tr.r td{height:30px;padding-top:0;padding-bottom:0;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vtable td.d{white-space:nowrap;min-width:0;cursor:default}
+.vtable tr.sp td{padding:0;border:0}
 .savedlist{display:flex;flex-direction:column;gap:6px}
 .saved{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 0;border-bottom:1px solid var(--line)}
 .saved:last-child{border-bottom:0}
@@ -1868,9 +1875,35 @@ function renderResults(){
   $("resultsPanel").hidden=false;
   const {words,alphas}=lastResult;
   $("resultSummary").innerHTML=`<b>${fmtN(words.length)}</b> words in <b>${fmtN(alphas)}</b> alphagrams`;
-  const shown=words.slice(0,300);
-  $("results").innerHTML=words.length?`<table><thead><tr>${sortTh("prob","Prob.","num")}${sortTh("play","Play.","num")}<th style="text-align:right">Front</th>${sortTh("alpha","Word")}<th>Back</th>${sortTh("alphagram","Alphagram")}<th>Definition</th></tr></thead><tbody>${shown.map(w=>{const e=LEX.words.get(w);return `<tr><td class="num">${fmtN(LEX.rank.get(e.a))}</td><td class="num" title="Playability score ${fmtN(e.pscore)}">${fmtN(e.play)}</td><td class="fh" style="text-align:right">${hooksHTML(w,"f")}</td><td class="w">${wordHTML(w,"",true)}</td><td class="bh">${hooksHTML(w,"b")}</td><td class="w" style="color:var(--muted)">${dispA(e.a)}</td><td class="d">${esc(e.def)}</td></tr>`}).join("")}</tbody></table>${words.length>300?`<p class="note">Showing the first 300. Save the list or add it to your cardbox to use all ${fmtN(words.length)}.</p>`:""}`:`<p class="note">No words match. Try loosening a condition.</p>`;
+  if(!words.length){$("results").innerHTML=`<p class="note">No words match. Try loosening a condition.</p>`;vt=null;return}
+  // virtual scrolling: only the rows in view are drawn, so any number of results stays quick
+  let maxL=2,maxF=0,maxB=0;
+  for(const w of words){if(w.length>maxL)maxL=w.length;const e=LEX.words.get(w);const f=hookList(e.fh).length,bb=hookList(e.bh).length;if(f>maxF)maxF=f;if(bb>maxB)maxB=bb}
+  const cw=monoW(),wW=Math.ceil(maxL*cw+60),fW=Math.max(52,Math.ceil(Math.min(10,maxF)*cw*1.06+20)),bW=Math.max(52,Math.ceil(Math.min(10,maxB)*cw*1.06+20)),aW=Math.max(84,Math.ceil(maxL*cw+20));
+  const fixed=64+60+fW+wW+bW+aW;
+  $("results").innerHTML=`<div class="vwrap" id="vwrap"><table class="vtable" style="min-width:${fixed+160}px"><colgroup><col style="width:64px"><col style="width:60px"><col style="width:${fW}px"><col style="width:${wW}px"><col style="width:${bW}px"><col style="width:${aW}px"><col></colgroup><thead><tr>${sortTh("prob","Prob.","num")}${sortTh("play","Play.","num")}<th style="text-align:right">Front</th>${sortTh("alpha","Word")}<th>Back</th>${sortTh("alphagram","Alphagram")}<th>Definition</th></tr></thead><tbody id="vbody"></tbody></table></div>`;
+  vt={words,first:-1,last:-1,rowH:vt&&vt.rowH||31};
+  const wrap=$("vwrap");
+  wrap.style.height=Math.min(Math.round(innerHeight*.7),Math.max(160,words.length*vt.rowH+40))+"px";
+  wrap.addEventListener("scroll",()=>{if(!vt||vt.raf)return;vt.raf=requestAnimationFrame(()=>{if(vt){vt.raf=0;drawRows()}})},{passive:true});
+  drawRows(true);
+  // measure the real row height once and redraw if it differs
+  const tr=$("vbody").querySelector("tr.r");if(tr){const h=tr.getBoundingClientRect().height;if(h&&Math.abs(h-vt.rowH)>.5){vt.rowH=h;wrap.style.height=Math.min(Math.round(innerHeight*.7),Math.max(160,words.length*h+40))+"px";drawRows(true)}}
 }
+let vt=null,monoCW=0;
+function monoW(){if(monoCW)return monoCW;const sp=document.createElement("span");sp.style.cssText="position:absolute;visibility:hidden;font:500 13px var(--f-mono);white-space:pre";sp.textContent="M".repeat(20);document.body.appendChild(sp);monoCW=sp.getBoundingClientRect().width/20||8;sp.remove();return monoCW}
+function resultRow(w){const e=LEX.words.get(w);return `<tr class="r"><td class="num">${fmtN(LEX.rank.get(e.a))}</td><td class="num" title="Playability score ${fmtN(e.pscore)}">${fmtN(e.play)}</td><td class="fh" style="text-align:right"${hookList(e.fh).length>10?` title="${esc(hookList(e.fh).map(h=>h.l).join(""))}"`:""}>${hooksHTML(w,"f")}</td><td class="w">${wordHTML(w,"",true)}</td><td class="bh"${hookList(e.bh).length>10?` title="${esc(hookList(e.bh).map(h=>h.l).join(""))}"`:""}>${hooksHTML(w,"b")}</td><td class="w" style="color:var(--muted)">${dispA(e.a)}</td><td class="d" data-full="${esc(w)}">${esc(e.def)}</td></tr>`}
+function drawRows(force){
+  const wrap=$("vwrap"),body=$("vbody");if(!wrap||!body||!vt)return;
+  const n=vt.words.length,h=vt.rowH,head=wrap.querySelector("thead").offsetHeight||30;
+  const top=Math.max(0,wrap.scrollTop-head),first=Math.max(0,Math.floor(top/h)-12),last=Math.min(n,Math.ceil((top+wrap.clientHeight)/h)+12);
+  if(!force&&first===vt.first&&last===vt.last)return;
+  vt.first=first;vt.last=last;
+  const sp=px=>px>0?`<tr class="sp" aria-hidden="true"><td colspan="7" style="height:${px}px"></td></tr>`:"";
+  let html=sp(first*h);for(let i=first;i<last;i++)html+=resultRow(vt.words[i]);html+=sp((n-last)*h);
+  body.innerHTML=html;
+}
+addEventListener("resize",()=>{if(vt&&$("vwrap")){$("vwrap").style.height=Math.min(Math.round(innerHeight*.7),Math.max(160,vt.words.length*vt.rowH+40))+"px";drawRows(true)}});
 let editingId=null;
 function doSearch(){
   try{const t=performance.now();resDesc=false;lastResult=runSearch(store.draft,$("saveOrder").value);note("searchNote",`Searched in ${Math.round(performance.now()-t)} ms.`)}
@@ -2741,13 +2774,16 @@ $("lookupOut").addEventListener("change",e=>{if(e.target.id==="lkQt"){lkQt=e.tar
 document.addEventListener("click",e=>{for(const d of document.querySelectorAll("details.dropdown[open]"))if(!d.contains(e.target))d.open=false});
 // inner-hook dots: hover, focus or tap shows the shorter word and a brief definition
 {let tip=null,owner=null;
-const show=el=>{const w=el.dataset.tip,e=LEX.words.get(w);if(!e)return;if(!tip){tip=document.createElement("div");tip.id="ihTip";tip.setAttribute("role","tooltip");document.body.appendChild(tip)}
-  tip.innerHTML=`<b>${esc(w)}</b>${esc(shortDef(e.def))}`;tip.hidden=false;owner=el;
+const SEL=".ih[data-tip],td.d[data-full]";
+const show=(el,tap)=>{const full=el.dataset.full,w=full||el.dataset.tip,e=LEX.words.get(w);if(!e)return;
+  if(full&&!tap&&el.scrollWidth<=el.clientWidth+1){hide();return} // definition fits: no need
+  if(!tip){tip=document.createElement("div");tip.id="ihTip";tip.setAttribute("role","tooltip");document.body.appendChild(tip)}
+  tip.classList.toggle("wide",!!full);tip.innerHTML=`<b>${esc(w)}</b>${esc(full?e.def:shortDef(e.def))}`;tip.hidden=false;owner=el;
   const r=el.getBoundingClientRect(),tw=tip.offsetWidth,th=tip.offsetHeight;let x=Math.min(window.innerWidth-tw-8,Math.max(8,r.left+r.width/2-tw/2)),y=r.top-th-8;if(y<8)y=r.bottom+8;tip.style.left=x+"px";tip.style.top=y+"px"};
 const hide=()=>{if(tip)tip.hidden=true;owner=null};
-document.addEventListener("mouseover",e=>{const el=e.target.closest&&e.target.closest(".ih[data-tip]");if(el)show(el);else if(owner&&!e.target.closest(".ih"))hide()});
+document.addEventListener("mouseover",e=>{const el=e.target.closest&&e.target.closest(SEL);if(el){if(el!==owner)show(el)}else if(owner)hide()});
 document.addEventListener("focusin",e=>{const el=e.target.closest&&e.target.closest(".ih[data-tip]");if(el)show(el);else hide()});
-document.addEventListener("click",e=>{const el=e.target.closest&&e.target.closest(".ih[data-tip]");if(el){e.stopPropagation();if(owner===el&&matchMedia("(hover:none)").matches)hide();else show(el)}else hide()},true);
+document.addEventListener("click",e=>{const el=e.target.closest&&e.target.closest(SEL);if(el){if(el.classList.contains("ih"))e.stopPropagation();if(owner===el&&matchMedia("(hover:none)").matches)hide();else show(el,true)}else hide()},true);
 addEventListener("scroll",hide,true);}
 // swipe the Look up panel sideways to close it
 {const P=$("lookupPanel");let sw=null;
