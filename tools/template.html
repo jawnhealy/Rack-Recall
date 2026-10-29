@@ -78,7 +78,7 @@ button:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-vis
 .boxbar i{display:block;height:100%;background:var(--tl)}
 .addctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13.5px}
 input[type=number],input[type=text],select{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);min-width:0}
-.addctl input{width:76px}
+.addctl input[type=number]{width:76px}
 .linkbtn{font:inherit;font-size:12px;border:0;background:none;color:var(--muted);text-decoration:underline;cursor:pointer;padding:2px 4px}
 
 .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:44px 18px 24px;display:flex;flex-direction:column;align-items:center;gap:16px;min-height:300px;justify-content:center;position:relative}
@@ -1256,6 +1256,7 @@ function renderDecks(){
         <div class="addctl"><label for="addN">Add next</label><input type="number" id="addN" min="1" max="5000" step="1" value="${addNVal}"><button class="btn" id="addBtn" ${s.out?"":"disabled"}>Add to cardbox</button><button class="btn ghost" id="addAll" ${s.out?"":"disabled"}>${confirm?`Tap again to add ${fmtN(s.out)}`:`Add all (${fmtN(s.out)})`}</button></div>`}
         ${leech?`<div class="actions"><button class="btn ghost sm" id="suspLeeches">Suspend all ${fmtN(s.total)} leeches</button></div>`:`<div class="addctl"><label class="switch"><input type="checkbox" id="autoOn" ${store.autoAdd[id+"|"+store.qtype]?"checked":""}> <span>Keep</span></label><input type="number" id="autoN" min="1" max="1000" step="1" value="${store.autoAdd[id+"|"+store.qtype]||autoNVal}" aria-label="New cards to keep ready"><span class="note">new cards ready each day, added automatically in deck order</span></div>`}
         ${leech?"":`<div class="addctl"><label for="spreadDays">${s.overdue>1?`Spread ${fmtN(s.overdue)} due reviews over`:"Spread due reviews over"}</label><input type="number" id="spreadDays" min="2" max="60" step="1" value="${spreadDays}" ${s.overdue>1?"":"disabled"}><span class="note">days</span><button class="btn ghost" id="spreadBtn" ${s.overdue>1?"":"disabled"}>Spread out</button>${s.overdue>1?"":`<span class="note">No backlog in your ${esc(qt().name)} cardbox for this deck right now.</span>`}</div>`}
+        ${leech?"":(()=>{const n=aheadList(id,aheadDays).length;return `<div class="addctl"><label for="aheadDays">Bring forward reviews due in the next</label><input type="number" id="aheadDays" min="1" max="60" step="1" value="${aheadDays}"><span class="note">days</span><button class="btn ghost" id="aheadBtn" ${n?"":"disabled"}>${n?`Bring forward ${fmtN(n)}`:"None due then"}</button></div>`})()}
         <div class="actions"><span class="note">Export</span><button class="btn ghost sm" data-export="txt">Word list (.txt)</button><button class="btn ghost sm" data-export="csv">Spreadsheet (.csv)</button></div>
         <div class="actions">${id.startsWith("s:")?`<button class="btn ghost sm" id="editDeck">Edit deck</button>`:""}<button class="btn ghost sm" id="resetDeck">Remove this deck from your ${esc(qt().name)} cardbox</button><span class="note" id="rowNote"></span></div></div>`;
     }
@@ -1373,7 +1374,20 @@ function spreadBacklog(deck,days){
   list.forEach(([ck],i)=>{const d=Math.floor(i/per);if(!d)return;const r=store.cards[ck];r[3]=start.getTime()+d*DAY+(i%per);r[7]=now+i});
   save();syncSoon();return {n:list.length,per,days:Math.ceil(list.length/per)};
 }
-let spreadDays=7;
+let spreadDays=7,aheadDays=3;
+// study ahead: reviews due before the end of the Nth day from today (not yet due)
+function aheadList(deck,days){
+  const now=Date.now(),end=new Date();end.setHours(0,0,0,0);const until=end.getTime()+(days+1)*DAY;
+  const pre=store.qtype+":",out=[];
+  for(const k of deckKeys(deck)){const r=store.cards[pre+k];if(r&&r[0]===2&&r[3]>now&&r[3]<until)out.push(pre+k)}
+  return out;
+}
+function bringForward(deck,days){
+  const list=aheadList(deck,days),now=Date.now();
+  list.forEach((ck,i)=>{const r=store.cards[ck];r[3]=now-1000-i;r[7]=now+i});
+  if(list.length){save();syncSoon()}
+  return list.length;
+}
 /* keep N added-but-unstudied cards ready in a deck, topped up once a day */
 function runAutoAdd(){
   const today=todayKey();let changed=false;
@@ -2324,6 +2338,11 @@ document.addEventListener("click",e=>{
     case "suspLeeches":{const pre=store.qtype+":";for(const k of leechKeys())setSusp(pre+k,true);clearCache("leech");save();syncSoon();render();break}
     case "lookupClose":$("lookupPanel").hidden=true;$("lookupIn").value="";break;
 
+    case "aheadBtn":{
+      aheadDays=Math.max(1,Math.min(60,Math.round(+$("aheadDays").value||3)));
+      const n=bringForward(store.deck,aheadDays);render();
+      if(n)note("rowNote",`${fmtN(n)} ${n===1?"review is":"reviews are"} due now.${store.settings.revLimit>0?` Your limit of ${fmtN(store.settings.revLimit)} reviews a day still applies.`:""}`);
+      break}
     case "spreadBtn":{
       spreadDays=Math.max(2,Math.min(60,Math.round(+$("spreadDays").value||7)));
       const r=spreadBacklog(store.deck,spreadDays);render();
@@ -2395,7 +2414,9 @@ $("conds").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.tagName==
 $("addCond").addEventListener("change",e=>{const t=e.target.value;if(!t)return;const d=COND[t];store.draft.push({t,a:d.def?d.def[0]:"",b:d.def?d.def[1]:""});save();renderSearch()});
 $("seenBox").addEventListener("toggle",()=>{if($("seenBox").open&&ready)renderSeen()});
 $("deckList").addEventListener("change",e=>{
-  const id=e.target.id;if(id!=="autoOn"&&id!=="autoN")return;
+  const id=e.target.id;
+  if(id==="aheadDays"){aheadDays=Math.max(1,Math.min(60,Math.round(+e.target.value||3)));render();return}
+  if(id!=="autoOn"&&id!=="autoN")return;
   const key=store.deck+"|"+store.qtype,n=Math.max(1,Math.min(1000,Math.round(+$("autoN").value||20)));autoNVal=n;
   if(id==="autoN"&&!$("autoOn").checked)return;
   if($("autoOn").checked){store.autoAdd={...store.autoAdd,[key]:n};delete store.autoDay[key];runAutoAdd()}
