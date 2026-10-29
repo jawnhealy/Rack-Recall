@@ -489,6 +489,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <label class="note" for="resQt">Add results to cardbox as</label>
         <select id="resQt"></select>
         <button class="btn ghost" id="addResults">Add to cardbox</button>
+        <button class="btn ghost" id="quizResults" title="Quiz these as the selected quiz type without adding them to your cardbox">Quiz without adding</button>
         <button class="btn ghost sm" data-resexport="txt">Export word list</button>
         <button class="btn ghost sm" data-resexport="csv">Export spreadsheet</button>
         <span class="note" id="resNote"></span>
@@ -1192,6 +1193,14 @@ function next(){
     }
     if(!cur){const w=keys[Math.floor(Math.random()*keys.length)],f=Math.random()<.5?phonyFor(w):null;
       cur=f?{...f,phony:true}:{key:w,phony:false}}
+  }else if(store.mode==="learn"&&drill){
+    if(drill.i>=drill.keys.length&&drill.missed.length){
+      const m=drill.missed;for(let i=m.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[m[i],m[j]]=[m[j],m[i]]}
+      drill.keys=m;drill.missed=[];drill.i=0;drill.round++;
+    }
+    const k=drill.i<drill.keys.length?drill.keys[drill.i++]:null;
+    cur=k?{key:k,ans:answersFor(k)}:null;
+    if(cur&&unit()==="alpha"&&store.settings.tileOrder==="shuffle")cur.order=shuffleStr(k);
   }else if(store.mode==="learn"){
     // new cards shown face up first come back as a real test a few cards later
     const pend=session.intro||(session.intro=[]);session.shown=(session.shown||0);
@@ -1236,6 +1245,12 @@ function grade(g){
   if(store.mode!=="learn"||!cur||!flipped)return;
   const now=Date.now(),st=cardState(cur.key),ck=ckey(cur.key);
   if(cur.rescue)return;
+  if(drill){
+    const ok=g>=GOOD;
+    undoStack.push({drill:{i:drill.i,right:drill.right,wrong:drill.wrong,missed:drill.missed.slice(),first:[...drill.firstMissed],keys:drill.keys,round:drill.round},n:session.n,again:session.again,cur:{key:cur.key,order:cur.order}});
+    if(ok)drill.right++;else{drill.wrong++;drill.missed.push(cur.key);if(drill.round===1)drill.firstMissed.add(cur.key)}
+    session.n++;if(!ok)session.again++;lastK=cur.key;next();return;
+  }
   const snap={ck,prev:store.cards[ck]?store.cards[ck].slice():null,newLog:JSON.stringify(store.newLog),bury:JSON.stringify(store.bury),conf:JSON.stringify(store.conf),confPh:JSON.stringify(store.confPh),frontNote:JSON.stringify(store.frontNote),n:session.n,again:session.again,cur:{key:cur.key,order:cur.order}};
   if(st.state==="new")bumpNew(store.deck);else if(st.state==="review")bumpRev(store.deck);
   const rPred=st.state==="review"?retrievability(Math.max(0,(now-st.last)/DAY),Math.max(.01,st.s)):null;
@@ -1334,6 +1349,9 @@ function introContinue(){
 function undoGrade(){
   // take back the last grade: the card, the log line and today's counters return to how they were
   const u=undoStack.pop();if(!u||!reviewing||store.mode!=="learn")return;
+  if(u.drill){if(!drill)return;const d=u.drill;Object.assign(drill,{i:d.i,right:d.right,wrong:d.wrong,missed:d.missed,firstMissed:new Set(d.first),keys:d.keys,round:d.round});session.n=u.n;session.again=u.again;
+    clearTimer();flipped=false;typed=null;preview=null;noteEditing=false;cur={key:u.cur.key,order:u.cur.order,ans:answersFor(u.cur.key),t0:Date.now()};lastK=null;
+    render();armTimer();const inp=$("ansIn");if(inp)inp.focus({preventScroll:true});return}
   if(u.prev)store.cards[u.ck]=u.prev.slice(0,7).concat(Date.now());else delete store.cards[u.ck];
   unlogLine(u.line);
   store.newLog=JSON.parse(u.newLog);store.bury=JSON.parse(u.bury);session.n=u.n;session.again=u.again;
@@ -1440,7 +1458,7 @@ function renderDecks(){
         ${info("keep",`Once a day, tops this deck up so ${fmtN(keepN||addNVal)} unstudied cards are waiting in your ${esc(cn)} cardbox, taking the next ones in deck order. It never piles up. Turning it on uses the number in Next; to change it, set Next and switch it off and on again. Your daily new-card limit in Settings still decides how many you see each day.`)}
         ${info("face","Each new card is first shown with its answers and a Got it button. That first look isn't graded or logged. The card then comes back as a normal test a few cards later.")}</div>`}
         ${sched}
-        <div class="msec"><div class="label">Deck</div><div class="actions">${exportMenu}${id.startsWith("s:")?`<button class="btn ghost sm" id="editDeck">Edit deck</button>`:""}<button class="btn ghost sm danger" id="resetDeck">Remove from ${esc(cn)} cardbox</button></div></div>
+        <div class="msec"><div class="label">Deck</div><div class="actions">${leech?"":`<button class="btn ghost sm" id="quizDeck" title="Every card in this deck, shuffled; nothing changes in your cardbox">Quiz without cardbox</button>`}${exportMenu}${id.startsWith("s:")?`<button class="btn ghost sm" id="editDeck">Edit deck</button>`:""}<button class="btn ghost sm danger" id="resetDeck">Remove from ${esc(cn)} cardbox</button></div></div>
         <span class="note" id="rowNote"></span></div>`;
     }
     return row+`</div>`;
@@ -1570,6 +1588,12 @@ function renderStatsPage(){
 function renderReviewBar(){
   if(store.mode==="preview"){$("rvTitle").textContent=`${deckName(store.deck)} · Preview`;$("rvProg").textContent=pv?`${fmtN(pv.keys.length)} ${pv.keys.length===1?"card":"cards"} · ${qt().name}`:"";$("rvUndo").hidden=true;$("rvPhony").hidden=true;$("rvFull").hidden=!document.fullscreenEnabled;return}
   if(store.mode==="speed"){$("rvTitle").textContent=`${deckName(store.deck)} · Speed round`;$("rvProg").textContent=sp?`${sp.racks.length} ${sp.racks.length===1?"rack":"racks"}`:"";$("rvUndo").hidden=true;$("rvPhony").hidden=true;$("rvFull").hidden=!document.fullscreenEnabled;return}
+  if(drill&&store.mode==="learn"){
+    $("rvTitle").textContent=`${drill.name} · ${qt().name} quiz`;
+    $("rvProg").textContent=`${drill.round>1?`Round ${drill.round} · `:""}${fmtN(Math.min(drill.i,drill.keys.length))} of ${fmtN(drill.keys.length)} · ${fmtN(drill.right)} right, ${fmtN(drill.wrong)} missed`;
+    $("rvUndo").hidden=false;$("rvUndo").disabled=!undoStack.length;$("rvPhony").hidden=true;
+    $("rvFull").hidden=!document.fullscreenEnabled;$("rvFull").textContent=document.fullscreenElement?"Exit fullscreen":"Fullscreen";return;
+  }
   const ph=store.mode==="phony";
   $("rvTitle").textContent=`${deckName(store.deck)} · ${ph?"Valid or phony?":qt().name}`;
   const acc=session.n?Math.round((1-session.again/session.n)*100)+"%":"";
@@ -1620,10 +1644,22 @@ function runAutoAdd(){
   }
   if(changed)save();
 }
+/* ---------- quiz a list without touching the cardbox ---------- */
+let drill=null;
+function startDrill(keys,name,q){
+  if(!keys.length)return;
+  const prevQt=store.qtype;if(q&&QT[q])store.qtype=q;
+  const ks=keys.slice();for(let i=ks.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[ks[i],ks[j]]=[ks[j],ks[i]]}
+  drill={name,keys:ks,i:0,right:0,wrong:0,missed:[],firstMissed:new Set(),round:1,total:ks.length,prevQt,allKeys:keys.slice(),q:store.qtype};
+  store.mode="learn";reviewing=true;lastK=null;undoStack=[];session={n:0,again:0,start:Date.now()};
+  renderChrome();next();
+}
 function startReview(id,mode){
+  if(drill){store.qtype=drill.prevQt;drill=null}
   store.deck=id;store.mode=mode;save();runAutoAdd();reviewing=true;lastK=null;undoStack=[];session={n:0,again:0,start:Date.now()};next();
 }
 function exitReview(){
+  if(drill){store.qtype=drill.prevQt;drill=null;save()}
   reviewing=false;cur=null;flipped=false;noteEditing=false;clearTimer();clearInterval(spTick);sp=null;if(store.mode==="preview"){store.mode="learn";pv=pv&&pv.keep?pv:null}snapshotProgress();
   if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});
   render();
@@ -1655,6 +1691,14 @@ function render(){
   const now=Date.now(),card=$("card"),gr=$("grade");
   if(store.mode==="speed"){renderSpeed(card,gr);return}
   if(store.mode==="preview"){renderPreview(card,gr);return}
+  if(!cur&&drill&&store.mode==="learn"){
+    card.className="card";const n=drill.total,first=n-drill.firstMissed.size,pct=n?Math.round(first/n*100):0,fm=drill.firstMissed.size;
+    const inBox=[...drill.firstMissed].filter(k=>store.cards[ckey(k)]).length;
+    card.innerHTML=`<div class="done"><h2>Quiz complete</h2></div><div class="hint">${fmtN(first)} of ${fmtN(n)} right the first time (${pct}%)${drill.round>1?`, all cleared in ${drill.round} rounds`:""}. Nothing was added to your cardbox.</div>
+      ${fm?`<div class="meta">Missed: ${[...drill.firstMissed].slice(0,40).map(k=>esc(unit()==="alpha"?dispA(k):k)).join(" · ")}${fm>40?" …":""}</div>`:""}`;
+    gr.className="grade three";gr.innerHTML=`${fm>inBox?`<button class="good" id="drillAddMissed">Add the ${fmtN(fm-inBox)} missed to cardbox</button>`:""}<button id="drillAgain">Quiz again</button><button id="rvExit2">Back</button>`;
+    return;
+  }
   if(!cur){
     card.className="card";gr.className="grade two";gr.innerHTML="";
     if(store.mode==="phony"){card.innerHTML=`<div class="done"><h2>This deck is empty</h2></div><div class="actions" style="justify-content:center"><button class="btn ghost" id="rvExit2">Back to games</button></div>`;return}
@@ -1683,7 +1727,7 @@ function render(){
     const st=cardState(k),r=store.cards[ckey(k)],ans=cur.ans,isAlpha=unit()==="alpha";
     const rankTxt=isAlpha?`#${fmtN(LEX.rank.get(k))} of ${fmtN(LEX.byLen[k.length].length)}`:`#${fmtN(LEX.wrank.get(k))} of ${fmtN(LEX.wordsByLen[k.length].length)}`;
     const rc=recallNow(r,now),leech=st.lapses>=store.settings.leech;
-    html=`<div class="corner"><span class="badge ${st.state}">${st.state}</span>${leech?'<span class="badge leech">leech</span>':""}${cur.contrast?`<span class="badge" title="You've mixed this up with ${esc(unit()==="alpha"?dispA(cur.contrast):cur.contrast)}">look-alike</span>`:""}${store.settings.showRank==="off"?"":`<span>${rankTxt}</span>`}</div><div class="corner r"><span class="qname">${esc(qt().name)}</span>${rc!=null?`<span title="Estimated chance you recall this card right now">recall ${Math.round(rc*100)}%</span>`:""}</div>${store.qtype==="R"?`<div class="revdef">${esc(clueOf(k))}</div><div class="tiles" id="tiles" title="Tap to reveal" style="--n:${k.length}">${'<div class="tile slot"></div>'.repeat(k.length)}</div>`:tiles(isAlpha?(!flipped&&cur.order?cur.order:dispA(k)):k,store.qtype==="S")}`;
+    html=`<div class="corner">${drill?'<span class="badge">quiz</span>':`<span class="badge ${st.state}">${st.state}</span>`}${!drill&&leech?'<span class="badge leech">leech</span>':""}${cur.contrast?`<span class="badge" title="You've mixed this up with ${esc(unit()==="alpha"?dispA(cur.contrast):cur.contrast)}">look-alike</span>`:""}${store.settings.showRank==="off"?"":`<span>${rankTxt}</span>`}</div><div class="corner r"><span class="qname">${esc(qt().name)}</span>${rc!=null&&!drill?`<span title="Estimated chance you recall this card right now">recall ${Math.round(rc*100)}%</span>`:""}</div>${store.qtype==="R"?`<div class="revdef">${esc(clueOf(k))}</div><div class="tiles" id="tiles" title="Tap to reveal" style="--n:${k.length}">${'<div class="tile slot"></div>'.repeat(k.length)}</div>`:tiles(isAlpha?(!flipped&&cur.order?cur.order:dispA(k)):k,store.qtype==="S")}`;
     if(!flipped){
       if(isAlpha)html+=`<button class="linkbtn shuf" id="shuffleBtn" title="Shuffle the tiles (5)">Shuffle <kbd>5</kbd></button>`;
       if(store.settings.timeLimit)html+=`<div class="timer" aria-hidden="true"><i style="animation-duration:${store.settings.timeLimit}s;animation-delay:-${Math.min(store.settings.timeLimit,(Date.now()-cur.t0)/1000)}s"></i></div>`;
@@ -1722,17 +1766,18 @@ function render(){
           html+=`<div class="single"><div class="hooksline">${hooksHTML(k,"f")||"–"} <b>${wordHTML(k,"",true)}</b> ${hooksHTML(k,"b")||"–"}</div><div class="def">${esc(e.def)}</div></div>`;
           const sibs=LEX.anag.get(e.a).filter(w=>w!==k);if(sibs.length)html+=`<div class="meta">Anagrams: ${sibs.map(w=>wordHTML(w)).join(" ")}</div>`;break}
       }
-      html+=confusedHTML(k);
+      if(!drill)html+=confusedHTML(k);
       const nt=store.notes[k];
       html+=noteEditing?`<div class="notebox"><textarea id="noteText" aria-label="Note for ${esc(k)}" placeholder="A mnemonic, a reminder, anything that helps">${esc(nt||"")}</textarea><div class="actions"><button class="btn sm" id="noteSave">Save note</button><button class="btn ghost sm" id="noteCancel">Cancel</button>${nt?'<button class="btn ghost sm" id="noteDelete">Delete note</button>':""}</div></div>`
         :nt?`<div class="notebox"><div class="label">Your note</div><div class="notetext">${esc(nt)}</div><button class="linkbtn" id="noteEdit">Edit note</button></div>`:"";
       if(cur.timedOut)html+=`<div class="meta">Time's up.</div>`;
-      html+=`<div class="meta">${cur.secs!=null?`${cur.secs.toFixed(1)} s · `:""}${nt||noteEditing?"":'<button class="linkbtn" id="noteEdit">Add note</button> · '}${st.state==="new"?"First time seen":`Stability ${st.s.toFixed(1)}d · difficulty ${st.d.toFixed(1)} · ${st.lapses} lapse${st.lapses===1?"":"s"}`} · <button class="linkbtn" id="suspendCur">Suspend</button> · <button class="linkbtn" id="removeCur">Remove from cardbox</button></div>`;
+      html+=`<div class="meta">${cur.secs!=null?`${cur.secs.toFixed(1)} s · `:""}${nt||noteEditing?"":'<button class="linkbtn" id="noteEdit">Add note</button> · '}${drill?(store.cards[ckey(k)]?"In your cardbox":`<button class="linkbtn" id="drillAdd">Add to cardbox</button>`):st.state==="new"?"First time seen":`Stability ${st.s.toFixed(1)}d · difficulty ${st.d.toFixed(1)} · ${st.lapses} lapse${st.lapses===1?"":"s"}`}${drill?"":` · <button class="linkbtn" id="suspendCur">Suspend</button> · <button class="linkbtn" id="removeCur">Remove from cardbox</button>`}</div>`;
       if(cur.intro){
         card.innerHTML=html.replace('<div class="corner"><span class="badge new">new</span>','<div class="corner"><span class="badge new">new · study it</span>');
         gr.className="grade two";gr.innerHTML=`<button class="good full" id="introNext">Got it<small>you'll be tested on it in a few cards · Return or Space</small></button>`;
         return;
       }
+      if(drill){gr.className="grade two";gr.innerHTML=`<button class="again ${suggest&&suggest<GOOD?"suggest":""}" data-g="1">Missed<small>comes back next round · 0</small></button><button class="good ${!suggest||suggest>=GOOD?"suggest":""}" data-g="3">Got it<small>Space · 2</small></button>`;card.innerHTML=html;return}
       const L=g=>fmtIvl(preview[g].due-now),cls={1:"again",2:"",3:"good",4:"easy"},nm={1:"Again",2:"Hard",3:"Good",4:"Easy"};
       gr.className="grade";
       gr.innerHTML=[1,2,3,4].map(g=>`<button class="${cls[g]} ${suggest===g?"suggest":""}" data-g="${g}">${nm[g]}<small>${L(g)} · ${g-1}</small></button>`).join("");
@@ -2579,6 +2624,11 @@ document.addEventListener("click",e=>{
     case "prevBtn":{addNVal=Math.max(1,Math.round(+$("addN").value||20));const keys=previewKeys(store.deck,Math.min(500,addNVal));pv={keys};startReview(store.deck,"preview");$("review").scrollTop=0;break}
     case "pvAdd":{if(pv&&pv.keys.length){const n=addKeys(pv.keys);pv=null;exitReview();note("rowNote",`Added ${fmtN(n)} to your ${qt().name} cardbox.`)}break}
     case "introNext":introContinue();break;
+    case "drillAdd":{if(cur){addKeys([cur.key]);render()}break}
+    case "drillAddMissed":{if(drill){const n=addKeys([...drill.firstMissed]);t.disabled=true;t.textContent=`Added ${fmtN(n)}`}break}
+    case "drillAgain":{if(drill){const d=drill;store.qtype=d.prevQt;drill=null;startDrill(d.allKeys,d.name,d.q)}break}
+    case "quizResults":{if(!lastResult)break;const q=$("resQt").value,ks=wordsToKeys(lastResult.words,QT[q].unit);if(ks.length)startDrill(ks,"Search results",q);else note("resNote","No results to quiz.");break}
+    case "quizDeck":{const ks=deckKeys(store.deck);if(ks.length)startDrill(ks,deckName(store.deck),store.qtype);break}
     case "rescueSave":rescueDone("save");break;
     case "rescueSkip":rescueDone("skip");break;
     case "rescueSusp":rescueDone("suspend");break;
