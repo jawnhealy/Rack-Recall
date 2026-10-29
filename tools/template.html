@@ -215,6 +215,8 @@ details.gloss summary{font-weight:600;cursor:pointer}
 .gloss dt{font-weight:600}
 .gloss dd{margin:0;color:var(--muted)}
 @media (max-width:560px){.gloss dl{grid-template-columns:1fr;gap:2px}.gloss dd{margin-bottom:8px}}
+#deckEditor.inline{border:0;padding:0;background:none;box-shadow:none;margin:0}
+#deckEditor.inline #deTitle{font-size:15px}
 .ih.off{visibility:hidden;cursor:default}
 .ih:focus-visible{outline:2px solid var(--tw);outline-offset:1px;border-radius:3px}
 #ihTip{position:fixed;z-index:100;max-width:300px;padding:7px 10px;border-radius:8px;background:var(--ink);color:var(--surface);font:13px/1.4 var(--f-body);box-shadow:0 6px 20px rgba(0,0,0,.2);pointer-events:none}
@@ -435,7 +437,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     <div class="decklist" id="deckList"></div>
     <div class="actions"><button class="btn ghost" id="newDeck">+ New deck</button></div>
 
-    <div class="panel" id="deckEditor" hidden>
+    <div id="deHome"><div class="panel" id="deckEditor" hidden>
       <h2 class="sec" id="deTitle">New deck</h2>
       <div class="settings" style="margin-top:0">
         <label for="deName">Name</label>
@@ -457,7 +459,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <button class="btn ghost" id="deDelete" hidden>Delete deck</button>
         <span class="note" id="deNote"></span>
       </div>
-    </div>
+    </div></div>
 
     <details id="custom">
       <summary>Paste your own list</summary>
@@ -1477,6 +1479,8 @@ function deckIds(){const ids=store.searches.map(s=>s.id);if(store.custom&&deckKe
 function renderDecks(){
   const now=Date.now(),ids=deckIds(),u=unit()==="alpha"?"alphagrams":"words";
   if(expanded&&!ids.includes(expanded))expanded=null;
+  if(inlineEdit&&expanded!==inlineEdit)closeEditor(true);
+  const ed=$("deckEditor");if(ed.parentNode!==$("deHome"))$("deHome").appendChild(ed); // keep the editor safe while the list is rebuilt
   $("deckList").innerHTML=ids.length?ids.map(id=>{
     if(id==="susp"){const n=suspKeys().length;return `<div class="deckrow"><div style="min-width:0"><div class="nm">Suspended</div><div class="ct"><b>${fmtN(n)}</b> ${esc(qt().name)} ${n===1?"card":"cards"} set aside; they keep their schedule history</div></div><div class="dact"><button class="btn ghost" id="unsuspAll">Unsuspend all</button><button class="btn ghost" data-expand="susp" aria-expanded="${expanded==="susp"}">${expanded==="susp"?"Less":"More"}</button></div>${expanded==="susp"?`<div class="more"><div class="actions"><details class="dropdown"><summary class="btn ghost sm">Export ▾</summary><div class="menu"><button data-export="txt">Word list (.txt)</button><button data-export="csv">Spreadsheet (.csv)</button></div></details><span class="note" id="rowNote"></span></div></div>`:""}</div>`}
     const s=scan(id,now),readyN=s.due.length+s.newAvail,leech=id==="leech",open=expanded===id;
@@ -1500,6 +1504,7 @@ function renderDecks(){
           ${okN?"":`<span class="note">${isA?`Nothing due in the next ${aheadDays} ${aheadDays===1?"day":"days"}.`:"No backlog right now."}</span>`}</div>
           ${info("sched",isA?"Makes reviews due in the next few days due now, so you can study ahead. FSRS counts the shorter gap when you grade them.":"Overdue reviews are re-dated across the days you choose, most at risk of being forgotten first, so you face a steady amount each day instead of the whole pile.")}</div>`;
       }
+      if(inlineEdit===id){row+=`<div class="more" id="deSlot"></div>`;return row+`</div>`}
       row+=`<div class="more">${leech?`<div class="msec"><div class="actions"><button class="btn ghost sm" id="suspLeeches">Suspend all ${fmtN(s.total)} leeches</button></div></div>`:`<div class="msec"><div class="label">New cards</div>
         <div class="boxinfo"><div class="boxbar"><i style="width:${s.total?s.boxed/s.total*100:0}%"></i></div></div>
         <div class="addctl"><label for="addN">Next</label><span class="nobr"><input type="number" id="addN" min="1" max="5000" step="1" value="${addNVal}"> <span class="note">cards</span></span>
@@ -1514,6 +1519,7 @@ function renderDecks(){
     }
     return row+`</div>`;
   }).join(""):`<div class="panel"><p class="note" style="margin:0">No decks yet. Press New deck, or save one from Search, where the built-in lists are.</p></div>`;
+  placeEditor();
 }
 const phonyKindsHTML=()=>Object.entries(PHONY_KINDS).filter(([k])=>k!=="collins"||hasCSW()).map(([k,n])=>`<label class="switch"><input type="checkbox" data-pk="${k}" ${store.settings.phonyKinds[k]?"checked":""}> <span>${n}</span></label>`).join("");
 function renderGames(){
@@ -2204,12 +2210,16 @@ function startFit(){
 /* =================== deck editor =================== */
 let deEditing=null; // deck id or null for new
 const EDITOR_TYPES=new Set(["lengths","prob","play"]);
+// editing a deck from its More menu swaps the editor in where the More panel was
+let inlineEdit=null;
+function placeEditor(){const slot=$("deSlot"),ed=$("deckEditor");if(inlineEdit&&slot&&ed.parentNode!==slot){ed.classList.add("inline");slot.appendChild(ed)}else if(!inlineEdit)ed.classList.remove("inline")}
+function closeEditor(quiet){const was=inlineEdit;inlineEdit=null;$("deckEditor").hidden=true;$("deckEditor").classList.remove("inline");if(was&&!quiet)render()}
 function openEditor(id){
   deEditing=id;const s=id&&store.searches.find(x=>x.id===id);
   const conds=s?s.conds:[];
   const g=t=>conds.find(c=>c.t===t&&!c.neg);
   const lens=parseLens(g("lengths")?.a);
-  $("deTitle").textContent=s?`Edit “${s.name}”`:"New deck";
+  $("deTitle").textContent=s?(inlineEdit?"Edit deck":`Edit “${s.name}”`):"New deck";
   $("deName").value=s?s.name:"";
   $("deLens").innerHTML=LENGTHS.map(L=>`<label><input type="checkbox" value="${L}" ${lens.has(L)?"checked":""}>${L}</label>`).join("");
   $("deProbA").value=g("prob")?.a??"";$("deProbB").value=g("prob")?.b??"";
@@ -2218,7 +2228,9 @@ function openEditor(id){
   const extra=conds.filter(c=>!EDITOR_TYPES.has(c.t)||c.neg);
   $("deExtra").textContent=extra.length?`Also keeps these conditions from Search: ${describeConds(extra)}.`:"";
   $("deDelete").hidden=!s;$("deDelete").dataset.confirm="";$("deDelete").textContent="Delete deck";note("deNote","");
-  $("deckEditor").hidden=false;$("deName").focus();
+  $("deckEditor").hidden=false;
+  if(inlineEdit){render();placeEditor()}
+  $("deName").focus({preventScroll:!!inlineEdit});
 }
 // true when a and b differ by one letter changed, added or dropped, or two neighbours swapped
 function oneEdit(a,b){
@@ -2249,7 +2261,7 @@ function saveEditor(){
   searchCache.clear();
   const n=deckKeys(id).length;
   if(!n){note("deNote","That deck has no words in it. Loosen a condition.");return}
-  $("deckEditor").hidden=true;save();setDeck(id);
+  closeEditor(true);save();setDeck(id);
 }
 
 /* =================== minimal SQLite reader (read-only, tables only) =================== */
@@ -2740,14 +2752,14 @@ document.addEventListener("click",e=>{
     case "noteDelete":setNote(cur.key,"");noteEditing=false;render();break;
     case "removeCur":if(cur){delCard(ckey(cur.key));save();syncSoon();lastK=null;next()}break;
     case "runSearch":doSearch();break;
-    case "newDeck":openEditor(null);break;
-    case "editDeck":openEditor(store.deck);break;
+    case "newDeck":closeEditor(true);openEditor(null);render();break;
+    case "editDeck":inlineEdit=store.deck;openEditor(store.deck);break;
     case "deSave":saveEditor();break;
-    case "deCancel":$("deckEditor").hidden=true;break;
-    case "deSearch":{store.draft=editorConds();editingId=deEditing;$("saveOrder").value=$("deOrder").value;$("deckEditor").hidden=true;setPage("search");doSearch();break}
+    case "deCancel":closeEditor();break;
+    case "deSearch":{store.draft=editorConds();editingId=deEditing;$("saveOrder").value=$("deOrder").value;closeEditor(true);setPage("search");doSearch();break}
     case "deDelete":{
       if(ds.confirm!=="1"){ds.confirm="1";t.textContent="Tap again to delete (your cards stay in the cardbox)";break}
-      store.searches=store.searches.filter(x=>x.id!==deEditing);clearCache(deEditing);$("deckEditor").hidden=true;
+      store.searches=store.searches.filter(x=>x.id!==deEditing);clearCache(deEditing);closeEditor(true);
       if(store.deck===deEditing)store.deck=firstDeck();save();next();break}
     case "clearConds":store.draft=[];lastResult=null;editingId=null;$("saveSearch").textContent="Save as deck";save();renderSearch();break;
     case "saveSearch":{
@@ -2877,6 +2889,7 @@ document.addEventListener("keydown",e=>{
   if(!reviewing){
     const t=e.target.tagName,inField=t==="INPUT"&&e.target.type!=="checkbox"||t==="TEXTAREA"||t==="SELECT";
     if(e.key==="/"&&!inField&&!e.metaKey&&!e.ctrlKey&&!e.altKey){e.preventDefault();openLookup();return}
+    if(e.key==="Escape"&&inlineEdit&&e.target.closest&&e.target.closest("#deckEditor")){e.preventDefault();closeEditor();return}
     if(e.key==="Escape"&&(e.target.id==="lookupIn"||!$("lookupPanel").hidden||document.querySelector("header.top.lk-open"))&&t!=="TEXTAREA"&&t!=="SELECT"){e.preventDefault();closeLookup();return}
     return;
   }
