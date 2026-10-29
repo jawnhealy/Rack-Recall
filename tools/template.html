@@ -140,23 +140,23 @@ svg.prog .studied-dot{fill:var(--tl)} svg.prog .mature-dot{fill:var(--good)}
 .typed span.bad{color:var(--bad);text-decoration:line-through}
 
 .answers{width:100%;max-width:700px;display:flex;flex-direction:column}
-.ans{display:grid;grid-template-columns:minmax(44px,auto) auto minmax(44px,auto) 1fr;gap:4px 10px;align-items:baseline;padding:7px 4px;border-bottom:1px solid var(--line)}
+.ans{display:grid;grid-template-columns:minmax(50px,auto) auto minmax(50px,auto) 1fr;gap:4px 12px;align-items:baseline;padding:8px 4px;border-bottom:1px solid var(--line)}
 .ans:last-child{border-bottom:0}
-.fh,.bh{font-family:var(--f-mono);font-size:12px;color:var(--muted);letter-spacing:.06em}
+.fh,.bh{font-family:var(--f-mono);font-size:14px;color:var(--muted);letter-spacing:.06em}
 .fh{text-align:right}
 .hit{color:var(--good)!important;font-weight:600} .miss{color:var(--bad)!important;font-weight:600}
-.ans .w{font-family:var(--f-mono);font-weight:600;font-size:17px;letter-spacing:.04em}
+.ans .w{font-family:var(--f-mono);font-weight:600;font-size:20px;letter-spacing:.04em}
 sup.nw{color:var(--tw);font-size:.7em;margin-left:1px}
-.ans .def{font-size:14px;min-width:0}
+.ans .def{font-size:15.5px;min-width:0}
 @media (max-width:560px){.ans{grid-template-columns:auto auto auto 1fr}.ans .def{grid-column:1/-1;padding-left:2px}}
 .single{text-align:center;display:flex;flex-direction:column;gap:6px;max-width:56ch}
-.single .def{font-size:18px;font-weight:500;text-wrap:balance}
-.hooksline{font-family:var(--f-mono);font-size:18px;color:var(--muted);letter-spacing:.08em}
+.single .def{font-size:20px;font-weight:500;text-wrap:balance}
+.hooksline{font-family:var(--f-mono);font-size:21px;color:var(--muted);letter-spacing:.08em}
 .hooksline b{color:var(--ink);font-weight:600}
 .build{width:100%;max-width:700px;display:flex;flex-direction:column;gap:8px}
 .bgrp{display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:baseline}
 .blen{font-family:var(--f-display);font-weight:700;color:var(--muted);text-align:right}
-.bwords{display:flex;flex-wrap:wrap;gap:4px 10px;font-family:var(--f-mono);font-size:14px;font-weight:500}
+.bwords{display:flex;flex-wrap:wrap;gap:5px 12px;font-family:var(--f-mono);font-size:16.5px;font-weight:500}
 .ih{color:var(--tw);font-weight:700;padding:0 1px;cursor:help}
 .cousins .chg{color:var(--tw);font-weight:700}
 .bwords .bl{color:var(--tw);font-weight:600}
@@ -505,7 +505,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
           <select id="tilePoints" aria-label="Point values on tiles"><option value="on">Show point values</option><option value="off">Hide point values</option></select>
           <span class="tiles demo" id="tileDemo" style="--n:5"></span></div>
         <label for="tileOrder">Tile order</label>
-        <div><select id="tileOrder"><option value="alpha">Alphabetical (alphagram)</option><option value="shuffle">Shuffled, like a real rack</option></select> <span class="note">for Anagrams, Anagrams + hooks, Build and Blanks; press <kbd>;</kbd> or Shuffle to reshuffle</span></div>
+        <div><select id="tileOrder"><option value="alpha">Alphabetical (alphagram)</option><option value="shuffle">Shuffled, like a real rack</option></select> <span class="note">for Anagrams, Anagrams + hooks, Build and Blanks; press <kbd>5</kbd> or Shuffle to reshuffle</span></div>
         <label for="showRank">Show probability rank on cards</label>
         <div><select id="showRank"><option value="on">On</option><option value="off">Off</option></select> <span class="note">the “#1 of 21,223” in the card's corner</span></div>
         <label for="showCount">Show answer count</label>
@@ -584,7 +584,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 
     <footer class="panel">
       <h2 class="sec">Keys and notes</h2>
-      <p class="note" style="margin:0">While studying: <kbd>Return</kbd> checks typed answers or flips the card, as do <kbd>Space</kbd> and <kbd>0</kbd>–<kbd>3</kbd> in flashcard mode. On the back, <kbd>0</kbd> Again · <kbd>1</kbd> Hard · <kbd>2</kbd> Good · <kbd>3</kbd> Easy (<kbd>Space</kbd> also means Good). In Games › Valid or phony?, <kbd>V</kbd>/<kbd>Y</kbd>/<kbd>→</kbd> or a swipe right for valid, <kbd>P</kbd>/<kbd>N</kbd>/<kbd>←</kbd> or a swipe left for phony. <kbd>F</kbd> toggles fullscreen and <kbd>Esc</kbd> leaves the study screen.</p>
+      <p class="note" style="margin:0">While studying: <kbd>Return</kbd> checks typed answers or flips the card, as do <kbd>Space</kbd> and <kbd>0</kbd>–<kbd>3</kbd> in flashcard mode. On the back, <kbd>0</kbd> Again · <kbd>1</kbd> Hard · <kbd>2</kbd> Good · <kbd>3</kbd> Easy (<kbd>Space</kbd> also means Good). In Games › Valid or phony?, <kbd>V</kbd>/<kbd>Y</kbd>/<kbd>→</kbd> or a swipe right for valid, <kbd>P</kbd>/<kbd>N</kbd>/<kbd>←</kbd> or a swipe left for phony. <kbd>5</kbd> shuffles the tiles, <kbd>F</kbd> toggles fullscreen and <kbd>Esc</kbd> leaves the study screen.</p>
       <p class="note" style="margin:0">Quiz types: Anagrams, Anagrams + hooks, Hooks, Build, Blanks (letters plus one blank), Extensions (longer words containing the word) and Definitions each keep their own cardbox. Valid or phony? is practice and doesn't change your schedule; it mixes words from the deck with made-up words, real words with endings they don't take, and Collins-only words. Probability ranks use two-blank probability. Hooks appear either side of each word. A red <span class="ih">·</span> before or after a word marks an inner hook: it's still a word without that first or last letter, so <span class="ih">·</span>LOBELIAS<span class="ih">·</span> means OBELIAS and LOBELIA are words. A red <sup class="nw">+</sup> marks words and hooks new in NWL2023. In Look up, <kbd>?</kbd> is a blank.</p>
       <p class="note" style="margin:0">Lexicon: <span id="lexInfo">NWL2023</span>.</p>
       <p class="note" style="margin:0">Updating: on Windows, save a newer rack-and-recall.html next to RackAndRecall.exe and restart. On Android, use App updates above.</p>
@@ -1336,7 +1336,7 @@ function renderSpeed(card,gr){
   }
   const r=sp.racks.at(-1);
   card.innerHTML=`<div class="corner"><span>Score <b id="spScore">${sp.score}</b></span></div><div class="corner r"><b id="spTime">${Math.ceil(Math.max(0,sp.end-Date.now())/1000)} s</b></div>
-    ${tiles(r.order,false)}<button class="linkbtn shuf" id="shuffleBtn" title="Shuffle the tiles (;)">Shuffle <kbd>;</kbd></button>
+    ${tiles(r.order,false)}<button class="linkbtn shuf" id="shuffleBtn" title="Shuffle the tiles (5)">Shuffle <kbd>5</kbd></button>
     <div class="count">${r.ans.length} ${r.ans.length===1?"word":"words"}</div>
     <form class="typebox" id="spForm" autocomplete="off"><input id="spIn" aria-label="A word" placeholder="Type a word, then Return" spellcheck="false" autocapitalize="characters"><button class="btn" type="submit">Enter</button></form>
     <div class="typed" id="spFound">${speedFoundHTML(r)}</div><div class="meta" id="spMsg"></div>`;
@@ -1452,7 +1452,7 @@ function render(){
     const rc=recallNow(r,now),leech=st.lapses>=store.settings.leech;
     html=`<div class="corner"><span class="badge ${st.state}">${st.state}</span>${leech?'<span class="badge leech">leech</span>':""}${store.settings.showRank==="off"?"":`<span>${rankTxt}</span>`}</div><div class="corner r"><span class="qname">${esc(qt().name)}</span>${rc!=null?`<span title="Estimated chance you recall this card right now">recall ${Math.round(rc*100)}%</span>`:""}</div>${store.qtype==="R"?`<div class="revdef">${esc(clueOf(k))}</div><div class="tiles" id="tiles" title="Tap to reveal" style="--n:${k.length}">${'<div class="tile slot"></div>'.repeat(k.length)}</div>`:tiles(!flipped&&cur.order?cur.order:k,store.qtype==="S")}`;
     if(!flipped){
-      if(isAlpha)html+=`<button class="linkbtn shuf" id="shuffleBtn" title="Shuffle the tiles (;)">Shuffle <kbd>;</kbd></button>`;
+      if(isAlpha)html+=`<button class="linkbtn shuf" id="shuffleBtn" title="Shuffle the tiles (5)">Shuffle <kbd>5</kbd></button>`;
       if(store.settings.timeLimit)html+=`<div class="timer" aria-hidden="true"><i style="animation-duration:${store.settings.timeLimit}s;animation-delay:-${Math.min(store.settings.timeLimit,(Date.now()-cur.t0)/1000)}s"></i></div>`;
       if(qt().typed&&store.settings.showCount==="on")html+=`<div class="count">${countText(k,ans)}</div>`;
       if(qt().typed&&store.settings.typing==="on"){
@@ -2447,9 +2447,9 @@ document.addEventListener("keydown",e=>{
   if(!ready)return;
   if(e.key==="Escape"&&reviewing&&e.target.tagName!=="TEXTAREA"){e.preventDefault();exitReview();return}
   if(!reviewing)return;
-  if(store.mode==="speed"){if(e.key===";"){e.preventDefault();reshuffle()}return}
+  if(store.mode==="speed"){if(e.key==="5"){e.preventDefault();reshuffle()}return}
   if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.key.toLowerCase()==="z"&&!(e.target.tagName==="INPUT"&&e.target.value)&&e.target.tagName!=="TEXTAREA"){e.preventDefault();undoGrade();return}
-  if(e.key===";"&&e.target.tagName!=="TEXTAREA"){e.preventDefault();reshuffle();return}
+  if(e.key==="5"&&e.target.tagName!=="TEXTAREA"&&store.mode==="learn"&&!flipped){e.preventDefault();reshuffle();return}
   const tag=e.target.tagName;if(tag==="TEXTAREA"||tag==="SELECT"||(tag==="INPUT"&&e.target.type!=="checkbox")||e.metaKey||e.ctrlKey||e.altKey)return;
   const k=e.key.toLowerCase();
   if(k===" "||k==="enter"){
