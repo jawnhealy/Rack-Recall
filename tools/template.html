@@ -1927,7 +1927,7 @@ function render(){
       html+=`<div class="meta">${cur.secs!=null?`${cur.secs.toFixed(1)} s · `:""}${nt||noteEditing?"":'<button class="linkbtn" id="noteEdit">Add note</button> · '}${drill?(store.cards[ckey(k)]?"In your cardbox":`<button class="linkbtn" id="drillAdd">Add to cardbox</button>`):st.state==="new"?"First time seen":`Stability ${st.s.toFixed(1)}d · difficulty ${st.d.toFixed(1)} · ${st.lapses} lapse${st.lapses===1?"":"s"}`}${drill?"":` · <button class="linkbtn" id="suspendCur">Suspend</button> · <button class="linkbtn" id="removeCur">Remove from cardbox</button>`}</div>`;
       if(cur.intro){
         card.innerHTML=html.replace('<div class="corner"><span class="badge new">new</span>','<div class="corner"><span class="badge new">new · study it</span>');
-        gr.className="grade two";gr.innerHTML=`<button class="good full" id="introNext">Got it<small>you'll be tested on it in a few cards · Return or Space</small></button>`;
+        gr.className="grade two";gr.innerHTML=`<button class="good full" id="introNext">Got it<small>you'll be tested on it in a few cards · Return, Space or 0–3</small></button>`;
         return;
       }
       if(drill){gr.className="grade two";gr.innerHTML=`<button class="again ${suggest&&suggest<GOOD?"suggest":""}" data-g="1">Missed<small>comes back next round · 0</small></button><button class="good ${!suggest||suggest>=GOOD?"suggest":""}" data-g="3">Got it<small>Space · 2</small></button>`;card.innerHTML=html;return}
@@ -3037,7 +3037,7 @@ document.addEventListener("keydown",e=>{
     if(store.mode==="learn"){if(cur&&cur.intro)introContinue();else if(!flipped)reveal(false);else if(k===" ")grade(GOOD)}
     else if(phonyAns!==null)next();
   }
-  else if(["0","1","2","3"].includes(k)){e.preventDefault();if(cur&&cur.intro)return;if(store.mode==="learn"&&!flipped)reveal(false);else grade(+k+1)} // 0 Again · 1 Hard · 2 Good · 3 Easy
+  else if(["0","1","2","3"].includes(k)){e.preventDefault();if(cur&&cur.intro){introContinue();return}if(store.mode==="learn"&&!flipped)reveal(false);else grade(+k+1)} // 0 Again · 1 Hard · 2 Good · 3 Easy
   else if(store.mode==="phony"&&["v","y","arrowright"].includes(k)){e.preventDefault();answerPhony(false)}
   else if(store.mode==="phony"&&["p","n","arrowleft"].includes(k)){e.preventDefault();answerPhony(true)}
   else if(k==="f")toggleFullscreen();
