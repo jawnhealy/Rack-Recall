@@ -595,14 +595,14 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <div class="settings">
         <label for="retention">Target retention</label>
         <div><input type="number" id="retention" min="0.7" max="0.99" step="0.01"> <span class="note">0.90 is the FSRS default. Higher means more reviews.</span></div>
-        <label for="smoothLoad">Smooth review load</label>
-        <div><select id="smoothLoad"><option value="on">On: put each card on the quietest nearby day</option><option value="off">Off: random spread only</option></select> <span class="note">Each interval can move a little (about ±5–15%); with this on it lands on the day with the fewest reviews already due, so upcoming days even out.</span></div>
         <label for="retCurve">Retention by probability</label>
         <div><select id="retCurve"><option value="off">Off: every card uses the target above</option><option value="on">On: higher targets for likelier words</option><option value="bingos">Bingos only: the curve for 7s and 8s, the target above for everything else</option></select>
           <details class="curvebox"><summary class="note">What it uses</summary><table class="curve"><tbody>
           <tr><td>2s</td><td>97%</td></tr><tr><td>3s and 4s with J, Q, X or Z</td><td>95%</td></tr><tr><td>Other 3s</td><td>94%</td></tr><tr><td>Other 4s</td><td>90% for the likelier half, 88% for the rest</td></tr>
           <tr><td>5 letters and up, probability rank 1</td><td>95%</td></tr><tr><td>rank 1,000</td><td>94%</td></tr><tr><td>rank 5,000</td><td>91%</td></tr><tr><td>rank 10,000</td><td>87.5%</td></tr><tr><td>rank 20,000</td><td>84%</td></tr><tr><td>rank 40,000 and beyond</td><td>80%</td></tr>
           </tbody></table><p class="note" style="margin:4px 0 0">Ranks are two-blank probability within each length, with targets blended smoothly between these points. A deck's own target (More → Schedule) still wins while you study that deck.</p></details></div>
+        <label for="smoothLoad">Smooth review load</label>
+        <div><select id="smoothLoad"><option value="on">On: put each card on the quietest nearby day</option><option value="off">Off: random spread only</option></select> <span class="note">Each interval can move a little (about ±5–15%); with this on it lands on the day with the fewest reviews already due, so upcoming days even out.</span></div>
         <label for="newLimit">New cards per day</label>
         <div><input type="number" id="newLimit" min="0" max="1000" step="1"> <span class="note">how many of the cards you've added are introduced each day, per deck and quiz type</span></div>
         <label for="revLimit">Reviews per day</label>
@@ -1165,7 +1165,13 @@ function mergeStore(s){
 }
 try{const s=JSON.parse(localStorage.getItem(KEY)||"null");if(s)mergeStore(s)}catch(e){}
 try{LOG=localStorage.getItem(LOGKEY)||""}catch(e){}
-function save(){storeVer++;if(syncReady)syncSoon(true);try{localStorage.setItem(KEY,JSON.stringify(store))}catch(e){note("settingsNote","Couldn't save: browser storage is full or blocked. Back up your progress.")}}
+// saving writes the whole store, so a burst of changes (grading, then the next card) is written once, a moment later;
+// anything pending is written straight away if the app is closed or hidden
+let saveTimer=null;
+function writeStore(){clearTimeout(saveTimer);saveTimer=null;try{localStorage.setItem(KEY,JSON.stringify(store))}catch(e){note("settingsNote","Couldn't save: browser storage is full or blocked. Back up your progress.")}}
+function save(){storeVer++;if(syncReady)syncSoon(true);if(!saveTimer)saveTimer=setTimeout(writeStore,400)}
+const flushSave=()=>{if(saveTimer)writeStore()};
+addEventListener("pagehide",flushSave);addEventListener("beforeunload",flushSave);document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")flushSave()});
 function saveLog(){try{localStorage.setItem(LOGKEY,LOG)}catch(e){note("settingsNote","The review log no longer fits in browser storage. Back up your progress.")}}
 // card record: [state, stability, difficulty, due, last, reps, lapses]. No record = not in cardbox. State 0 = added, not yet studied (due = time added).
 const SC=["new","learning","review","relearning"];
@@ -1210,7 +1216,14 @@ function markSibling(k){const f=buryMap(),fam=famOf(k);if(!(f[fam]||"").includes
 
 /* =================== queue =================== */
 const LEARN_AHEAD=20*MIN;
+// scan is called several times per card (queue, header, counts); the same answer is reused until anything changes or a second passes
+let scanCache=null;
 function scan(deck,now){
+  const sk=deck+"|"+store.qtype+"|"+storeVer+"|"+Math.floor(now/1000)+"|"+store.settings.newLimit+"|"+store.settings.revLimit;
+  if(scanCache&&scanCache.k===sk)return scanCache.v;
+  const v=scanRaw(deck,now);scanCache={k:sk,v};return v;
+}
+function scanRaw(deck,now){
   const keys=deckKeys(deck),pre=store.qtype+":";
   let dueLearn=[],dueRev=[],soon=[],newKeys=[],mature=0,seen=0,nw=0,out=0,leeches=0,buried=0,susp=0;
   for(const k of keys){
@@ -2707,10 +2720,10 @@ async function installUpdate(file){
     const {uri}=await FS.getUri({path,directory:"DATA"});
     save();saveLog();
     localStorage.setItem(UPD_KEY,JSON.stringify({build,url:C.convertFileSrc(uri),tries:1}));
-    location.replace(C.convertFileSrc(uri));
+    flushSave();location.replace(C.convertFileSrc(uri));
   }catch(e){note("updNote",e.message||String(e))}
 }
-function revertUpdate(){try{localStorage.removeItem(UPD_KEY)}catch(e){}location.replace("https://localhost/")}
+function revertUpdate(){flushSave();try{localStorage.removeItem(UPD_KEY)}catch(e){}location.replace("https://localhost/")}
 function updateStarted(){ // the installed page loaded: reset its failure counter
   if(!runningUpdate())return;const u=readUpd();
   if(u&&u.build===ownBuild()){u.tries=0;delete u.failed;localStorage.setItem(UPD_KEY,JSON.stringify(u))}
