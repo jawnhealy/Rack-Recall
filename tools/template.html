@@ -517,6 +517,8 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div class="actions"><select id="tileStyle"><option value="classic">Classic wood</option><option value="flat">Flat</option><option value="slate">Slate</option><option value="contrast">High contrast</option><option value="outline">Outline</option></select>
           <select id="tilePoints" aria-label="Point values on tiles"><option value="on">Show point values</option><option value="off">Hide point values</option></select>
           <span class="tiles demo" id="tileDemo" style="--n:5"></span></div>
+        <label for="alphaStyle">Alphagram order</label>
+        <div><select id="alphaStyle"><option value="abc">Alphabetical (AEINRST)</option><option value="cv">Consonants, then vowels (NRSTAEI)</option></select> <span class="note">how alphagrams are written on tiles and in lists; Y counts as a consonant</span></div>
         <label for="tileOrder">Tile order</label>
         <div><select id="tileOrder"><option value="alpha">Alphabetical (alphagram)</option><option value="shuffle">Shuffled, like a real rack</option></select> <span class="note">for Anagrams, Anagrams + hooks, Build and Blanks; press <kbd>5</kbd> or Shuffle to reshuffle</span></div>
         <label for="showRank">Show probability rank on cards</label>
@@ -975,7 +977,7 @@ const KEY="rack-recall-nwl23-v2",LOGKEY="rack-recall-log-v1";
 const SEED_DECKS=[{id:"s:sev8",name:"Bingos",conds:[{t:"lengths",a:"7,8"}],order:"prob"}];
 const DEFAULTS={cards:{},custom:"",deck:"s:sev8",migr:{bingo:1,ext:1},mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"length",a:7,b:7},{t:"prob",a:1,b:100}],
   notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},autoAdd:{},autoDay:{},hist:{},fooled:{},doubted:{},speedBest:{},
-  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"on",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",mixMistakes:"on",speedSecs:60,speedPool:1000,tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,collins:true},w:null,fit:null}};
+  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"on",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",alphaStyle:"abc",mixMistakes:"on",speedSecs:60,speedPool:1000,tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,collins:true},w:null,fit:null}};
 let store=structuredClone(DEFAULTS),LOG="";
 function mergeStore(s){
   store={...structuredClone(DEFAULTS),...s,settings:{...DEFAULTS.settings,...(s.settings||{})}};
@@ -1115,6 +1117,8 @@ function phonyFor(w){
 let noteEditing=false;
 let ready=false,cur=null,flipped=false,preview=null,typed=null,phonyAns=null,lastK=null,session={n:0,again:0};
 let PAGE="decks",reviewing=false,expanded=null,addNVal=20,autoNVal=20,undoStack=[],timerId=null;
+// an alphagram as you've chosen to see it: alphabetical, or consonants then vowels (each part alphabetical)
+const dispA=a=>{if(store.settings.alphaStyle!=="cv"||!a)return a;let c="",v="";for(const ch of a)("AEIOU".includes(ch)?v+=ch:c+=ch);return c+v};
 const shuffleStr=w=>{const a=w.split("");for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a.join("")};
 function clearTimer(){if(timerId){clearTimeout(timerId);timerId=null}}
 function armTimer(){
@@ -1154,7 +1158,7 @@ function next(){
 function reshuffle(){
   if(reviewing&&store.mode==="speed"&&sp&&!sp.done){const r=sp.racks.at(-1);r.order=shuffleStr(r.order);const el=$("tiles");if(el)el.outerHTML=tiles(r.order,false);return}
   if(!reviewing||store.mode!=="learn"||!cur||unit()!=="alpha")return;
-  cur.order=shuffleStr(cur.order||cur.key);
+  cur.order=shuffleStr(cur.order||dispA(cur.key));
   const el=$("tiles");if(el)el.outerHTML=tiles(cur.order,store.qtype==="S");
 }
 function reveal(fromForm){
@@ -1306,7 +1310,7 @@ function speedPool(){const keys=deckKeys(store.deck,"alpha"),n=+store.settings.s
 function speedNextRack(){
   const pool=speedPool();if(!pool.length){sp.done=true;return}
   let k;for(let t=0;t<20;t++){k=pool[Math.floor(Math.random()*pool.length)];if(!sp.racks.some(r=>r.key===k))break}
-  sp.racks.push({key:k,ans:LEX.anag.get(k).slice(),found:new Set(),order:store.settings.tileOrder==="shuffle"?shuffleStr(k):k});
+  sp.racks.push({key:k,ans:LEX.anag.get(k).slice(),found:new Set(),order:store.settings.tileOrder==="shuffle"?shuffleStr(k):dispA(k)});
 }
 function startSpeed(){
   sp={end:Date.now()+store.settings.speedSecs*1000,score:0,racks:[],done:false};speedNextRack();
@@ -1344,7 +1348,7 @@ function renderSpeed(card,gr){
     const total=sp.racks.reduce((n,r)=>n+r.ans.length,0);
     card.innerHTML=`<div class="done"><h2>${sp.score} ${sp.score===1?"word":"words"}${sp.newBest&&sp.score?" · new best":""}</h2></div>
       <div class="hint">${sp.racks.length} ${sp.racks.length===1?"rack":"racks"} · ${sp.score} of ${total} possible words${sp.prevBest!=null&&!sp.newBest?` · your best is ${sp.prevBest}`:""}</div>
-      <div class="build">${sp.racks.map(r=>`<div class="bgrp rack"><span class="blen">${esc(r.key)}</span><div class="bwords">${r.ans.map(w=>`<span class="${r.found.has(w)?"hit":"miss"}" title="${esc(LEX.words.get(w).def)}">${esc(w)}</span>`).join("")}</div></div>`).join("")}</div>`;
+      <div class="build">${sp.racks.map(r=>`<div class="bgrp rack"><span class="blen">${esc(dispA(r.key))}</span><div class="bwords">${r.ans.map(w=>`<span class="${r.found.has(w)?"hit":"miss"}" title="${esc(LEX.words.get(w).def)}">${esc(w)}</span>`).join("")}</div></div>`).join("")}</div>`;
     gr.className="grade two";gr.innerHTML=`<button class="good" id="spAgain">Play again</button><button id="rvExit2">Back to games</button>`;
     return;
   }
@@ -1477,7 +1481,7 @@ function render(){
     const st=cardState(k),r=store.cards[ckey(k)],ans=cur.ans,isAlpha=unit()==="alpha";
     const rankTxt=isAlpha?`#${fmtN(LEX.rank.get(k))} of ${fmtN(LEX.byLen[k.length].length)}`:`#${fmtN(LEX.wrank.get(k))} of ${fmtN(LEX.wordsByLen[k.length].length)}`;
     const rc=recallNow(r,now),leech=st.lapses>=store.settings.leech;
-    html=`<div class="corner"><span class="badge ${st.state}">${st.state}</span>${leech?'<span class="badge leech">leech</span>':""}${store.settings.showRank==="off"?"":`<span>${rankTxt}</span>`}</div><div class="corner r"><span class="qname">${esc(qt().name)}</span>${rc!=null?`<span title="Estimated chance you recall this card right now">recall ${Math.round(rc*100)}%</span>`:""}</div>${store.qtype==="R"?`<div class="revdef">${esc(clueOf(k))}</div><div class="tiles" id="tiles" title="Tap to reveal" style="--n:${k.length}">${'<div class="tile slot"></div>'.repeat(k.length)}</div>`:tiles(!flipped&&cur.order?cur.order:k,store.qtype==="S")}`;
+    html=`<div class="corner"><span class="badge ${st.state}">${st.state}</span>${leech?'<span class="badge leech">leech</span>':""}${store.settings.showRank==="off"?"":`<span>${rankTxt}</span>`}</div><div class="corner r"><span class="qname">${esc(qt().name)}</span>${rc!=null?`<span title="Estimated chance you recall this card right now">recall ${Math.round(rc*100)}%</span>`:""}</div>${store.qtype==="R"?`<div class="revdef">${esc(clueOf(k))}</div><div class="tiles" id="tiles" title="Tap to reveal" style="--n:${k.length}">${'<div class="tile slot"></div>'.repeat(k.length)}</div>`:tiles(isAlpha?(!flipped&&cur.order?cur.order:dispA(k)):k,store.qtype==="S")}`;
     if(!flipped){
       if(isAlpha)html+=`<button class="linkbtn shuf" id="shuffleBtn" title="Shuffle the tiles (5)">Shuffle <kbd>5</kbd></button>`;
       if(store.settings.timeLimit)html+=`<div class="timer" aria-hidden="true"><i style="animation-duration:${store.settings.timeLimit}s;animation-delay:-${Math.min(store.settings.timeLimit,(Date.now()-cur.t0)/1000)}s"></i></div>`;
@@ -1568,7 +1572,7 @@ function renderSeen(rows,now){
   if(!rows){rows=[];const pre=store.qtype+":";for(const k of deckKeys(store.deck)){const r=store.cards[pre+k];if(r)rows.push([k,r])}}
   rows.sort((a,b)=>(a[1][0]===0)-(b[1][0]===0)||a[1][3]-b[1][3]);
   const shown=rows.slice(0,500),isAlpha=unit()==="alpha";
-  $("wordlist").innerHTML=rows.length?`<table><thead><tr><th>Card</th><th>Status</th><th>Next</th><th class="num">Recall</th><th class="num">Stability</th><th class="num">Lapses</th><th>${isAlpha?"Words":"Meaning"}</th></tr></thead><tbody>${shown.map(([k,r])=>{const rc=recallNow(r,now);return `<tr><td class="w">${k}</td><td>${r[0]>=10?"suspended":r[0]===0?"added":SC[r[0]]}${r[6]>=store.settings.leech?' <span class="badge leech">leech</span>':""}</td><td>${r[0]>=10||r[0]===0?"–":r[3]<=now?"due":fmtIvl(r[3]-now)}</td><td class="num">${rc==null?"–":Math.round(rc*100)+"%"}</td><td class="num">${r[0]===0?"–":r[1].toFixed(1)+"d"}</td><td class="num">${r[6]}</td><td class="d">${isAlpha?LEX.anag.get(k).join(" "):esc(LEX.words.get(k).def)}</td></tr>`}).join("")}</tbody></table>${rows.length>500?`<p>Showing the next 500 of ${fmtN(rows.length)}.</p>`:""}`:`<p>None of this deck is in your ${esc(qt().name)} cardbox yet.</p>`;
+  $("wordlist").innerHTML=rows.length?`<table><thead><tr><th>Card</th><th>Status</th><th>Next</th><th class="num">Recall</th><th class="num">Stability</th><th class="num">Lapses</th><th>${isAlpha?"Words":"Meaning"}</th></tr></thead><tbody>${shown.map(([k,r])=>{const rc=recallNow(r,now);return `<tr><td class="w">${isAlpha?dispA(k):k}</td><td>${r[0]>=10?"suspended":r[0]===0?"added":SC[r[0]]}${r[6]>=store.settings.leech?' <span class="badge leech">leech</span>':""}</td><td>${r[0]>=10||r[0]===0?"–":r[3]<=now?"due":fmtIvl(r[3]-now)}</td><td class="num">${rc==null?"–":Math.round(rc*100)+"%"}</td><td class="num">${r[0]===0?"–":r[1].toFixed(1)+"d"}</td><td class="num">${r[6]}</td><td class="d">${isAlpha?LEX.anag.get(k).join(" "):esc(LEX.words.get(k).def)}</td></tr>`}).join("")}</tbody></table>${rows.length>500?`<p>Showing the next 500 of ${fmtN(rows.length)}.</p>`:""}`:`<p>None of this deck is in your ${esc(qt().name)} cardbox yet.</p>`;
 }
 
 /* =================== search UI =================== */
@@ -1595,7 +1599,7 @@ function renderResults(){
   const {words,alphas}=lastResult;
   $("resultSummary").innerHTML=`<b>${fmtN(words.length)}</b> words in <b>${fmtN(alphas)}</b> alphagrams`;
   const shown=words.slice(0,300);
-  $("results").innerHTML=words.length?`<table><thead><tr><th class="num">Prob.</th><th class="num">Play.</th><th>Front</th><th>Word</th><th>Back</th><th>Alphagram</th><th>Definition</th></tr></thead><tbody>${shown.map(w=>{const e=LEX.words.get(w);return `<tr><td class="num">${fmtN(LEX.rank.get(e.a))}</td><td class="num" title="Playability score ${fmtN(e.pscore)}">${fmtN(e.play)}</td><td class="fh" style="text-align:right">${hooksHTML(w,"f")}</td><td class="w">${wordHTML(w,"",true)}</td><td class="bh">${hooksHTML(w,"b")}</td><td class="w" style="color:var(--muted)">${e.a}</td><td class="d">${esc(e.def)}</td></tr>`}).join("")}</tbody></table>${words.length>300?`<p class="note">Showing the first 300. Save the list or add it to your cardbox to use all ${fmtN(words.length)}.</p>`:""}`:`<p class="note">No words match. Try loosening a condition.</p>`;
+  $("results").innerHTML=words.length?`<table><thead><tr><th class="num">Prob.</th><th class="num">Play.</th><th>Front</th><th>Word</th><th>Back</th><th>Alphagram</th><th>Definition</th></tr></thead><tbody>${shown.map(w=>{const e=LEX.words.get(w);return `<tr><td class="num">${fmtN(LEX.rank.get(e.a))}</td><td class="num" title="Playability score ${fmtN(e.pscore)}">${fmtN(e.play)}</td><td class="fh" style="text-align:right">${hooksHTML(w,"f")}</td><td class="w">${wordHTML(w,"",true)}</td><td class="bh">${hooksHTML(w,"b")}</td><td class="w" style="color:var(--muted)">${dispA(e.a)}</td><td class="d">${esc(e.def)}</td></tr>`}).join("")}</tbody></table>${words.length>300?`<p class="note">Showing the first 300. Save the list or add it to your cardbox to use all ${fmtN(words.length)}.</p>`:""}`:`<p class="note">No words match. Try loosening a condition.</p>`;
 }
 let editingId=null;
 function doSearch(){
@@ -1633,7 +1637,7 @@ function lookupBlanks(raw){
   const nb=(raw.match(/\?/g)||[]).length,letters=raw.replace(/[^A-Z]/g,"");
   if(nb>2){$("lookupOut").innerHTML=`<p class="note">Use at most two ? blanks, as in a real game.</p>`;return}
   if(letters.length+nb<2||letters.length+nb>15){$("lookupOut").innerHTML=`<p class="note">Racks need 2 to 15 tiles.</p>`;return}
-  const found=blankRackWords(letters,nb),rack=alpha(letters)+"?".repeat(nb);
+  const found=blankRackWords(letters,nb),rack=dispA(alpha(letters))+"?".repeat(nb);
   let html=`<p><b>${esc(rack)}</b> makes <b>${fmtN(found.size)}</b> ${found.size===1?"word":"words"} with ${nb===1?"the blank":"both blanks"}.</p>`;
   if(found.size){
     const by=new Map();for(const [w,b] of found){if(!by.has(b))by.set(b,[]);by.get(b).push(w)}
@@ -1656,7 +1660,7 @@ function lookup(){
   const cs=CSW.def.get(q);
   let html=`<p><b>${esc(q)}</b> ${valid?"is valid":"is not a word"} in NWL23.${cs!==undefined?` It is valid in Collins (CSW24)${cs?`: ${esc(cs)}`:"."}`:""}</p>`;
   if(g){
-    html+=`<p class="note">Alphagram ${esc(a)} · two-blank probability rank ${fmtN(LEX.rank.get(a))} of ${fmtN(LEX.byLen[a.length].length)} · ${g.length} ${g.length===1?"word":"words"}${valid?` · ${esc(q)} playability rank ${fmtN(LEX.words.get(q).play)} (score ${fmtN(LEX.words.get(q).pscore)})`:""}</p>`+ansRows(g);
+    html+=`<p class="note">Alphagram ${esc(dispA(a))} · two-blank probability rank ${fmtN(LEX.rank.get(a))} of ${fmtN(LEX.byLen[a.length].length)} · ${g.length} ${g.length===1?"word":"words"}${valid?` · ${esc(q)} playability rank ${fmtN(LEX.words.get(q).play)} (score ${fmtN(LEX.words.get(q).pscore)})`:""}</p>`+ansRows(g);
   }else html+=`<p class="note">No valid anagrams of these letters.</p>`;
   {const co=cousins(q);
     if(co.length)html+=`<p class="note">${valid?"Cousins":"Words one letter away"}: ${fmtN(co.length)} ${co.length===1?"word differs":"words differ"} from ${esc(q)} by one letter.</p><div class="bwords cousins">${co.map(([w,i])=>`<span title="${esc(LEX.words.get(w).def)}">${esc(w.slice(0,i))}<b class="chg">${w[i]}</b>${esc(w.slice(i+1))}${isNew(w)?'<sup class="nw">+</sup>':""}</span>`).join("")}</div>`;
@@ -1671,7 +1675,7 @@ function lookup(){
     const x=types.find(y=>y.t===lkQt),r=store.cards[x.t+":"+x.k],ck=`${x.t}:${x.k}`;
     html+=`<div class="lbox">
       <select id="lkQt" aria-label="Quiz type">${types.map(y=>`<option value="${y.t}" ${y.t===lkQt?"selected":""}>${store.cards[y.t+":"+y.k]?"● ":""}${y.d.name}</option>`).join("")}</select>
-      <span class="note lkst"><span class="mono">${esc(x.k)}</span> · ${desc(r)}</span>
+      <span class="note lkst"><span class="mono">${esc(x.d.unit==="alpha"?dispA(x.k):x.k)}</span> · ${desc(r)}</span>
       <span class="actions">${r?`<button class="btn ghost sm" data-susp="${ck}">${r[0]>=10?"Unsuspend":"Suspend"}</button><button class="btn ghost sm" data-remove="${ck}">Remove</button>`:`<button class="btn sm" data-add="${ck}">Add to cardbox</button>`}</span>
     </div><p class="note" style="margin:0">${inBox.length?`In your cardbox for ${inBox.map(y=>y.d.name).join(", ")} (marked ●).`:"Not in any of your cardboxes yet."}</p>`;
   }
@@ -2462,14 +2466,14 @@ $("importFile").addEventListener("change",e=>{
   rd.readAsText(f);e.target.value="";
 });
 const NUMS={retention:[.7,.99,.9],newLimit:[0,1000,20],revLimit:[0,10000,0],slowSecs:[0,300,20],timeLimit:[0,600,0],buildMin:[2,15,4],leech:[2,50,6],extMin:[1,13,2],extMax:[1,13,7]};
-function syncInputs(){for(const id of ["retention","newLimit","revLimit","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn","showRank","theme","tileOrder","tileStyle","tilePoints","slowSecs","timeLimit"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
+function syncInputs(){for(const id of ["retention","newLimit","revLimit","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn","showRank","theme","tileOrder","alphaStyle","tileStyle","tilePoints","slowSecs","timeLimit"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
 for(const id in NUMS)$(id).addEventListener("change",e=>{const [lo,hi,def]=NUMS[id];let v=+e.target.value;if(isNaN(v)||e.target.value==="")v=def;v=Math.min(hi,Math.max(lo,v));if(id!=="retention")v=Math.round(v);store.settings[id]=v;e.target.value=v;save();
   if(id==="leech")clearCache("leech");
   if(id==="extMin"&&store.settings.extMax<v){store.settings.extMax=v;$("extMax").value=v}
   if(id==="extMax"&&store.settings.extMin>v){store.settings.extMin=v;$("extMin").value=v}
   if(cur&&store.mode==="learn"){cur.ans=answersFor(cur.key);if(flipped)preview=schedule(cardState(cur.key),Date.now())}
   if(!cur&&store.mode==="learn")next();else render()});
-for(const id of ["newOrder","typing","showCount","buryOn","showRank","tileOrder"])$(id).addEventListener("change",e=>{store.settings[id]=e.target.value;save();if(!flipped)next();else render()});
+for(const id of ["newOrder","typing","showCount","buryOn","showRank","tileOrder","alphaStyle"])$(id).addEventListener("change",e=>{store.settings[id]=e.target.value;save();if(!flipped)next();else render()});
 $("extDir").addEventListener("change",e=>{store.settings.extDir=e.target.value;save();if(cur&&store.mode==="learn")cur.ans=answersFor(cur.key);render()});
 function applyTheme(){
   const t=store.settings.theme,el=document.documentElement;
