@@ -330,6 +330,12 @@ th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute
 td.w{font-family:var(--f-mono);font-weight:500}
 td.d{white-space:normal;color:var(--muted);min-width:200px}
 td.num{text-align:right}
+th.num{text-align:right}
+.thsort{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:3px;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit}
+.thsort:hover{color:var(--ink)}
+.thsort:focus-visible{outline:2px solid var(--tl);outline-offset:2px;border-radius:3px}
+th.sortable.on{color:var(--ink)}
+.thsort .arr{font-size:9px;min-width:1em}
 footer{font-size:13px;color:var(--muted)}
 kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border-radius:4px;padding:0 5px;background:var(--surface)}
 .lookup{display:flex;gap:8px;margin-top:10px}
@@ -398,7 +404,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <label for="dePlayA">Playability rank</label>
         <div class="actions"><input type="number" id="dePlayA" placeholder="min" aria-label="Playability rank minimum"> to <input type="number" id="dePlayB" placeholder="max" aria-label="Playability rank maximum"></div>
         <label for="deOrder">Card order</label>
-        <div><select id="deOrder"><option value="prob">Probability, two blanks (lengths interleaved by rank)</option><option value="play">Playability</option><option value="len">Length, then probability</option></select></div>
+        <div><select id="deOrder"><option value="prob">Probability, two blanks (lengths interleaved by rank)</option><option value="play">Playability</option><option value="len">Length, then probability</option><option value="alpha">Alphabetical</option><option value="alphagram">Alphagram (A–Z)</option></select></div>
       </div>
       <div class="note" id="deExtra"></div>
       <div class="actions">
@@ -481,7 +487,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div id="resultSummary"></div>
         <div class="actions">
           <input type="text" id="saveName" placeholder="Name this deck" aria-label="Deck name" style="width:200px">
-          <select id="saveOrder" aria-label="Card order"><option value="prob">Probability order</option><option value="play">Playability order</option><option value="len">Length, then probability</option></select>
+          <select id="saveOrder" aria-label="Card order"><option value="prob">Probability order</option><option value="play">Playability order</option><option value="len">Length, then probability</option><option value="alpha">Alphabetical</option><option value="alphagram">Alphagram (A–Z)</option></select>
           <button class="btn" id="saveSearch">Save as deck</button>
         </div>
       </div>
@@ -804,6 +810,8 @@ const SORTS={
   prob:(a,b)=>LEX.rank.get(LEX.words.get(a).a)-LEX.rank.get(LEX.words.get(b).a)||a.length-b.length||LEX.wrank.get(a)-LEX.wrank.get(b),
   play:(a,b)=>LEX.words.get(a).play-LEX.words.get(b).play||a.length-b.length,
   len:wSort,
+  alpha:(a,b)=>a<b?-1:a>b?1:0,
+  alphagram:(a,b)=>{const x=LEX.words.get(a).a,y=LEX.words.get(b).a;return x.length-y.length||(x<y?-1:x>y?1:0)||(a<b?-1:1)},
 };
 function wordsToKeys(words,u){
   if(u==="word")return words;
@@ -1847,17 +1855,25 @@ function renderSearch(){
   renderResults();
 }
 let delPending=null;
+// click a column heading to sort by it; click again to reverse
+let resDesc=false;
+const sortTh=(o,label,cls)=>{const on=$("saveOrder").value===o;return `<th class="${cls||""} sortable${on?" on":""}" aria-sort="${on?(resDesc?"descending":"ascending"):"none"}"><button class="thsort" data-sort="${o}">${label}<span class="arr">${on?(resDesc?"▼":"▲"):""}</span></button></th>`};
+function resortResults(order,desc){
+  if(!lastResult)return;resDesc=!!desc;$("saveOrder").value=order;
+  const w=lastResult.words.slice().sort(SORTS[order]||SORTS.prob);if(resDesc)w.reverse();
+  lastResult={...lastResult,words:w};renderResults();
+}
 function renderResults(){
   if(!lastResult){$("resultsPanel").hidden=true;return}
   $("resultsPanel").hidden=false;
   const {words,alphas}=lastResult;
   $("resultSummary").innerHTML=`<b>${fmtN(words.length)}</b> words in <b>${fmtN(alphas)}</b> alphagrams`;
   const shown=words.slice(0,300);
-  $("results").innerHTML=words.length?`<table><thead><tr><th class="num">Prob.</th><th class="num">Play.</th><th style="text-align:right">Front</th><th>Word</th><th>Back</th><th>Alphagram</th><th>Definition</th></tr></thead><tbody>${shown.map(w=>{const e=LEX.words.get(w);return `<tr><td class="num">${fmtN(LEX.rank.get(e.a))}</td><td class="num" title="Playability score ${fmtN(e.pscore)}">${fmtN(e.play)}</td><td class="fh" style="text-align:right">${hooksHTML(w,"f")}</td><td class="w">${wordHTML(w,"",true)}</td><td class="bh">${hooksHTML(w,"b")}</td><td class="w" style="color:var(--muted)">${dispA(e.a)}</td><td class="d">${esc(e.def)}</td></tr>`}).join("")}</tbody></table>${words.length>300?`<p class="note">Showing the first 300. Save the list or add it to your cardbox to use all ${fmtN(words.length)}.</p>`:""}`:`<p class="note">No words match. Try loosening a condition.</p>`;
+  $("results").innerHTML=words.length?`<table><thead><tr>${sortTh("prob","Prob.","num")}${sortTh("play","Play.","num")}<th style="text-align:right">Front</th>${sortTh("alpha","Word")}<th>Back</th>${sortTh("alphagram","Alphagram")}<th>Definition</th></tr></thead><tbody>${shown.map(w=>{const e=LEX.words.get(w);return `<tr><td class="num">${fmtN(LEX.rank.get(e.a))}</td><td class="num" title="Playability score ${fmtN(e.pscore)}">${fmtN(e.play)}</td><td class="fh" style="text-align:right">${hooksHTML(w,"f")}</td><td class="w">${wordHTML(w,"",true)}</td><td class="bh">${hooksHTML(w,"b")}</td><td class="w" style="color:var(--muted)">${dispA(e.a)}</td><td class="d">${esc(e.def)}</td></tr>`}).join("")}</tbody></table>${words.length>300?`<p class="note">Showing the first 300. Save the list or add it to your cardbox to use all ${fmtN(words.length)}.</p>`:""}`:`<p class="note">No words match. Try loosening a condition.</p>`;
 }
 let editingId=null;
 function doSearch(){
-  try{const t=performance.now();lastResult=runSearch(store.draft,$("saveOrder").value);note("searchNote",`Searched in ${Math.round(performance.now()-t)} ms.`)}
+  try{const t=performance.now();resDesc=false;lastResult=runSearch(store.draft,$("saveOrder").value);note("searchNote",`Searched in ${Math.round(performance.now()-t)} ms.`)}
   catch(e){lastResult=null;note("searchNote",e.message)}
   const ed=editingId&&store.searches.find(s=>s.id===editingId);
   $("saveName").value=ed?ed.name:describeConds(store.draft).slice(0,60);
@@ -2593,6 +2609,7 @@ document.addEventListener("click",e=>{
   if(ds.resexport&&lastResult){exportWords(lastResult.words,$("saveName").value||"search",ds.resexport,"resNote",false);return}
   if(ds.remove){delCard(ds.remove);save();syncSoon();lookup();if(cur&&ckey(cur.key)===ds.remove)next();else render();return}
   if(ds.rm){store.draft.splice(+ds.rm,1);save();renderSearch();return}
+  if(ds.sort){const o=ds.sort,same=$("saveOrder").value===o;resortResults(o,same?!resDesc:false);return}
   if(ds.preset){const pr=PRESETS[+ds.preset];store.draft=structuredClone(pr.conds);editingId=null;$("saveOrder").value="prob";save();doSearch();$("saveName").value=pr.name;$("saveSearch").textContent="Save as deck";$("resultsPanel").scrollIntoView({behavior:"smooth",block:"start"});return}
   if(ds.study){PAGE="decks";store.page="decks";startReview(ds.study,"learn");return}
   if(ds.load){const s=store.searches.find(x=>x.id===ds.load);if(s){store.draft=structuredClone(s.conds);editingId=s.id;save();doSearch();$("saveName").value=s.name;$("saveOrder").value=s.order||"prob"}return}
@@ -2777,6 +2794,7 @@ $("theme").addEventListener("change",e=>{store.settings.theme=e.target.value;sav
 $("hideCount").addEventListener("change",e=>{store.settings.showCount=e.target.checked?"off":"on";$("showCount").value=store.settings.showCount;save();render()});
 $("phonyKinds").addEventListener("change",e=>{const k=e.target.dataset.pk;if(!k)return;store.settings.phonyKinds={...store.settings.phonyKinds,[k]:e.target.checked};save();next()});
 $("gamePhonyKinds").addEventListener("change",e=>{const k=e.target.dataset.pk;if(!k)return;store.settings.phonyKinds={...store.settings.phonyKinds,[k]:e.target.checked};save()});
+$("saveOrder").addEventListener("change",e=>resortResults(e.target.value,false));
 $("gameDeck").addEventListener("change",e=>{store.gameDeck=e.target.value;save()});
 $("gameMistakes").addEventListener("change",e=>{if(e.target.id==="mixMistakes"){store.settings.mixMistakes=e.target.checked?"on":"off";save()}});
 $("speedDeck").addEventListener("change",e=>{store.gameSpeedDeck=e.target.value;save();renderSpeedSetup()});
