@@ -1879,7 +1879,7 @@ function renderResults(){
   // virtual scrolling: only the rows in view are drawn, so any number of results stays quick
   let maxL=2,maxF=0,maxB=0;
   for(const w of words){if(w.length>maxL)maxL=w.length;const e=LEX.words.get(w);const f=hookList(e.fh).length,bb=hookList(e.bh).length;if(f>maxF)maxF=f;if(bb>maxB)maxB=bb}
-  const cw=monoW(),wW=Math.ceil(maxL*cw+60),fW=Math.max(52,Math.ceil(Math.min(10,maxF)*cw*1.06+20)),bW=Math.max(52,Math.ceil(Math.min(10,maxB)*cw*1.06+20)),aW=Math.max(84,Math.ceil(maxL*cw+20));
+  const cw=monoW(),wW=Math.ceil(maxL*cw+60),hcw=cw*14/13+.84,fW=Math.max(52,Math.ceil(Math.min(10,maxF)*hcw+28)),bW=Math.max(52,Math.ceil(Math.min(10,maxB)*hcw+28)),aW=Math.max(84,Math.ceil(maxL*cw+20));
   const fixed=64+60+fW+wW+bW+aW;
   $("results").innerHTML=`<div class="vwrap" id="vwrap"><table class="vtable" style="min-width:${fixed+160}px"><colgroup><col style="width:64px"><col style="width:60px"><col style="width:${fW}px"><col style="width:${wW}px"><col style="width:${bW}px"><col style="width:${aW}px"><col></colgroup><thead><tr>${sortTh("prob","Prob.","num")}${sortTh("play","Play.","num")}<th style="text-align:right">Front</th>${sortTh("alpha","Word")}<th>Back</th>${sortTh("alphagram","Alphagram")}<th>Definition</th></tr></thead><tbody id="vbody"></tbody></table></div>`;
   vt={words,first:-1,last:-1,rowH:vt&&vt.rowH||31};
@@ -1892,7 +1892,7 @@ function renderResults(){
 }
 let vt=null,monoCW=0;
 function monoW(){if(monoCW)return monoCW;const sp=document.createElement("span");sp.style.cssText="position:absolute;visibility:hidden;font:500 13px var(--f-mono);white-space:pre";sp.textContent="M".repeat(20);document.body.appendChild(sp);monoCW=sp.getBoundingClientRect().width/20||8;sp.remove();return monoCW}
-function resultRow(w){const e=LEX.words.get(w);return `<tr class="r"><td class="num">${fmtN(LEX.rank.get(e.a))}</td><td class="num" title="Playability score ${fmtN(e.pscore)}">${fmtN(e.play)}</td><td class="fh" style="text-align:right"${hookList(e.fh).length>10?` title="${esc(hookList(e.fh).map(h=>h.l).join(""))}"`:""}>${hooksHTML(w,"f")}</td><td class="w">${wordHTML(w,"",true)}</td><td class="bh"${hookList(e.bh).length>10?` title="${esc(hookList(e.bh).map(h=>h.l).join(""))}"`:""}>${hooksHTML(w,"b")}</td><td class="w" style="color:var(--muted)">${dispA(e.a)}</td><td class="d" data-full="${esc(w)}">${esc(e.def)}</td></tr>`}
+function resultRow(w){const e=LEX.words.get(w);return `<tr class="r"><td class="num">${fmtN(LEX.rank.get(e.a))}</td><td class="num" title="Playability score ${fmtN(e.pscore)}">${fmtN(e.play)}</td><td class="fh" style="text-align:right"${hookList(e.fh).length>10?` title="Front hooks: ${esc(hookList(e.fh).map(h=>h.l).join(""))}"`:""}>${hooksHTML(w,"f")}</td><td class="w">${wordHTML(w,"",true)}</td><td class="bh"${hookList(e.bh).length>10?` title="Back hooks: ${esc(hookList(e.bh).map(h=>h.l).join(""))}"`:""}>${hooksHTML(w,"b")}</td><td class="w" style="color:var(--muted)">${dispA(e.a)}</td><td class="d" data-full="${esc(w)}">${esc(e.def)}</td></tr>`}
 function drawRows(force){
   const wrap=$("vwrap"),body=$("vbody");if(!wrap||!body||!vt)return;
   const n=vt.words.length,h=vt.rowH,head=wrap.querySelector("thead").offsetHeight||30;
