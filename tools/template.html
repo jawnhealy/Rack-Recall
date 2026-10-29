@@ -1073,13 +1073,14 @@ const KEY="rack-recall-nwl23-v2",LOGKEY="rack-recall-log-v1";
 const SEED_DECKS=[{id:"s:sev8",name:"Bingos",conds:[{t:"lengths",a:"7,8"}],order:"prob"}];
 const DEFAULTS={cards:{},custom:"",deck:"s:sev8",migr:{bingo:1,ext:1},mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"lengths",a:"7"},{t:"prob",a:1,b:100}],
   notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},autoAdd:{},autoDay:{},hist:{},faceUp:{},conf:{},confPh:{},frontNote:{},fooled:{},doubted:{},typos:{},speedBest:{},
-  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"learning",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",alphaStyle:"abc",mixMistakes:"on",speedSecs:60,speedPool:1000,tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,collins:true,typo:true,misspell:true},w:null,fit:null}};
+  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"learning",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",alphaStyle:"abc",mixMistakes:"on",speedSecs:60,speedPool:1000,tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,affix:true,collins:true,typo:true,misspell:true},w:null,fit:null}};
 let store=structuredClone(DEFAULTS),LOG="";
 function mergeStore(s){
   store={...structuredClone(DEFAULTS),...s,settings:{...DEFAULTS.settings,...(s.settings||{})}};
   if(!s.migr)store.migr={}; // saved before this version: run the one-time deck update
   if(s.front&&!s.qtype)store.qtype=s.front==="word"?"W":"A";delete store.front;
   if(!QT[store.qtype])store.qtype="A";
+  if(!store.migr.pk3){store.migr={...store.migr,pk3:1};store.settings.phonyKinds={...store.settings.phonyKinds,affix:true}}
   if(!store.migr.pk2){store.migr={...store.migr,pk2:1};store.settings.phonyKinds={...store.settings.phonyKinds,typo:true,misspell:true}}
   if(!store.migr.count){store.migr={...store.migr,count:1};if(store.settings.showCount==="on")store.settings.showCount="learning"} // new default: count only while learning
   // "Length range" became part of "Length" (7, 7-8, 2-4 ...)
@@ -1206,7 +1207,7 @@ function phonyEnding(L){
   return null;
 }
 function phonyCollins(L){const pool=CSW.byLen[L];if(!pool||!pool.length)return null;const f=pool[Math.floor(Math.random()*pool.length)];return {key:f,kind:"collins"}}
-const PHONY_KINDS={made:"Made-up words",ending:"Wrong endings",collins:"Collins-only words",misspell:"Misspellings",typo:"Your typos"};
+const PHONY_KINDS={made:"Made-up words",ending:"Wrong endings",affix:"Prefixes & suffixes",collins:"Collins-only words",misspell:"Misspellings",typo:"Your typos"};
 // words you typed while studying that aren't words: they make convincing phonies because they fooled you once
 function recordTypos(k,t){
   if(!t||!t.wrong.length)return;const list={...store.typos};let changed=false;
@@ -1228,6 +1229,39 @@ function misspellings(w){
   for(const [a,b] of MISSPELL_SWAPS){let i=w.indexOf(a,1);while(i>0){out.add(w.slice(0,i)+b+w.slice(i+a.length));i=w.indexOf(a,i+1)}}
   return [...out].filter(x=>x.length>=3&&x.length<=15&&!LEX.words.has(x)&&!(CSW.ready&&CSW.def.has(x)));
 }
+// real words with a prefix or suffix they don't take: OUTSING is fine, OUTSLEEP isn't
+const AFFIXES=[
+  ["pre","OUT","v"],["pre","OVER","v"],["pre","UNDER","v"],["pre","RE","v"],["pre","MIS","v"],["pre","PRE","v"],["pre","DE","v"],["pre","UN","v"],["pre","DIS","v"],["pre","CO","v"],
+  ["pre","UN","adj"],["pre","NON","adj"],["pre","NON","n"],["pre","SUB","n"],["pre","SUPER","n"],["pre","ANTI","n"],["pre","SEMI","n"],["pre","MINI","n"],["pre","MICRO","n"],["pre","INTER","n"],["pre","MULTI","n"],
+  ["suf","LIKE","n"],["suf","LESS","n"],["suf","FUL","n"],["suf","ISH","n"],["suf","DOM","n"],["suf","SHIP","n"],["suf","HOOD","n"],["suf","WISE","n"],["suf","Y","n"],
+  ["suf","NESS","adj"],["suf","LY","adj"],["suf","ISH","adj"],
+  ["suf","ABLE","v"],["suf","MENT","v"],["suf","ER","v"],["suf","AGE","v"],["suf","ANCE","v"]];
+let POSB=null;
+function posBuckets(){
+  // plain (uninflected) words grouped by part of speech and length, read from the definitions
+  if(POSB)return POSB;POSB={v:{},n:{},adj:{}};
+  for(const [w,e] of LEX.words){const d=e.def||"";if(d.startsWith("<")||w.length<3)continue;
+    for(const pos of ["v","n","adj"])if(d.includes("["+pos+" ")||d.includes("["+pos+"]")){(POSB[pos][w.length]=POSB[pos][w.length]||[]).push(w)}}
+  return POSB;
+}
+function phonyAffix(L){
+  const B=posBuckets();
+  for(let t=0;t<40;t++){
+    const [side,a,pos]=AFFIXES[Math.floor(Math.random()*AFFIXES.length)],bl=L-a.length;if(bl<3)continue;
+    const pool=B[pos][bl];if(!pool||!pool.length)continue;
+    // pick the most familiar of a few bases, so the phony looks like something you'd believe
+    let base=null;for(let j=0;j<4;j++){const c=pool[Math.floor(Math.random()*pool.length)];if(!base||LEX.words.get(c).pscore>LEX.words.get(base).pscore)base=c}
+    const V="AEIOU";
+    if(side==="pre"&&V.includes(a.at(-1))&&V.includes(base[0]))continue;   // ANTI+IVY
+    if(side==="suf"&&V.includes(a[0])&&/[AEIOUY]$/.test(base))continue;     // OBOE+ISH
+    if(side==="suf"&&a==="Y"&&/[AEIOUYS]$/.test(base))continue;
+    if(side==="suf"&&(a==="LY"||a==="NESS")&&/Y$/.test(base))continue;      // real words switch Y to I here
+    const w=side==="pre"?a+base:base+a;
+    if(LEX.words.has(w)||(CSW.ready&&CSW.def.has(w)))continue;
+    return {key:w,kind:"affix",base,type:side==="pre"?a+"-":"-"+a};
+  }
+  return null;
+}
 function phonyMisspell(w){
   const keys=deckKeys(store.deck,"word");
   for(let t=0;t<12;t++){const src=t?keys[Math.floor(Math.random()*keys.length)]:w;if(!src||src.length<4)continue;const c=misspellings(src);if(c.length)return {key:c[Math.floor(Math.random()*c.length)],kind:"misspell",src}}
@@ -1236,7 +1270,7 @@ function phonyMisspell(w){
 function phonyFor(w){
   const on=Object.keys(PHONY_KINDS).filter(k=>store.settings.phonyKinds[k]&&(k!=="collins"||CSW.ready));
   const order=on.sort(()=>Math.random()-.5);if(!order.length)order.push("made");
-  for(const k of order){const r=k==="made"?phonyMadeUp(w):k==="ending"?phonyEnding(w.length):k==="misspell"?phonyMisspell(w):k==="typo"?phonyTypo():phonyCollins(w.length);if(r)return r}
+  for(const k of order){const r=k==="made"?phonyMadeUp(w):k==="ending"?phonyEnding(w.length):k==="misspell"?phonyMisspell(w):k==="affix"?phonyAffix(w.length):k==="typo"?phonyTypo():phonyCollins(w.length);if(r)return r}
   return phonyMadeUp(w);
 }
 
@@ -1266,7 +1300,11 @@ function next(){
     if(!keys.length){cur=null;render();return}
     if(store.settings.phonyKinds.collins&&hasCSW()&&!CSW.ready){$("card").innerHTML=`<div class="loading">Unpacking Collins words…</div>`;ensureCSW().then(next);return}
     const mf=Object.keys(store.fooled),md=Object.keys(store.doubted);
-    if(store.settings.mixMistakes==="on"&&mf.length+md.length&&Math.random()<.3){
+    session.vpn=(session.vpn||0)+1;const rec=session.vpRecent||(session.vpRecent={});
+    const fresh=k=>!(rec[k]&&session.vpn-rec[k]<15);
+    const mfa=mf.filter(fresh),mda=md.filter(fresh);
+    if(store.settings.mixMistakes==="on"&&mfa.length+mda.length&&Math.random()<.12){
+      mf.length=0;mf.push(...mfa);md.length=0;md.push(...mda);
       const i=Math.floor(Math.random()*(mf.length+md.length));
       if(i<mf.length){const k=mf[i],r=store.fooled[k];cur={key:k,phony:true,kind:r.kind||"made",src:r.src,base:r.base,type:r.type,rack:r.rack,again:true}}
       else{const k=md[i-mf.length];cur={key:k,phony:false,again:true}}
@@ -1275,6 +1313,7 @@ function next(){
     }
     if(!cur){const w=keys[Math.floor(Math.random()*keys.length)],f=Math.random()<.5?phonyFor(w):null;
       cur=f?{...f,phony:true}:{key:w,phony:false}}
+    if(cur)rec[cur.key]=session.vpn;
   }else if(store.mode==="learn"&&drill){
     if(drill.i>=drill.keys.length&&drill.missed.length){
       const m=drill.missed;for(let i=m.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[m[i],m[j]]=[m[j],m[i]]}
@@ -1557,7 +1596,7 @@ function renderGames(){
   $("gamePhonyKinds").innerHTML=phonyKindsHTML();
   const mf=Object.entries(store.fooled),md=Object.entries(store.doubted),why=r=>r.kind==="collins"?"Collins only":r.kind==="ending"?`${r.base} doesn't take -${r.type}`:r.src?`made from ${r.src}`:"phony";
   $("gameMistakes").innerHTML=mf.length+md.length?`<div class="label">Your mistakes</div>
-    <label class="switch" style="width:max-content"><input type="checkbox" id="mixMistakes" ${store.settings.mixMistakes==="on"?"checked":""}> <span>Mix them back in (about 3 in 10 words)</span></label>
+    <label class="switch" style="width:max-content"><input type="checkbox" id="mixMistakes" ${store.settings.mixMistakes==="on"?"checked":""}> <span>Mix them back in (about 1 in 8 words, not repeated within 15)</span></label>
     ${mf.length?`<p class="note" style="margin:0">Phonies you called valid (${mf.length}):</p><div class="bwords">${mf.sort((a,b)=>b[1].t-a[1].t).map(([k,r])=>`<span title="${esc(why(r))}">${esc(k)}${r.n>1?`<sup>×${r.n}</sup>`:""}</span>`).join("")}</div>`:""}
     ${md.length?`<p class="note" style="margin:0">Real words you called phony (${md.length}):</p><div class="bwords">${md.sort((a,b)=>b[1].t-a[1].t).map(([k,r])=>`<span title="${esc(LEX.words.get(k)?.def||"")}">${esc(k)}${r.n>1?`<sup>×${r.n}</sup>`:""}</span>`).join("")}</div>`:""}
     <p class="note" style="margin:0">A word leaves the list after you get it right twice in a row.</p>
@@ -1878,9 +1917,10 @@ function render(){
       if(cur.again)html+=`<div class="meta"><span class="badge leech">${cur.phony?"you fell for this one before":"you doubted this one before"}</span></div>`;
       if(!cur.phony)html+=ansRows([k]);
       else{
-        const cs=CSW.def.get(k),tag={made:"made-up",ending:"wrong ending",collins:"Collins only",misspell:"misspelling",typo:"your typo"}[cur.kind];
+        const cs=CSW.def.get(k),tag={made:"made-up",ending:"wrong ending",collins:"Collins only",misspell:"misspelling",typo:"your typo",affix:"prefix or suffix"}[cur.kind];
         html+=`<div class="meta"><span class="badge">${tag}</span></div>`;
         if(cur.kind==="made"){const same=alpha(k)===alpha(cur.src);html+=`<div class="hint">${esc(k)} is not in NWL23. ${same?"Same letters as:":"It's close to:"}</div>`+ansRows(same?LEX.anag.get(alpha(cur.src)):[cur.src])}
+        else if(cur.kind==="affix"){const real=LEX.words.get(cur.base)?[cur.base]:[];html+=`<div class="hint">${esc(k)} is not in NWL23: ${esc(cur.base)} doesn't take ${esc(cur.type)}.</div>`+(real.length?ansRows(real):"")}
         else if(cur.kind==="misspell")html+=`<div class="hint">${esc(k)} is not in NWL23. It's a misspelling of:</div>`+ansRows([cur.src]);
         else if(cur.kind==="typo"){const n=store.typos[k]?.n||1;html+=`<div class="hint">${esc(k)} is not in NWL23. You typed it${n>1?` ${n} times`:""} while studying${cur.src?`; you meant:`:cur.rack&&LEX.anag.get(cur.rack)?` ${esc(dispA(cur.rack))}, which makes:`:"."}</div>`+(cur.src&&LEX.words.has(cur.src)?ansRows([cur.src]):cur.rack&&LEX.anag.get(cur.rack)?ansRows(LEX.anag.get(cur.rack)):"")}
         else if(cur.kind==="ending")html+=`<div class="hint">${esc(k)} is not in NWL23: ${esc(cur.base)} doesn't take -${cur.type}.</div>`+ansRows([cur.base]);
