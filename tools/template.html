@@ -2522,6 +2522,16 @@ $("deckList").addEventListener("change",e=>{
 });
 $("deckList").addEventListener("input",e=>{if(e.target.id==="autoN")autoNVal=Math.max(1,Math.min(1000,Math.round(+e.target.value||20)));if(e.target.id==="addN")addNVal=Math.max(1,Math.round(+e.target.value||20));if(e.target.id==="spreadDays")spreadDays=Math.max(2,Math.min(60,Math.round(+e.target.value||7)))});
 $("lookupOut").addEventListener("change",e=>{if(e.target.id==="lkQt"){lkQt=e.target.value;lookup()}});
+// swipe the Look up panel sideways to close it
+{const P=$("lookupPanel");let sw=null;
+P.addEventListener("touchstart",e=>{sw=e.touches.length===1?{x:e.touches[0].clientX,y:e.touches[0].clientY,dx:0,on:false}:null},{passive:true});
+P.addEventListener("touchmove",e=>{if(!sw)return;const dx=e.touches[0].clientX-sw.x,dy=e.touches[0].clientY-sw.y;
+  if(!sw.on){if(Math.abs(dy)>12&&Math.abs(dy)>Math.abs(dx)){sw=null;return}if(Math.abs(dx)>12)sw.on=true;else return}
+  sw.dx=dx;P.style.transition="none";P.style.transform=`translateX(${dx}px)`;P.style.opacity=String(Math.max(.2,1-Math.abs(dx)/400))},{passive:true});
+const end=()=>{if(!sw)return;const go=sw.on&&Math.abs(sw.dx)>90;P.style.transition="transform .18s,opacity .18s";
+  if(go){P.style.transform=`translateX(${sw.dx>0?"":"-"}110%)`;P.style.opacity="0";setTimeout(()=>{closeLookup();P.style.transition=P.style.transform=P.style.opacity=""},180)}
+  else{P.style.transform="";P.style.opacity=""}sw=null};
+P.addEventListener("touchend",end);P.addEventListener("touchcancel",end)}
 $("lookupForm").addEventListener("submit",e=>{e.preventDefault();const v=$("lookupIn").value.trim();if(!v){$("lookupPanel").hidden=true;return}$("lookupPanel").hidden=false;$("lookupOut").innerHTML=`<p class="note">Looking up…</p>`;lookup();$("lookupPanel").scrollIntoView({block:"nearest"})});
 $("zyzFile").addEventListener("change",e=>{const f=e.target.files[0];if(f)openZyz(f);e.target.value=""});
 $("zyzPanel").addEventListener("change",e=>{if(!zyz)return;const id=e.target.id;if(id==="zyzQt")zyz.qt=e.target.value;if(id==="zyzReplace")zyz.replace=e.target.checked;if(id==="zyzDeck")zyz.deck=e.target.checked;renderZyz()});
@@ -2568,7 +2578,7 @@ document.addEventListener("keydown",e=>{
   if(!reviewing){
     const t=e.target.tagName,inField=t==="INPUT"&&e.target.type!=="checkbox"||t==="TEXTAREA"||t==="SELECT";
     if(e.key==="/"&&!inField&&!e.metaKey&&!e.ctrlKey&&!e.altKey){e.preventDefault();openLookup();return}
-    if(e.key==="Escape"&&e.target.id==="lookupIn"){e.preventDefault();closeLookup();return}
+    if(e.key==="Escape"&&(e.target.id==="lookupIn"||!$("lookupPanel").hidden||document.querySelector("header.top.lk-open"))&&t!=="TEXTAREA"&&t!=="SELECT"){e.preventDefault();closeLookup();return}
     return;
   }
   if(store.mode==="speed"){if(e.key==="5"){e.preventDefault();reshuffle()}return}
