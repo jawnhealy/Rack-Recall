@@ -212,7 +212,15 @@ header.top h1{font-size:24px}
 form.lookup{display:flex;gap:6px;margin:0;flex:1 1 260px;max-width:380px;min-width:0}
 form.lookup input{flex:1;min-width:0;font-family:var(--f-mono);text-transform:uppercase;font-size:14px}
 form.lookup input::placeholder{text-transform:none;font-family:var(--f-body)}
-@media (max-width:700px){header.top .brand{flex-basis:100%}form.lookup{max-width:none;flex-basis:100%}}
+.lktoggle{display:none;padding:0 12px;align-items:center;justify-content:center}
+@media (max-width:700px){
+  header.top .brand{flex-basis:100%}
+  header.top .nav{flex:1 1 0;min-width:0;width:auto}
+  .lktoggle{display:inline-flex}
+  form.lookup{display:none;max-width:none;flex-basis:100%}
+  header.top.lk-open form.lookup{display:flex}
+  header.top.lk-open .lktoggle{background:var(--dl)}
+}
 /* decks */
 .decklist{display:flex;flex-direction:column;gap:10px}
 .deckrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px 16px;align-items:center;padding:14px 16px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
@@ -313,6 +321,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <button id="n-stats" aria-pressed="false">Stats</button>
       <button id="n-settings" aria-pressed="false">Settings</button>
     </nav>
+    <button class="btn ghost lktoggle" id="lkToggle" type="button" aria-label="Look up a word (/)" title="Look up a word (/)" aria-expanded="false"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.2"/><line x1="15.5" y1="15.5" x2="21" y2="21" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg></button>
     <form class="lookup" id="lookupForm" autocomplete="off" role="search">
       <input type="text" id="lookupIn" aria-label="Look up a word or rack" spellcheck="false" autocapitalize="characters">
       <button class="btn" id="lookupBtn" type="submit">Look up</button>
@@ -588,7 +597,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 
     <footer class="panel">
       <h2 class="sec">Keys and notes</h2>
-      <p class="note" style="margin:0">While studying: <kbd>Return</kbd> checks typed answers or flips the card, as do <kbd>Space</kbd> and <kbd>0</kbd>–<kbd>3</kbd> in flashcard mode. On the back, <kbd>0</kbd> Again · <kbd>1</kbd> Hard · <kbd>2</kbd> Good · <kbd>3</kbd> Easy (<kbd>Space</kbd> also means Good). In Games › Valid or phony?, <kbd>V</kbd>/<kbd>Y</kbd>/<kbd>→</kbd> or a swipe right for valid, <kbd>P</kbd>/<kbd>N</kbd>/<kbd>←</kbd> or a swipe left for phony. <kbd>5</kbd> shuffles the tiles, <kbd>F</kbd> toggles fullscreen and <kbd>Esc</kbd> leaves the study screen.</p>
+      <p class="note" style="margin:0">While studying: <kbd>Return</kbd> checks typed answers or flips the card, as do <kbd>Space</kbd> and <kbd>0</kbd>–<kbd>3</kbd> in flashcard mode. On the back, <kbd>0</kbd> Again · <kbd>1</kbd> Hard · <kbd>2</kbd> Good · <kbd>3</kbd> Easy (<kbd>Space</kbd> also means Good). In Games › Valid or phony?, <kbd>V</kbd>/<kbd>Y</kbd>/<kbd>→</kbd> or a swipe right for valid, <kbd>P</kbd>/<kbd>N</kbd>/<kbd>←</kbd> or a swipe left for phony. <kbd>5</kbd> shuffles the tiles, <kbd>F</kbd> toggles fullscreen and <kbd>Esc</kbd> leaves the study screen. Anywhere else, <kbd>/</kbd> jumps to Look up and <kbd>Esc</kbd> closes it.</p>
       <p class="note" style="margin:0">Quiz types: Anagrams, Anagrams + hooks, Hooks, Build, Blanks (letters plus one blank), Extensions (longer words containing the word) and Definitions each keep their own cardbox. Valid or phony? is practice and doesn't change your schedule; it mixes words from the deck with made-up words, real words with endings they don't take, and Collins-only words. Probability ranks use two-blank probability. Hooks appear either side of each word. A red <span class="ih">·</span> before or after a word marks an inner hook: it's still a word without that first or last letter, so <span class="ih">·</span>LOBELIAS<span class="ih">·</span> means OBELIAS and LOBELIA are words. A red <sup class="nw">+</sup> marks words and hooks new in NWL23. In Look up, <kbd>?</kbd> is a blank.</p>
       <p class="note" style="margin:0">Lexicon: <span id="lexInfo">NWL23</span>.</p>
       <p class="note" style="margin:0">Updating: on Windows, save a newer rack-and-recall.html next to RackAndRecall.exe and restart. On Android, use App updates above.</p>
@@ -1636,6 +1645,8 @@ function lookupBlanks(raw){
   $("lookupOut").innerHTML=html;
 }
 let lkQt=null;
+function openLookup(){const h=document.querySelector("header.top");h.classList.add("lk-open");$("lkToggle").setAttribute("aria-expanded","true");const i=$("lookupIn");i.focus();i.select()}
+function closeLookup(){$("lookupPanel").hidden=true;$("lookupIn").value="";const h=document.querySelector("header.top");h.classList.remove("lk-open");$("lkToggle").setAttribute("aria-expanded","false");$("lookupIn").blur()}
 function lookup(){
   const raw=$("lookupIn").value.toUpperCase().replace(/[^A-Z?]/g,"");
   if(raw.includes("?")){lookupBlanks(raw);return}
@@ -2346,7 +2357,8 @@ document.addEventListener("click",e=>{
     case "suspendCur":if(cur){setSusp(ckey(cur.key),true);save();syncSoon();lastK=null;next()}break;
     case "unsuspAll":{const pre=store.qtype+":";for(const k of suspKeys())setSusp(pre+k,false);save();syncSoon();render();break}
     case "suspLeeches":{const pre=store.qtype+":";for(const k of leechKeys())setSusp(pre+k,true);clearCache("leech");save();syncSoon();render();break}
-    case "lookupClose":$("lookupPanel").hidden=true;$("lookupIn").value="";break;
+    case "lookupClose":closeLookup();break;
+    case "lkToggle":if(document.querySelector("header.top").classList.contains("lk-open"))closeLookup();else openLookup();break;
 
     case "aheadBtn":{
       aheadDays=Math.max(1,Math.min(60,Math.round(+$("aheadDays").value||3)));
@@ -2478,7 +2490,12 @@ $("flashMode").addEventListener("change",e=>{store.settings.typing=e.target.chec
 document.addEventListener("keydown",e=>{
   if(!ready)return;
   if(e.key==="Escape"&&reviewing&&e.target.tagName!=="TEXTAREA"){e.preventDefault();exitReview();return}
-  if(!reviewing)return;
+  if(!reviewing){
+    const t=e.target.tagName,inField=t==="INPUT"&&e.target.type!=="checkbox"||t==="TEXTAREA"||t==="SELECT";
+    if(e.key==="/"&&!inField&&!e.metaKey&&!e.ctrlKey&&!e.altKey){e.preventDefault();openLookup();return}
+    if(e.key==="Escape"&&e.target.id==="lookupIn"){e.preventDefault();closeLookup();return}
+    return;
+  }
   if(store.mode==="speed"){if(e.key==="5"){e.preventDefault();reshuffle()}return}
   if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.key.toLowerCase()==="z"&&!(e.target.tagName==="INPUT"&&e.target.value)&&e.target.tagName!=="TEXTAREA"){e.preventDefault();undoGrade();return}
   if(e.key==="5"&&e.target.tagName!=="TEXTAREA"&&store.mode==="learn"&&!flipped){e.preventDefault();reshuffle();return}
