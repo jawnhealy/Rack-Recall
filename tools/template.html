@@ -371,6 +371,8 @@ textarea{width:100%;min-height:140px;font-family:var(--f-mono);font-size:13px;bo
 .progress i{display:block;height:100%;width:0;background:var(--tl)}
 .wl{overflow-x:auto;margin-top:8px}
 .st-sec{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.curvebox{margin-top:6px}.curvebox summary{cursor:pointer}
+table.curve{width:auto;margin-top:6px}table.curve td{padding:2px 10px 2px 0;border:0;font-size:13px}table.curve td:last-child{font-weight:600}
 .lenacc{display:grid;grid-template-columns:max-content minmax(80px,1fr) max-content max-content;gap:6px 10px;align-items:center;font-size:13px;margin-top:8px}
 .lenacc .bar{height:10px;background:var(--line);border-radius:5px;overflow:hidden}
 .lenacc .bar i{display:block;height:100%;background:var(--good)}
@@ -593,6 +595,12 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <div class="settings">
         <label for="retention">Target retention</label>
         <div><input type="number" id="retention" min="0.7" max="0.99" step="0.01"> <span class="note">0.90 is the FSRS default. Higher means more reviews.</span></div>
+        <label for="retCurve">Retention by probability</label>
+        <div><select id="retCurve"><option value="off">Off: every card uses the target above</option><option value="on">On: higher targets for likelier words</option></select>
+          <details class="curvebox"><summary class="note">What it uses</summary><table class="curve"><tbody>
+          <tr><td>2s</td><td>97%</td></tr><tr><td>3s and 4s with J, Q, X or Z</td><td>95%</td></tr><tr><td>Other 3s</td><td>94%</td></tr><tr><td>Other 4s</td><td>90% for the likelier half, 88% for the rest</td></tr>
+          <tr><td>5 letters and up, probability rank 1</td><td>95%</td></tr><tr><td>rank 1,000</td><td>94%</td></tr><tr><td>rank 5,000</td><td>91%</td></tr><tr><td>rank 10,000</td><td>87.5%</td></tr><tr><td>rank 20,000</td><td>84%</td></tr><tr><td>rank 40,000 and beyond</td><td>80%</td></tr>
+          </tbody></table><p class="note" style="margin:4px 0 0">Ranks are two-blank probability within each length, with targets blended smoothly between these points. A deck's own target (More → Schedule) still wins while you study that deck.</p></details></div>
         <label for="newLimit">New cards per day</label>
         <div><input type="number" id="newLimit" min="0" max="1000" step="1"> <span class="note">how many of the cards you've added are introduced each day, per deck and quiz type</span></div>
         <label for="revLimit">Reviews per day</label>
@@ -1047,13 +1055,35 @@ function nextD(d,g){return clampD(W[7]*initD(EASY)+(1-W[7])*(d-W[6]*(g-3)))}
 function recallS(d,s,r,g){return s*(1+Math.exp(W[8])*(11-d)*Math.pow(s,-W[9])*(Math.exp((1-r)*W[10])-1)*(g===HARD?W[15]:1)*(g===EASY?W[16]:1))}
 function forgetS(d,s,r){return Math.min(s,W[11]*Math.pow(d,-W[12])*(Math.pow(s+1,W[13])-1)*Math.exp((1-r)*W[14]))}
 // while studying a deck with its own retention target, that target sets the intervals
-const retNow=()=>(reviewing&&store.deckRet&&store.deckRet[store.deck])||store.settings.retention;
-function intervalDays(s){return Math.min(36500,Math.max(1,Math.round(s/FACTOR*(Math.pow(retNow(),1/DECAY)-1))))}
+// Retention by probability: likely words get a high target, rare ones a lower one, so review time goes where it pays.
+// Bingo-length bands follow two-blank probability rank within the length; short words get their own, higher targets.
+const RET_CURVE=[[1,.95],[1000,.94],[5000,.91],[10000,.875],[20000,.84],[40000,.80]];
+function curveRet(ck){
+  if(!ck)return null;const q=ck[0],k=ck.slice(2),e=LEX.words.get(k),a=QT[q]&&QT[q].unit==="word"?(e?e.a:null):k;if(!a)return null;
+  const L=a.length,rank=LEX.rank.get(a);if(!rank)return null;
+  if(L<=2)return .97;
+  if(/[JQXZ]/.test(a)&&L<=4)return .95;
+  if(L===3)return .94;
+  if(L===4)return rank<=(LEX.byLen[4]||[]).length/2?.90:.88;
+  const x=Math.log10(rank);
+  for(let i=1;i<RET_CURVE.length;i++){const [r0,v0]=RET_CURVE[i-1],[r1,v1]=RET_CURVE[i];if(rank<=r1){const t=(x-Math.log10(r0))/(Math.log10(r1)-Math.log10(r0));return Math.round((v0+(v1-v0)*t)*1000)/1000}}
+  return .80;
+}
+// the target for one card: a deck's own target wins, then the probability curve if it's on, then your default
+function retFor(ck){
+  if(reviewing&&store.deckRet&&store.deckRet[store.deck])return store.deckRet[store.deck];
+  if(store.settings.retCurve==="on"){const r=curveRet(ck);if(r)return r}
+  return store.settings.retention;
+}
+let schedCK=null;
+const retNow=()=>retFor(schedCK);
+function intervalDays(s,ck){if(ck!==undefined)schedCK=ck;return Math.min(36500,Math.max(1,Math.round(s/FACTOR*(Math.pow(retNow(),1/DECAY)-1))))}
 // interval fuzz: cards added or answered together drift apart instead of coming due in clumps.
 // The spread is fixed per card and review, so the times shown on the buttons are the times you get.
 function fuzzUnit(seed){let h=2166136261;for(let i=0;i<seed.length;i++){h^=seed.charCodeAt(i);h=Math.imul(h,16777619)}return ((h>>>0)/4294967295)*2-1}
 function fuzzIvl(ivl,u){if(u==null||ivl<3)return ivl;const r=ivl<7?.15:ivl<20?.1:.05;return Math.max(2,Math.round(ivl*(1+r*u)))}
 function schedule(c,now,seed){
+  schedCK=seed||null;
   const out={},u=seed?fuzzUnit(seed+"#"+c.reps):null;
   if(c.state==="new"){
     for(const g of [AGAIN,HARD,GOOD,EASY]){
@@ -1092,7 +1122,7 @@ const KEY="rack-recall-nwl23-v2",LOGKEY="rack-recall-log-v1";
 const SEED_DECKS=[{id:"s:sev8",name:"Bingos",conds:[{t:"lengths",a:"7,8"}],order:"prob"}];
 const DEFAULTS={cards:{},custom:"",deck:"s:sev8",migr:{bingo:1,ext:1},mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"lengths",a:"7"},{t:"prob",a:1,b:100}],
   notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},autoAdd:{},autoDay:{},hist:{},faceUp:{},conf:{},confPh:{},frontNote:{},fooled:{},doubted:{},typos:{},deckRet:{},speedBest:{},
-  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"learning",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",alphaStyle:"abc",mixMistakes:"on",speedSecs:60,speedPool:1000,tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,affix:true,collins:true,typo:true,misspell:true},w:null,fit:null}};
+  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"learning",retCurve:"off",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",alphaStyle:"abc",mixMistakes:"on",speedSecs:60,speedPool:1000,tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,affix:true,collins:true,typo:true,misspell:true},w:null,fit:null}};
 let store=structuredClone(DEFAULTS),LOG="";
 function mergeStore(s){
   store={...structuredClone(DEFAULTS),...s,settings:{...DEFAULTS.settings,...(s.settings||{})}};
@@ -1394,7 +1424,7 @@ function grade(g){
     recordTypos(cur.key,typed);
     if(drill.opt.place){
       // placement: words you know start with a long interval; the rest join the cardbox as new cards
-      if(ok){const now=Date.now(),S=30;setCard(cur.key,{state:"review",s:S,d:4,due:now+fuzzIvl(intervalDays(S),fuzzUnit(ck))*DAY,last:now,reps:1,lapses:0})}
+      if(ok){const now=Date.now(),S=30;setCard(cur.key,{state:"review",s:S,d:4,due:now+fuzzIvl(intervalDays(S,ck),fuzzUnit(ck))*DAY,last:now,reps:1,lapses:0})}
       else if(!store.cards[ck])addKeys([cur.key]);
       if(ok)drill.right++;else{drill.wrong++;drill.firstMissed.add(cur.key)}
       session.n++;if(!ok)session.again++;lastK=cur.key;next();return;
@@ -1601,7 +1631,7 @@ function renderDecks(){
         else{n=s.overdue;ok=n>1;ctl=`<span class="nobr">${num("spreadDays",spreadDays,2,60,"Days")} <span class="note">days</span></span>`;btn=`<button class="btn ghost" id="spreadBtn" ${ok?"":"disabled"}>${ok?`Spread ${fmtN(n)}`:"Spread out"}</button>`;empty="No backlog right now.";help="Overdue reviews are re-dated across the days you choose, most at risk of being forgotten first, so you face a steady amount each day instead of the whole pile."}
         const opt=(v,l)=>`<option value="${v}" ${op===v?"selected":""}>${l}</option>`;
         const dr=store.deckRet[id],cramList=cramKeys(id,cramCut),cn=cramList.length;
-        const retRow=`<div class="addctl"><label for="deckRet">Target retention</label><span class="nobr"><input type="number" id="deckRet" min="70" max="99" step="1" value="${dr?Math.round(dr*100):""}" placeholder="${Math.round(store.settings.retention*100)}" aria-label="Target retention for this deck, percent"> <span class="note">%</span></span><span class="note">${dr?"for this deck":`blank uses your default (${Math.round(store.settings.retention*100)}%)`}</span>${ib("ret","deck retention")}</div>${info("ret","The recall chance you want this deck's cards to have when they come due. It sets the intervals while you study this deck: higher means more reviews and fewer misses. For example 92% for bingos you'll draw, 85% for rare 8s.")}`;
+        const retRow=`<div class="addctl"><label for="deckRet">Target retention</label><span class="nobr"><input type="number" id="deckRet" min="70" max="99" step="1" value="${dr?Math.round(dr*100):""}" placeholder="${Math.round(store.settings.retention*100)}" aria-label="Target retention for this deck, percent"> <span class="note">%</span></span><span class="note">${dr?"for this deck":store.settings.retCurve==="on"?"blank uses retention by probability":`blank uses your default (${Math.round(store.settings.retention*100)}%)`}</span>${ib("ret","deck retention")}</div>${info("ret","The recall chance you want this deck's cards to have when they come due. It sets the intervals while you study this deck: higher means more reviews and fewer misses. For example 92% for bingos you'll draw, 85% for rare 8s.")}`;
         const cramRow=`<div class="addctl"><label for="cramCut">Cram cards below</label><span class="nobr"><input type="number" id="cramCut" min="50" max="99" step="1" value="${cramCut}" aria-label="Recall cutoff, percent"> <span class="note">% recall</span></span><button class="btn ghost" id="cramBtn" ${cn?"":"disabled"}>${cn?`Cram ${fmtN(cn)}`:"Cram"}</button>${ib("cram","cram mode")}${cn?"":`<span class="note">Nothing below ${cramCut}% right now.</span>`}</div>${info("cram","Quizzes every studied card whose recall has slipped below the cutoff, due or not, weakest first, like a last pass before a tournament. It doesn't change your schedule.")}`;
         sched=`<div class="msec"><div class="label">Schedule</div>${retRow}${cramRow}
           <div class="addctl"><select id="schedOp" aria-label="Schedule action">${opt("spread","Spread the backlog over")}${opt("postN","Postpone due reviews")}${opt("ahead","Bring forward reviews due in")}${opt("nextN","Bring forward the next")}</select>
@@ -1989,7 +2019,7 @@ function render(){
       html+=noteEditing?`<div class="notebox"><textarea id="noteText" aria-label="Note for ${esc(k)}" placeholder="A mnemonic, a reminder, anything that helps">${esc(nt||"")}</textarea><div class="actions"><button class="btn sm" id="noteSave">Save note</button><button class="btn ghost sm" id="noteCancel">Cancel</button>${nt?'<button class="btn ghost sm" id="noteDelete">Delete note</button>':""}</div></div>`
         :nt?`<div class="notebox"><div class="label">Your note</div><div class="notetext">${esc(nt)}</div><button class="linkbtn" id="noteEdit">Edit note</button></div>`:"";
       if(cur.timedOut)html+=`<div class="meta">Time's up.</div>`;
-      html+=`<div class="meta">${cur.secs!=null?`${cur.secs.toFixed(1)} s · `:""}${nt||noteEditing?"":'<button class="linkbtn" id="noteEdit">Add note</button> · '}${drill?(store.cards[ckey(k)]?"In your cardbox":`<button class="linkbtn" id="drillAdd">Add to cardbox</button>`):st.state==="new"?"First time seen":`Stability ${st.s.toFixed(1)}d · difficulty ${st.d.toFixed(1)} · ${st.lapses} lapse${st.lapses===1?"":"s"}`}${drill?"":` · <button class="linkbtn" id="suspendCur">Suspend</button> · <button class="linkbtn" id="removeCur">Remove from cardbox</button>`}</div>`;
+      html+=`<div class="meta">${cur.secs!=null?`${cur.secs.toFixed(1)} s · `:""}${nt||noteEditing?"":'<button class="linkbtn" id="noteEdit">Add note</button> · '}${drill?(store.cards[ckey(k)]?"In your cardbox":`<button class="linkbtn" id="drillAdd">Add to cardbox</button>`):st.state==="new"?"First time seen":`Stability ${st.s.toFixed(1)}d · difficulty ${st.d.toFixed(1)} · ${st.lapses} lapse${st.lapses===1?"":"s"} · target ${Math.round(retFor(ckey(k))*1000)/10}%`}${drill?"":` · <button class="linkbtn" id="suspendCur">Suspend</button> · <button class="linkbtn" id="removeCur">Remove from cardbox</button>`}</div>`;
       if(cur.intro){
         card.innerHTML=html.replace('<div class="corner"><span class="badge new">new</span>','<div class="corner"><span class="badge new">new · study it</span>');
         gr.className="grade two";gr.innerHTML=`<button class="good full" id="introNext">Got it<small>you'll be tested on it in a few cards · Return, Space or 0–3</small></button>`;
@@ -3071,13 +3101,14 @@ $("importFile").addEventListener("change",e=>{
   rd.readAsText(f);e.target.value="";
 });
 const NUMS={retention:[.7,.99,.9],newLimit:[0,1000,20],revLimit:[0,10000,0],slowSecs:[0,300,20],timeLimit:[0,600,0],buildMin:[2,15,4],leech:[2,50,6],extMin:[1,13,2],extMax:[1,13,7]};
-function syncInputs(){for(const id of ["retention","newLimit","revLimit","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn","showRank","theme","tileOrder","alphaStyle","tileStyle","tilePoints","slowSecs","timeLimit"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
+function syncInputs(){for(const id of ["retention","newLimit","revLimit","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn","showRank","retCurve","theme","tileOrder","alphaStyle","tileStyle","tilePoints","slowSecs","timeLimit"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
 for(const id in NUMS)$(id).addEventListener("change",e=>{const [lo,hi,def]=NUMS[id];let v=+e.target.value;if(isNaN(v)||e.target.value==="")v=def;v=Math.min(hi,Math.max(lo,v));if(id!=="retention")v=Math.round(v);store.settings[id]=v;e.target.value=v;save();
   if(id==="leech")clearCache("leech");
   if(id==="extMin"&&store.settings.extMax<v){store.settings.extMax=v;$("extMax").value=v}
   if(id==="extMax"&&store.settings.extMin>v){store.settings.extMin=v;$("extMin").value=v}
   if(cur&&store.mode==="learn"){cur.ans=answersFor(cur.key);if(flipped)preview=schedule(cardState(cur.key),Date.now(),ckey(cur.key))}
   if(!cur&&store.mode==="learn")next();else render()});
+$("retCurve").addEventListener("change",e=>{store.settings.retCurve=e.target.value;save();if(flipped&&cur){preview=schedule(cardState(cur.key),Date.now(),ckey(cur.key))}render()});
 for(const id of ["newOrder","typing","showCount","buryOn","showRank","tileOrder","alphaStyle"])$(id).addEventListener("change",e=>{store.settings[id]=e.target.value;save();if(!flipped)next();else render()});
 $("extDir").addEventListener("change",e=>{store.settings.extDir=e.target.value;save();if(cur&&store.mode==="learn")cur.ans=answersFor(cur.key);render()});
 function applyTheme(){
