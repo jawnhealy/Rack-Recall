@@ -1460,7 +1460,7 @@ function chip(id,label,cls){
   return `<button class="chip ${cls||""}" data-deck="${esc(id)}" aria-pressed="${id===store.deck}" title="${fmtN(s.total)} cards">${esc(label)}<span class="n">${n||""}</span></button>`;
 }
 const PAGES=["decks","games","search","stats","settings"];
-function setPage(pg){PAGE=pg;store.page=pg;save();render();window.scrollTo(0,0)}
+function setPage(pg){if(pg!==PAGE&&!$("lookupPanel").hidden)closeLookup();PAGE=pg;store.page=pg;save();render();window.scrollTo(0,0)}
 function renderChrome(){
   for(const pg of PAGES){$("n-"+pg).setAttribute("aria-pressed",PAGE===pg);$(pg+"View").hidden=PAGE!==pg}
   $("review").hidden=!reviewing;document.documentElement.classList.toggle("reviewing",reviewing);
