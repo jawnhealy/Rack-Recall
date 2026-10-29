@@ -291,6 +291,10 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 .lookup{display:flex;gap:8px;margin-top:10px}
 .lookup input{flex:1;font-family:var(--f-mono);text-transform:uppercase;font-size:15px}
 #lookupOut{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+.lbox{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.lbox select{font-weight:600}
+.lbox .lkst{flex:1 1 180px;min-width:0}
+.lbox .mono{font-family:var(--f-mono);color:var(--ink);letter-spacing:.04em}
 .ltypes{display:flex;flex-direction:column;gap:4px;font-size:13.5px}
 .ltypes div{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .ltypes b{min-width:140px}
@@ -363,7 +367,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 
     <details id="custom">
       <summary>Paste your own list</summary>
-      <p>Paste words or alphagrams, one per line or separated by spaces. Saving makes a deck called “My list” and adds every entry to your cardbox for the current quiz type. Anything not in NWL2023 is skipped. To build a deck from conditions, use New deck or Search.</p>
+      <p>Paste words or alphagrams, one per line or separated by spaces. Saving makes a deck called “My list” and adds every entry to your cardbox for the current quiz type. Anything not in NWL23 is skipped. To build a deck from conditions, use New deck or Search.</p>
       <textarea id="customText" spellcheck="false" placeholder="RETAINS&#10;AEINRST&#10;QOPH ZAX CWM"></textarea>
       <div class="actions" style="margin-top:10px">
         <button class="btn" id="saveCustom">Save and add to cardbox</button>
@@ -418,7 +422,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <div class="decks" id="presets"></div>
     </div>
     <div class="panel">
-      <h2 class="sec">Search NWL2023</h2>
+      <h2 class="sec">Search NWL23</h2>
       <div class="conds" id="conds"></div>
       <div class="actions">
         <select id="addCond" aria-label="Add a condition"></select>
@@ -585,8 +589,8 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     <footer class="panel">
       <h2 class="sec">Keys and notes</h2>
       <p class="note" style="margin:0">While studying: <kbd>Return</kbd> checks typed answers or flips the card, as do <kbd>Space</kbd> and <kbd>0</kbd>–<kbd>3</kbd> in flashcard mode. On the back, <kbd>0</kbd> Again · <kbd>1</kbd> Hard · <kbd>2</kbd> Good · <kbd>3</kbd> Easy (<kbd>Space</kbd> also means Good). In Games › Valid or phony?, <kbd>V</kbd>/<kbd>Y</kbd>/<kbd>→</kbd> or a swipe right for valid, <kbd>P</kbd>/<kbd>N</kbd>/<kbd>←</kbd> or a swipe left for phony. <kbd>5</kbd> shuffles the tiles, <kbd>F</kbd> toggles fullscreen and <kbd>Esc</kbd> leaves the study screen.</p>
-      <p class="note" style="margin:0">Quiz types: Anagrams, Anagrams + hooks, Hooks, Build, Blanks (letters plus one blank), Extensions (longer words containing the word) and Definitions each keep their own cardbox. Valid or phony? is practice and doesn't change your schedule; it mixes words from the deck with made-up words, real words with endings they don't take, and Collins-only words. Probability ranks use two-blank probability. Hooks appear either side of each word. A red <span class="ih">·</span> before or after a word marks an inner hook: it's still a word without that first or last letter, so <span class="ih">·</span>LOBELIAS<span class="ih">·</span> means OBELIAS and LOBELIA are words. A red <sup class="nw">+</sup> marks words and hooks new in NWL2023. In Look up, <kbd>?</kbd> is a blank.</p>
-      <p class="note" style="margin:0">Lexicon: <span id="lexInfo">NWL2023</span>.</p>
+      <p class="note" style="margin:0">Quiz types: Anagrams, Anagrams + hooks, Hooks, Build, Blanks (letters plus one blank), Extensions (longer words containing the word) and Definitions each keep their own cardbox. Valid or phony? is practice and doesn't change your schedule; it mixes words from the deck with made-up words, real words with endings they don't take, and Collins-only words. Probability ranks use two-blank probability. Hooks appear either side of each word. A red <span class="ih">·</span> before or after a word marks an inner hook: it's still a word without that first or last letter, so <span class="ih">·</span>LOBELIAS<span class="ih">·</span> means OBELIAS and LOBELIA are words. A red <sup class="nw">+</sup> marks words and hooks new in NWL23. In Look up, <kbd>?</kbd> is a blank.</p>
+      <p class="note" style="margin:0">Lexicon: <span id="lexInfo">NWL23</span>.</p>
       <p class="note" style="margin:0">Updating: on Windows, save a newer rack-and-recall.html next to RackAndRecall.exe and restart. On Android, use App updates above.</p>
     </footer>
   </section>
@@ -606,7 +610,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     <div class="actions" id="phonyKinds"></div>
   </div>
   <div class="rv-body">
-    <div class="card" id="card" tabindex="-1" aria-live="polite"><div class="loading">Unpacking NWL2023…</div></div>
+    <div class="card" id="card" tabindex="-1" aria-live="polite"><div class="loading">Unpacking NWL23…</div></div>
     <div class="grade" id="grade"></div>
   </div>
 </div>
@@ -763,7 +767,7 @@ const PRESETS=[
   {name:"JQXZ threes & fours",conds:[{t:"lengths",a:"3,4"},{t:"pattern",a:"*[JQXZ]*"}]},
   {name:"Bingo stems: 6 + ?",conds:[{t:"lengths",a:"6"},{t:"blankn",a:15,b:""}]},
   {name:"Bingo stems: 7 + ?",conds:[{t:"lengths",a:"7"},{t:"blankn",a:15,b:""}]},
-  {name:"New in NWL2023",conds:[{t:"lengths",a:"2-8"},{t:"isnew"}]},
+  {name:"New in NWL23",conds:[{t:"lengths",a:"2-8"},{t:"isnew"}]},
 ];
 const LISTS={
 };
@@ -833,7 +837,7 @@ const COND={
   bext:{label:"Has back extensions",kind:"bool",hint:"a longer word starts with it"},
   blankn:{label:"Words with one blank added",kind:"range",def:[10,""],hint:"how many words its letters plus a blank make"},
   extn:{label:"Number of extensions",kind:"range",def:[3,""],hint:"front or back, any length"},
-  isnew:{label:"New in NWL2023",kind:"bool"},
+  isnew:{label:"New in NWL23",kind:"bool"},
   defn:{label:"Definition contains",kind:"text"},
   inbox:{label:"In my cardbox (current quiz type)",kind:"bool"},
   list:{label:"In this list",kind:"text",hint:"words or alphagrams, separated by spaces"},
@@ -1057,7 +1061,7 @@ function ensureCSW(){
     CSW.ready=true;
   }));
 }
-// Letter-pattern model: how word-like a string looks, from three-letter sequences in NWL2023.
+// Letter-pattern model: how word-like a string looks, from three-letter sequences in NWL23.
 let TRI=null;
 function triModel(){
   if(TRI)return TRI;const cnt=new Map(),ctx=new Map();
@@ -1318,7 +1322,7 @@ function speedSubmit(){
   for(const w of words){
     if(r.found.has(w))msg=`${w}: already found`;
     else if(r.ans.includes(w)){r.found.add(w);sp.score++;msg=""}
-    else msg=LEX.words.has(w)?`${w} is a word, but not from these tiles`:`${w} isn't in NWL2023`;
+    else msg=LEX.words.has(w)?`${w} is a word, but not from these tiles`:`${w} isn't in NWL23`;
   }
   if(r.found.size===r.ans.length){speedNextRack();render();$("spIn")?.focus();return}
   $("spFound").innerHTML=speedFoundHTML(r);$("spScore").textContent=sp.score;$("spMsg").textContent=msg;
@@ -1479,7 +1483,7 @@ function render(){
         const nAns=ans.length,nHit=typed.hit.size;
         const ok=!typed.missed.length&&!typed.wrong.length;
         html+=`<div class="verdict ${ok?"ok":"no"}">${nAns?`${nHit} of ${nAns} found`:(ok?`Right: there are none`:`There are none`)}${typed.wrong.length?`, ${typed.wrong.length} wrong`:""}</div>`;
-        if(typed.wrong.length)html+=`<div class="typed">${typed.wrong.map(w=>{const m=typed.missed.find(a=>oneEdit(w,a));return `<span class="bad" title="${LEX.words.has(w)?"Valid word, but not an answer here":"Not in NWL2023"}">${esc(w)}</span>${m?` <button class="linkbtn" data-typo="${esc(w)}|${esc(m)}">Typo for ${esc(m)}? Count it</button>`:""}`}).join(" ")}</div>`;
+        if(typed.wrong.length)html+=`<div class="typed">${typed.wrong.map(w=>{const m=typed.missed.find(a=>oneEdit(w,a));return `<span class="bad" title="${LEX.words.has(w)?"Valid word, but not an answer here":"Not in NWL23"}">${esc(w)}</span>${m?` <button class="linkbtn" data-typo="${esc(w)}|${esc(m)}">Typo for ${esc(m)}? Count it</button>`:""}`}).join(" ")}</div>`;
         const slow=store.settings.slowSecs>0&&cur.secs>store.settings.slowSecs+4*Math.max(0,nAns-1);
         suggest=ok?(slow?HARD:GOOD):(!typed.wrong.length&&nAns&&nHit/nAns>=.8?HARD:AGAIN);
         if(ok&&slow)html+=`<div class="meta">Right, but slower than ${store.settings.slowSecs+4*Math.max(0,nAns-1)} s, so Hard is suggested.</div>`;
@@ -1524,9 +1528,9 @@ function render(){
       else{
         const cs=CSW.def.get(k),tag={made:"made-up",ending:"wrong ending",collins:"Collins only"}[cur.kind];
         html+=`<div class="meta"><span class="badge">${tag}</span></div>`;
-        if(cur.kind==="made"){const same=alpha(k)===alpha(cur.src);html+=`<div class="hint">${esc(k)} is not in NWL2023. ${same?"Same letters as:":"It's close to:"}</div>`+ansRows(same?LEX.anag.get(alpha(cur.src)):[cur.src])}
-        else if(cur.kind==="ending")html+=`<div class="hint">${esc(k)} is not in NWL2023: ${esc(cur.base)} doesn't take -${cur.type}.</div>`+ansRows([cur.base]);
-        if(cs!==undefined)html+=`<div class="hint">${cur.kind==="collins"?esc(k)+" is valid in Collins (CSW24) but not in NWL2023.":"It is valid in Collins (CSW24), though."}</div>${cs?`<div class="single"><div class="def">${esc(cs)}</div></div>`:""}`;
+        if(cur.kind==="made"){const same=alpha(k)===alpha(cur.src);html+=`<div class="hint">${esc(k)} is not in NWL23. ${same?"Same letters as:":"It's close to:"}</div>`+ansRows(same?LEX.anag.get(alpha(cur.src)):[cur.src])}
+        else if(cur.kind==="ending")html+=`<div class="hint">${esc(k)} is not in NWL23: ${esc(cur.base)} doesn't take -${cur.type}.</div>`+ansRows([cur.base]);
+        if(cs!==undefined)html+=`<div class="hint">${cur.kind==="collins"?esc(k)+" is valid in Collins (CSW24) but not in NWL23.":"It is valid in Collins (CSW24), though."}</div>${cs?`<div class="single"><div class="def">${esc(cs)}</div></div>`:""}`;
       }
       const pk=session.pk||{},tally=Object.entries({valid:"Valid words",...PHONY_KINDS}).filter(([k])=>pk[k]).map(([k,n])=>`${n} ${pk[k][0]}/${pk[k][1]}`).join(" · ");
       if(tally)html+=`<div class="meta">This session: ${tally}</div>`;
@@ -1631,6 +1635,7 @@ function lookupBlanks(raw){
     html+=`<div class="ltypes"><div><b>Blanks</b><span class="note">${esc(k)}?: ${!r?"not in cardbox":r[0]===0?"added, not yet studied":`${SC[r[0]]}, next ${r[3]<=Date.now()?"now":fmtIvl(r[3]-Date.now())}`}</span>${r?`<button class="btn ghost sm" data-remove="S:${k}">Remove</button>`:`<button class="btn sm" data-add="S:${k}">Add</button>`}</div></div>`}
   $("lookupOut").innerHTML=html;
 }
+let lkQt=null;
 function lookup(){
   const raw=$("lookupIn").value.toUpperCase().replace(/[^A-Z?]/g,"");
   if(raw.includes("?")){lookupBlanks(raw);return}
@@ -1638,7 +1643,7 @@ function lookup(){
   const a=alpha(q),g=LEX.anag.get(a),valid=LEX.words.has(q);
   if(!valid&&hasCSW()&&!CSW.ready){ensureCSW().then(lookup);return}
   const cs=CSW.def.get(q);
-  let html=`<p><b>${esc(q)}</b> ${valid?"is valid":"is not a word"} in NWL2023.${cs!==undefined?` It is valid in Collins (CSW24)${cs?`: ${esc(cs)}`:"."}`:""}</p>`;
+  let html=`<p><b>${esc(q)}</b> ${valid?"is valid":"is not a word"} in NWL23.${cs!==undefined?` It is valid in Collins (CSW24)${cs?`: ${esc(cs)}`:"."}`:""}</p>`;
   if(g){
     html+=`<p class="note">Alphagram ${esc(a)} · two-blank probability rank ${fmtN(LEX.rank.get(a))} of ${fmtN(LEX.byLen[a.length].length)} · ${g.length} ${g.length===1?"word":"words"}${valid?` · ${esc(q)} playability rank ${fmtN(LEX.words.get(q).play)} (score ${fmtN(LEX.words.get(q).pscore)})`:""}</p>`+ansRows(g);
   }else html+=`<p class="note">No valid anagrams of these letters.</p>`;
@@ -1647,13 +1652,18 @@ function lookup(){
     else if(valid)html+=`<p class="note">No cousins: no other word differs from ${esc(q)} by one letter.</p>`}
   if(valid){const ex=extensions(q,"both",1,13);if(ex.length){const shown=ex.slice(0,60);html+=`<p class="note">${fmtN(ex.length)} front or back extension${ex.length===1?"":"s"}${ex.length>60?" (first 60)":""}:</p>`+extHTML(q,shown)}}
   const desc=r=>!r?"not in cardbox":r[0]>=10?"suspended":r[0]===0?"added, not yet studied":`${SC[r[0]]}, next ${r[3]<=Date.now()?"now":fmtIvl(r[3]-Date.now())}`;
-  const rows=[];
-  for(const [t,d] of Object.entries(QT)){
-    const k=d.unit==="alpha"?(g?a:null):(valid?q:null);if(!k)continue;
-    const r=store.cards[t+":"+k];
-    rows.push(`<div><b>${d.name}</b><span class="note">${esc(k)}: ${desc(r)}</span>${r?`<button class="btn ghost sm" data-susp="${t}:${k}">${r[0]>=10?"Unsuspend":"Suspend"}</button><button class="btn ghost sm" data-remove="${t}:${k}">Remove</button>`:`<button class="btn sm" data-add="${t}:${k}">Add</button>`}</div>`);
+  // one row: pick a quiz type, see that card's status, act on it
+  const types=Object.entries(QT).map(([t,d])=>({t,d,k:d.unit==="alpha"?(g?a:null):(valid?q:null)})).filter(x=>x.k);
+  if(types.length){
+    if(!types.some(x=>x.t===lkQt))lkQt=types.some(x=>x.t===store.qtype)?store.qtype:types[0].t;
+    const inBox=types.filter(x=>store.cards[x.t+":"+x.k]);
+    const x=types.find(y=>y.t===lkQt),r=store.cards[x.t+":"+x.k],ck=`${x.t}:${x.k}`;
+    html+=`<div class="lbox">
+      <select id="lkQt" aria-label="Quiz type">${types.map(y=>`<option value="${y.t}" ${y.t===lkQt?"selected":""}>${store.cards[y.t+":"+y.k]?"● ":""}${y.d.name}</option>`).join("")}</select>
+      <span class="note lkst"><span class="mono">${esc(x.k)}</span> · ${desc(r)}</span>
+      <span class="actions">${r?`<button class="btn ghost sm" data-susp="${ck}">${r[0]>=10?"Unsuspend":"Suspend"}</button><button class="btn ghost sm" data-remove="${ck}">Remove</button>`:`<button class="btn sm" data-add="${ck}">Add to cardbox</button>`}</span>
+    </div><p class="note" style="margin:0">${inBox.length?`In your cardbox for ${inBox.map(y=>y.d.name).join(", ")} (marked ●).`:"Not in any of your cardboxes yet."}</p>`;
   }
-  if(rows.length)html+=`<div class="ltypes">${rows.join("")}</div>`;
   for(const nk of [...new Set([g?a:null,valid?q:null].filter(Boolean))])if(store.notes[nk])html+=`<div class="notebox"><div class="label">Your note on ${esc(nk)}</div><div class="notetext">${esc(store.notes[nk])}</div></div>`;
   $("lookupOut").innerHTML=html;
 }
@@ -2020,7 +2030,7 @@ function renderZyz(){
     <div class="actions"><label class="note" for="zyzQt">Import into</label><select id="zyzQt">${Object.entries(QT).filter(([k])=>k!=="S").map(([k,q])=>`<option value="${k}" ${k===zyz.qt?"selected":""}>${q.name}</option>`).join("")}</select>
       <label class="note"><input type="checkbox" id="zyzReplace" ${zyz.replace?"checked":""}> Replace cards already in my cardbox</label>
       <label class="note"><input type="checkbox" id="zyzDeck" ${zyz.deck?"checked":""}> Make a deck of these cards</label></div>
-    <div class="note">Ready to import <b>${fmtN(P.out.length)}</b> cards from your Zyzzyva cardbox${P.notBoxed?` (${fmtN(P.notBoxed)} quiz results for words that aren't in a cardbox are left out)`:""}${P.blanks?` (${fmtN(P.blanks)} blank questions go to Blanks)`:""}. ${P.exist?`${fmtN(P.exist)} ${P.exist===1?"is":"are"} already in your cardbox and ${zyz.replace?"will be replaced with Zyzzyva's progress":"will keep their progress here"}. `:""}${P.bad?`${fmtN(P.bad)} skipped: not in NWL2023 or not a question this app can quiz. `:""}${P.dueNow?`${fmtN(P.dueNow)} were due in Zyzzyva and will be due right away.`:""}</div>
+    <div class="note">Ready to import <b>${fmtN(P.out.length)}</b> cards from your Zyzzyva cardbox${P.notBoxed?` (${fmtN(P.notBoxed)} quiz results for words that aren't in a cardbox are left out)`:""}${P.blanks?` (${fmtN(P.blanks)} blank questions go to Blanks)`:""}. ${P.exist?`${fmtN(P.exist)} ${P.exist===1?"is":"are"} already in your cardbox and ${zyz.replace?"will be replaced with Zyzzyva's progress":"will keep their progress here"}. `:""}${P.bad?`${fmtN(P.bad)} skipped: not in NWL23 or not a question this app can quiz. `:""}${P.dueNow?`${fmtN(P.dueNow)} were due in Zyzzyva and will be due right away.`:""}</div>
     <div class="note">Each card keeps its Zyzzyva due date. Its FSRS memory strength comes from its last interval (or its cardbox), and its difficulty from your right and wrong counts. Zyzzyva doesn't keep a history of individual reviews, so Statistics and fitting start from your next reviews.</div>
     <div class="actions"><button class="btn" id="zyzGo" ${P.out.length?"":"disabled"}>Import ${fmtN(P.out.length)} cards</button><button class="btn ghost" id="zyzCancel">Cancel</button></div>`;
 }
@@ -2385,7 +2395,7 @@ document.addEventListener("click",e=>{
       store.custom=$("customText").value;clearCache("custom");
       const ks=deckKeys("custom"),n=ks.length;
       if(n){const added=addKeys(ks);note("customNote",`Saved ${n} ${unit()==="alpha"?"alphagrams":"words"}; ${added} newly added to your ${qt().name} cardbox.`);store.deck="custom";store.mode="learn"}
-      else note("customNote","None of those are in NWL2023.");
+      else note("customNote","None of those are in NWL23.");
       save();next();break}
     case "resetDeck":{
       if(ds.confirm!=="1"){ds.confirm="1";t.textContent=`Tap again to remove ${deckName(store.deck)} and its progress`;setTimeout(()=>{if(ready&&!reviewing)render()},4000);break}
@@ -2424,6 +2434,7 @@ $("deckList").addEventListener("change",e=>{
   save();render();
 });
 $("deckList").addEventListener("input",e=>{if(e.target.id==="autoN")autoNVal=Math.max(1,Math.min(1000,Math.round(+e.target.value||20)));if(e.target.id==="addN")addNVal=Math.max(1,Math.round(+e.target.value||20));if(e.target.id==="spreadDays")spreadDays=Math.max(2,Math.min(60,Math.round(+e.target.value||7)))});
+$("lookupOut").addEventListener("change",e=>{if(e.target.id==="lkQt"){lkQt=e.target.value;lookup()}});
 $("lookupForm").addEventListener("submit",e=>{e.preventDefault();const v=$("lookupIn").value.trim();if(!v){$("lookupPanel").hidden=true;return}$("lookupPanel").hidden=false;$("lookupOut").innerHTML=`<p class="note">Looking up…</p>`;lookup();$("lookupPanel").scrollIntoView({block:"nearest"})});
 $("zyzFile").addEventListener("change",e=>{const f=e.target.files[0];if(f)openZyz(f);e.target.value=""});
 $("zyzPanel").addEventListener("change",e=>{if(!zyz)return;const id=e.target.id;if(id==="zyzQt")zyz.qt=e.target.value;if(id==="zyzReplace")zyz.replace=e.target.checked;if(id==="zyzDeck")zyz.deck=e.target.checked;renderZyz()});
@@ -2493,7 +2504,7 @@ setInterval(()=>{
 },30e3);
 
 syncInputs();applyTheme();
-$("lexInfo").textContent=`${LEX_META.name}, ${LEX_META.count.toLocaleString()} words (lexicon dated ${LEX_META.date}). App build ${LEX_META.build||"unknown"}`;
+$("lexInfo").textContent=`${LEX_META.name.replace(/^([A-Z]+)20(\d\d)$/,"$1$2")}, ${LEX_META.count.toLocaleString()} words (lexicon dated ${LEX_META.date}). App build ${LEX_META.build||"unknown"}`;
 loadLexicon().then(()=>{
   ready=true;updateStarted();migrateDecks();runAutoAdd();snapshotProgress();renderFitInfo();syncReady=true;renderSyncUI();if(syncCfg.session)syncNow();
   if(store.deck.startsWith("len")){const L=store.deck.slice(3),m=store.searches.find(s=>s.conds.length===1&&s.conds[0].t==="lengths"&&[...parseLens(s.conds[0].a)].join()===L);store.deck=m?m.id:firstDeck()}
