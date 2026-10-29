@@ -70,6 +70,7 @@ button:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-vis
 .seg button[aria-pressed="true"]{background:var(--dl);color:var(--ink)}
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
 .switch{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer;padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.switch select{font:inherit;font-weight:500;border:0;background:transparent;color:var(--ink);padding:0 2px;cursor:pointer}
 .switch input{width:16px;height:16px;accent-color:var(--tw);margin:0}
 .addbar{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
 .boxinfo{font-size:13.5px;color:var(--muted);min-width:0}
@@ -391,7 +392,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div class="seg" role="group" aria-label="Quiz type" id="qtypes"></div>
       </div>
       <div class="actions">
-        <label class="switch"><input type="checkbox" id="hideCount"> <span>Hide answer count</span></label>
+        <label class="switch" title="How many answers a card has, shown before you answer"><span>Answer count</span><select id="hideCount" aria-label="Answer count"><option value="learning">While learning</option><option value="on">Always</option><option value="off">Never</option></select></label>
         <label class="switch"><input type="checkbox" id="flashMode"> <span>Flashcard mode</span></label>
       </div>
     </div>
@@ -574,7 +575,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <label for="showRank">Show probability rank on cards</label>
         <div><select id="showRank"><option value="on">On</option><option value="off">Off</option></select> <span class="note">the “#1 of 21,223” in the card's corner</span></div>
         <label for="showCount">Show answer count</label>
-        <div><select id="showCount"><option value="on">On</option><option value="off">Off</option></select></div>
+        <div><select id="showCount"><option value="learning">While learning (new and relearning cards)</option><option value="on">Always</option><option value="off">Never</option></select></div>
         <label for="typing">Type your answers</label>
         <div><select id="typing"><option value="on">On: type the answers, then check</option><option value="off">Off: flashcard mode</option></select></div>
       </div>
@@ -1034,13 +1035,14 @@ const KEY="rack-recall-nwl23-v2",LOGKEY="rack-recall-log-v1";
 const SEED_DECKS=[{id:"s:sev8",name:"Bingos",conds:[{t:"lengths",a:"7,8"}],order:"prob"}];
 const DEFAULTS={cards:{},custom:"",deck:"s:sev8",migr:{bingo:1,ext:1},mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"lengths",a:"7"},{t:"prob",a:1,b:100}],
   notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},autoAdd:{},autoDay:{},hist:{},faceUp:{},conf:{},confPh:{},frontNote:{},fooled:{},doubted:{},speedBest:{},
-  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"on",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",alphaStyle:"abc",mixMistakes:"on",speedSecs:60,speedPool:1000,tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,collins:true},w:null,fit:null}};
+  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"learning",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",alphaStyle:"abc",mixMistakes:"on",speedSecs:60,speedPool:1000,tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,collins:true},w:null,fit:null}};
 let store=structuredClone(DEFAULTS),LOG="";
 function mergeStore(s){
   store={...structuredClone(DEFAULTS),...s,settings:{...DEFAULTS.settings,...(s.settings||{})}};
   if(!s.migr)store.migr={}; // saved before this version: run the one-time deck update
   if(s.front&&!s.qtype)store.qtype=s.front==="word"?"W":"A";delete store.front;
   if(!QT[store.qtype])store.qtype="A";
+  if(!store.migr.count){store.migr={...store.migr,count:1};if(store.settings.showCount==="on")store.settings.showCount="learning"} // new default: count only while learning
   // "Length range" became part of "Length" (7, 7-8, 2-4 ...)
   const fixLen=cs=>Array.isArray(cs)?cs.map(c=>{if(c.t!=="length")return c;const a=c.a===""||c.a==null?2:+c.a,b=c.b===""||c.b==null?15:+c.b;return {t:"lengths",a:a===b?String(a):`${a}-${b}`,neg:c.neg}}):cs;
   store.draft=fixLen(store.draft);store.searches=(store.searches||[]).map(x=>({...x,conds:fixLen(x.conds)}));
@@ -1435,7 +1437,7 @@ function renderChrome(){
   $("review").hidden=!reviewing;document.documentElement.classList.toggle("reviewing",reviewing);
   $("qtypes").innerHTML=Object.entries(QT).map(([k,q])=>`<button data-qt="${k}" aria-pressed="${k===store.qtype}">${q.name}</button>`).join("");
   $("flashMode").checked=store.settings.typing==="off";
-  $("hideCount").checked=store.settings.showCount==="off";
+  $("hideCount").value=store.settings.showCount;
 }
 function deckIds(){const ids=store.searches.map(s=>s.id);if(store.custom&&deckKeys("custom").length)ids.push("custom");if(leechKeys().length)ids.push("leech");if(suspKeys().length)ids.push("susp");return ids}
 function renderDecks(){
@@ -1746,7 +1748,7 @@ function render(){
     if(!flipped){
       if(isAlpha)html+=`<button class="linkbtn shuf" id="shuffleBtn" title="Shuffle the tiles (5)">Shuffle <kbd>5</kbd></button>`;
       if(store.settings.timeLimit)html+=`<div class="timer" aria-hidden="true"><i style="animation-duration:${store.settings.timeLimit}s;animation-delay:-${Math.min(store.settings.timeLimit,(Date.now()-cur.t0)/1000)}s"></i></div>`;
-      if(qt().typed&&store.settings.showCount==="on")html+=`<div class="count">${countText(k,ans)}</div>`;
+      if(qt().typed&&(store.settings.showCount==="on"||(store.settings.showCount==="learning"&&st.state!=="review")))html+=`<div class="count">${countText(k,ans)}</div>`;
       if(store.frontNote[ckey(k)]&&store.notes[k])html+=`<div class="notebox hookfront"><div class="label">Your hook</div><div class="notetext">${esc(store.notes[k])}</div></div>`;
       if(qt().typed&&store.settings.typing==="on"){
         html+=`<form class="typebox" id="ansForm" autocomplete="off"><input id="ansIn" aria-label="Your answers" placeholder="${store.qtype==="R"?"Type the word":"Type the words, space between"}" spellcheck="false" autocapitalize="characters"><button class="btn" type="submit">Check</button></form>`;
@@ -2827,7 +2829,7 @@ function applyTheme(){
 }
 for(const id of ["tileStyle","tilePoints"])$(id).addEventListener("change",e=>{store.settings[id]=e.target.value;save();applyTheme()});
 $("theme").addEventListener("change",e=>{store.settings.theme=e.target.value;save();applyTheme()});
-$("hideCount").addEventListener("change",e=>{store.settings.showCount=e.target.checked?"off":"on";$("showCount").value=store.settings.showCount;save();render()});
+$("hideCount").addEventListener("change",e=>{store.settings.showCount=e.target.value;$("showCount").value=store.settings.showCount;save();render()});
 $("phonyKinds").addEventListener("change",e=>{const k=e.target.dataset.pk;if(!k)return;store.settings.phonyKinds={...store.settings.phonyKinds,[k]:e.target.checked};save();next()});
 $("gamePhonyKinds").addEventListener("change",e=>{const k=e.target.dataset.pk;if(!k)return;store.settings.phonyKinds={...store.settings.phonyKinds,[k]:e.target.checked};save()});
 $("saveOrder").addEventListener("change",e=>resortResults(e.target.value,false));
