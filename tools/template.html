@@ -96,6 +96,33 @@ input[type=number],input[type=text],select{font:inherit;padding:6px 8px;border:1
 /* tile styles (Settings > Tile style) */
 :root[data-points="off"] .tile sub{display:none!important}
 :root[data-tiles="flat"] .tile{box-shadow:none;border-radius:4px}
+/* maple: layered grain, bevelled edges, letters pressed into the wood; each tile's grain is offset so no two match */
+:root[data-tiles="wood"] .tile,:root[data-tiles="walnut"] .tile{--gx:0px;--gy:0px;border-radius:calc(var(--t)*.08);background-position:0 0,var(--gx) var(--gy),calc(var(--gx)*.6 - 40px) calc(var(--gy)*.5),0 0,0 0}
+:root[data-tiles="wood"] .tile:nth-child(4n+2),:root[data-tiles="walnut"] .tile:nth-child(4n+2){--gx:-52px;--gy:-61px}
+:root[data-tiles="wood"] .tile:nth-child(4n+3),:root[data-tiles="walnut"] .tile:nth-child(4n+3){--gx:-104px;--gy:-129px}
+:root[data-tiles="wood"] .tile:nth-child(4n),:root[data-tiles="walnut"] .tile:nth-child(4n){--gx:-150px;--gy:-37px}
+:root[data-tiles="wood"] .tile{color:#3a2412;
+  background-image:radial-gradient(130% 90% at 28% 12%,rgba(255,250,235,.42),transparent 58%),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='g' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006 0.16' numOctaves='4' stitchTiles='stitch' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.3 0 0 0 0 0.12 1.9 0 0 0 -0.78'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url%28%23g%29'/%3E%3C/svg%3E"),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='g' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.02 0.9' numOctaves='4' stitchTiles='stitch' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.55 0 0 0 0 0.34 0 0 0 0 0.14 1.2 0 0 0 -0.5'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url%28%23g%29'/%3E%3C/svg%3E"),linear-gradient(90deg,rgba(150,95,40,.08),transparent 30%,rgba(150,95,40,.06) 70%,transparent),linear-gradient(170deg,#f2dbac 0%,#eacb94 55%,#dfbb80 100%);
+  background-size:auto,300px 300px,300px 300px,auto,auto;
+  box-shadow:inset 1px 1px 0 rgba(255,255,255,.65),inset -1px -1px 0 rgba(120,76,34,.35),inset 0 calc(var(--t)*-.05) 0 #c39a62,0 2px 3px rgba(60,35,10,.35),0 0 0 .5px rgba(110,70,30,.35);
+  text-shadow:0 1px 0 rgba(255,245,225,.75),0 -1px 0 rgba(70,40,15,.35)}
+:root[data-tiles="wood"] .tile:nth-child(odd){filter:saturate(1.08) brightness(.985)}
+:root[data-tiles="walnut"] .tile{color:#f6e8cf;
+  background-image:radial-gradient(130% 90% at 28% 12%,rgba(255,225,180,.20),transparent 60%),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='g' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.006 0.16' numOctaves='4' stitchTiles='stitch' seed='11'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.05 0 0 0 0 0.02 2.2 0 0 0 -0.8'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url%28%23g%29'/%3E%3C/svg%3E"),url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='g' x='0' y='0'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.02 0.9' numOctaves='4' stitchTiles='stitch' seed='5'/%3E%3CfeColorMatrix values='0 0 0 0 0.75 0 0 0 0 0.52 0 0 0 0 0.32 1.1 0 0 0 -0.52'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url%28%23g%29'/%3E%3C/svg%3E"),linear-gradient(90deg,rgba(0,0,0,.10),transparent 30%,rgba(0,0,0,.08) 70%,transparent),linear-gradient(170deg,#7d512d 0%,#66421f 55%,#563619 100%);
+  background-size:auto,300px 300px,300px 300px,auto,auto;
+  box-shadow:inset 1px 1px 0 rgba(255,220,170,.28),inset -1px -1px 0 rgba(0,0,0,.35),inset 0 calc(var(--t)*-.05) 0 #3b230f,0 2px 3px rgba(0,0,0,.4);
+  text-shadow:0 -1px 0 rgba(0,0,0,.55),0 1px 0 rgba(255,220,170,.18)}
+:root[data-tiles="walnut"] .tile:nth-child(odd){filter:brightness(1.06)}
+/* ivory: glossy cream plastic, like a deluxe set */
+:root[data-tiles="ivory"] .tile{border-radius:calc(var(--t)*.12);color:#1f1a14;
+  background:radial-gradient(120% 70% at 35% 8%,rgba(255,255,255,.95),rgba(255,255,255,0) 55%),linear-gradient(180deg,#fffcf2,#efe6d0);
+  box-shadow:inset 0 1px 0 #fff,inset 0 calc(var(--t)*-.06) 0 #d8ccb0,inset 0 0 0 1px rgba(160,140,100,.35),0 2px 4px rgba(0,0,0,.22)}
+/* tournament: bright plastic tiles with white letters */
+:root[data-tiles="tournament"] .tile{border-radius:calc(var(--t)*.14);color:#fff;
+  background:radial-gradient(120% 70% at 35% 6%,rgba(255,255,255,.35),rgba(255,255,255,0) 55%),linear-gradient(180deg,#2f8c74,#1d6b58);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 calc(var(--t)*-.06) 0 #134b3d,0 2px 4px rgba(0,0,0,.3);text-shadow:0 1px 1px rgba(0,0,0,.25)}
+:root[data-tiles="walnut"] .tile.blank,:root[data-tiles="tournament"] .tile.blank{color:rgba(255,255,255,.5)}
+:root[data-tiles="wood"] .tile.blank,:root[data-tiles="ivory"] .tile.blank{color:rgba(60,40,20,.38)}
 :root[data-tiles="slate"] .tile{background:#2b3a42;color:#f3ead6;box-shadow:inset 0 -3px 0 #16222a,0 1px 2px rgba(0,0,0,.25)}
 :root[data-tiles="contrast"] .tile{background:#fff;color:#000;box-shadow:0 0 0 2px #000 inset;font-weight:800}
 :root[data-tiles="outline"] .tile{background:transparent;color:var(--ink);box-shadow:0 0 0 1.5px var(--muted) inset}
@@ -567,7 +594,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <label for="theme">Appearance</label>
         <div><select id="theme"><option value="system">Match system</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
         <label for="tileStyle">Tile style</label>
-        <div class="actions"><select id="tileStyle"><option value="classic">Classic wood</option><option value="flat">Flat</option><option value="slate">Slate</option><option value="contrast">High contrast</option><option value="outline">Outline</option></select>
+        <div class="actions"><select id="tileStyle"><option value="classic">Classic</option><option value="wood">Maple wood</option><option value="walnut">Walnut</option><option value="ivory">Ivory</option><option value="tournament">Tournament</option><option value="flat">Flat</option><option value="slate">Slate</option><option value="contrast">High contrast</option><option value="outline">Outline</option></select>
           <select id="tilePoints" aria-label="Point values on tiles"><option value="on">Show point values</option><option value="off">Hide point values</option></select>
           <span class="tiles demo" id="tileDemo" style="--n:5"></span></div>
         <label for="alphaStyle">Alphagram order</label>
