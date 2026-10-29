@@ -103,6 +103,14 @@ input[type=number],input[type=text],select{font:inherit;padding:6px 8px;border:1
 .tile.slot{background:transparent;box-shadow:none;border:2px dashed var(--line)}
 .bgrp.rack{grid-template-columns:minmax(9ch,max-content) 1fr;gap:12px}
 .bgrp.rack .blen{font-family:var(--f-mono);font-weight:600;text-align:left;letter-spacing:.04em}
+.card.sheet{justify-content:flex-start;align-items:stretch;gap:18px;padding-top:24px}
+.pv-head{display:flex;flex-direction:column;gap:4px}
+.pv-group{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:10px}
+.pv-item{display:grid;grid-template-columns:minmax(9ch,max-content) 1fr;gap:4px 14px;align-items:baseline}
+.pv-item .answers{max-width:none}
+.pv-item>.answers:only-child,.pv-item>.answers:first-child{grid-column:1/-1}
+.pv-key{font-family:var(--f-mono);font-weight:600;color:var(--muted);letter-spacing:.06em;padding-top:8px}
+@media (max-width:560px){.pv-item{grid-template-columns:1fr}}
 .mistakes{display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--line);padding-top:12px}
 .mistakes sup{color:var(--bad);font-size:.7em}
 .best{text-align:right;display:flex;flex-direction:column;align-items:flex-end}
@@ -976,7 +984,7 @@ const recallNow=(r,now)=>r&&r[0]>0?retrievability(Math.max(0,(now-r[4])/DAY),Mat
 const KEY="rack-recall-nwl23-v2",LOGKEY="rack-recall-log-v1";
 const SEED_DECKS=[{id:"s:sev8",name:"Bingos",conds:[{t:"lengths",a:"7,8"}],order:"prob"}];
 const DEFAULTS={cards:{},custom:"",deck:"s:sev8",migr:{bingo:1,ext:1},mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"length",a:7,b:7},{t:"prob",a:1,b:100}],
-  notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},autoAdd:{},autoDay:{},hist:{},fooled:{},doubted:{},speedBest:{},
+  notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},autoAdd:{},autoDay:{},hist:{},faceUp:{},fooled:{},doubted:{},speedBest:{},
   settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"on",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",alphaStyle:"abc",mixMistakes:"on",speedSecs:60,speedPool:1000,tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,collins:true},w:null,fit:null}};
 let store=structuredClone(DEFAULTS),LOG="";
 function mergeStore(s){
@@ -1053,12 +1061,12 @@ function scan(deck,now){
   const newAvail=Math.min(nw,Math.max(0,store.settings.newLimit-newDoneToday(deck)));
   return {keys,due,held,susp,overdue:dueRev.length,soon,newKeys:newKeys.map(x=>x[0]),newAvail:Math.min(newAvail,newKeys.length),nw,mature,seen,out,leeches,buried,boxed:keys.length-out,total:keys.length};
 }
-function pickNext(deck,now,exclude){
-  const s=scan(deck,now);
-  const d=s.due.find(x=>x[0]!==exclude);if(d)return d[0];
-  if(s.newAvail>0&&s.newKeys.length){const pool=s.newKeys.filter(k=>k!==exclude);if(pool.length)return store.settings.newOrder==="random"?pool[Math.floor(Math.random()*pool.length)]:pool[0]}
-  if(s.due.length)return s.due[0][0];
-  const sn=s.soon.find(x=>x[0]!==exclude)||s.soon[0];return sn?sn[0]:null;
+function pickNext(deck,now,exclude,skip){
+  const s=scan(deck,now),ok=k=>k!==exclude&&!(skip&&skip.has(k));
+  const d=s.due.find(x=>ok(x[0]));if(d)return d[0];
+  if(s.newAvail>0&&s.newKeys.length){const pool=s.newKeys.filter(ok);if(pool.length)return store.settings.newOrder==="random"?pool[Math.floor(Math.random()*pool.length)]:pool[0]}
+  const dd=s.due.find(x=>!(skip&&skip.has(x[0])));if(dd)return dd[0];
+  const sn=s.soon.find(x=>ok(x[0]))||s.soon.find(x=>!(skip&&skip.has(x[0])));return sn?sn[0]:null;
 }
 
 /* =================== phonies =================== */
@@ -1131,6 +1139,7 @@ function next(){
   if(!ready)return;
   if(!reviewing){cur=null;flipped=false;clearTimer();render();return}
   if(store.mode==="speed"){if(!sp)startSpeed();else render();return}
+  if(store.mode==="preview"){render();return}
   clearTimer();
   flipped=false;phonyAns=null;preview=null;typed=null;noteEditing=false;
   if(store.mode==="phony"){
@@ -1148,8 +1157,17 @@ function next(){
     if(!cur){const w=keys[Math.floor(Math.random()*keys.length)],f=Math.random()<.5?phonyFor(w):null;
       cur=f?{...f,phony:true}:{key:w,phony:false}}
   }else if(store.mode==="learn"){
-    const k=pickNext(store.deck,Date.now(),lastK);cur=k?{key:k,ans:answersFor(k)}:null;
-    if(cur&&unit()==="alpha"&&store.settings.tileOrder==="shuffle")cur.order=shuffleStr(k);
+    // new cards shown face up first come back as a real test a few cards later
+    const pend=session.intro||(session.intro=[]);session.shown=(session.shown||0);
+    let k=null,test=false;
+    const due=pend.find(x=>x.at<=session.shown);
+    if(due){k=due.k;test=true;pend.splice(pend.indexOf(due),1)}
+    else{k=pickNext(store.deck,Date.now(),lastK,new Set(pend.map(x=>x.k)));
+      if(!k&&pend.length){k=pend.shift().k;test=true}}
+    cur=k?{key:k,ans:answersFor(k)}:null;
+    if(cur&&!test&&store.faceUp[store.deck]&&store.cards[ckey(k)]?.[0]===0){cur.intro=true;flipped=true}
+    if(cur)session.shown++;
+    if(cur&&!cur.intro&&unit()==="alpha"&&store.settings.tileOrder==="shuffle")cur.order=shuffleStr(k);
   }
   if(cur)cur.t0=Date.now();
   render();armTimer();
@@ -1186,6 +1204,11 @@ function grade(g){
   setCard(cur.key,schedule(st,now)[g]);
   session.n++;if(g===AGAIN)session.again++;
   lastK=cur.key;if(store.deck==="leech")clearCache("leech");next();
+}
+function introContinue(){
+  if(!cur||!cur.intro)return;
+  session.intro=session.intro||[];session.intro.push({k:cur.key,at:(session.shown||0)+3});
+  lastK=cur.key;next();
 }
 function undoGrade(){
   // take back the last grade: the card, the log line and today's counters return to how they were
@@ -1273,6 +1296,8 @@ function renderDecks(){
         <div class="addctl"><label for="addN">Add next</label><input type="number" id="addN" min="1" max="5000" step="1" value="${addNVal}"><button class="btn" id="addBtn" ${s.out?"":"disabled"}>Add to cardbox</button><button class="btn ghost" id="addAll" ${s.out?"":"disabled"}>${confirm?`Tap again to add ${fmtN(s.out)}`:`Add all (${fmtN(s.out)})`}</button></div>`}
         ${leech?`<div class="actions"><button class="btn ghost sm" id="suspLeeches">Suspend all ${fmtN(s.total)} leeches</button></div>`:`<div class="addctl"><label class="switch"><input type="checkbox" id="autoOn" ${store.autoAdd[id+"|"+store.qtype]?"checked":""}> <span>Keep</span></label><input type="number" id="autoN" min="1" max="1000" step="1" value="${store.autoAdd[id+"|"+store.qtype]||autoNVal}" aria-label="New cards to keep ready"><span class="note">new cards ready each day, added automatically in deck order</span></div>`}
         ${leech?"":`<div class="addctl"><label for="spreadDays">${s.overdue>1?`Spread ${fmtN(s.overdue)} due reviews over`:"Spread due reviews over"}</label><input type="number" id="spreadDays" min="2" max="60" step="1" value="${spreadDays}" ${s.overdue>1?"":"disabled"}><span class="note">days</span><button class="btn ghost" id="spreadBtn" ${s.overdue>1?"":"disabled"}>Spread out</button>${s.overdue>1?"":`<span class="note">No backlog in your ${esc(qt().name)} cardbox for this deck right now.</span>`}</div>`}
+        ${leech?"":`<div class="addctl"><label for="prevN">Preview the next</label><input type="number" id="prevN" min="1" max="200" step="1" value="${prevNVal}"><span class="note">cards</span><button class="btn ghost" id="prevBtn" ${s.out?"":"disabled"}>Preview</button></div>
+        <div class="addctl"><label class="switch"><input type="checkbox" id="faceUpOn" ${store.faceUp[id]?"checked":""}> <span>Show new cards face up first</span></label><span class="note">then test each one a few cards later</span></div>`}
         ${leech?"":(()=>{const n=aheadList(id,aheadDays).length;return `<div class="addctl"><label for="aheadDays">Bring forward reviews due in the next</label><input type="number" id="aheadDays" min="1" max="60" step="1" value="${aheadDays}"><span class="note">days</span><button class="btn ghost" id="aheadBtn" ${n?"":"disabled"}>${n?`Bring forward ${fmtN(n)}`:"None due then"}</button></div>`})()}
         <div class="actions"><span class="note">Export</span><button class="btn ghost sm" data-export="txt">Word list (.txt)</button><button class="btn ghost sm" data-export="csv">Spreadsheet (.csv)</button></div>
         <div class="actions">${id.startsWith("s:")?`<button class="btn ghost sm" id="editDeck">Edit deck</button>`:""}<button class="btn ghost sm" id="resetDeck">Remove this deck from your ${esc(qt().name)} cardbox</button><span class="note" id="rowNote"></span></div></div>`;
@@ -1295,6 +1320,39 @@ function renderGames(){
     <div class="actions"><button class="btn ghost sm" id="clearMistakes">${$("gameMistakes").dataset.confirm==="1"?"Tap again to clear the list":"Clear the list"}</button></div>`:`<p class="note" style="margin:0">Phonies you call valid, and real words you call phony, will be listed here and mixed back into the game.</p>`;
   renderSpeedSetup();
 }
+/* ---------- preview the next cards before adding them ---------- */
+let pv=null,prevNVal=20;
+function previewKeys(deck,n){const pre=store.qtype+":",out=[];for(const k of deckKeys(deck)){if(out.length>=n)break;if(!store.cards[pre+k])out.push(k)}return out}
+function stemGroups(keys){
+  // group alphagrams that share a stem one letter shorter (AEINST + ?), biggest groups first
+  if(unit()!=="alpha"||!keys.length||keys[0].length<5)return [{stem:null,keys}];
+  const subs=k=>{const s=new Set();for(let i=0;i<k.length;i++)s.add(k.slice(0,i)+k.slice(i+1));return [...s]};
+  const cnt=new Map();for(const k of keys)for(const st of subs(k))cnt.set(st,(cnt.get(st)||0)+1);
+  const groups=new Map(),loose=[];
+  for(const k of keys){let best=null;for(const st of subs(k)){const c=cnt.get(st);if(c>1&&(!best||c>cnt.get(best)||(c===cnt.get(best)&&st<best)))best=st}
+    if(best){if(!groups.has(best))groups.set(best,[]);groups.get(best).push(k)}else loose.push(k)}
+  const out=[...groups].filter(([,v])=>v.length>1).sort((a,b)=>b[1].length-a[1].length).map(([stem,keys])=>({stem,keys}));
+  for(const [,v] of groups)if(v.length===1)loose.push(v[0]);
+  if(loose.length)out.push({stem:null,keys:loose});
+  return out;
+}
+function previewItemHTML(k){
+  switch(store.qtype){
+    case "S":return `<div class="pv-item"><div class="pv-key">${esc(dispA(k))}?</div><div class="build">${blankAnswers(k).map(([ch,g])=>`<div class="bgrp"><span class="blen">${ch}</span><div class="bwords">${g.map(w=>wordHTML(w,"",true)).join("")}</div></div>`).join("")||'<span class="note">no words</span>'}</div></div>`;
+    case "E":return `<div class="pv-item">${ansRows([k])}${extensions(k).length?extHTML(k,extensions(k)):""}</div>`;
+    case "H":case "W":case "R":return `<div class="pv-item">${ansRows([k])}</div>`;
+    default:return `<div class="pv-item"><div class="pv-key">${esc(dispA(k))}</div>${ansRows(LEX.anag.get(k))}</div>`;
+  }
+}
+function renderPreview(card,gr){
+  card.className="card sheet";
+  if(!pv||!pv.keys.length){card.innerHTML=`<div class="done"><h2>Nothing left to preview</h2></div><div class="hint">Every card in this deck is already in your ${esc(qt().name)} cardbox.</div>`;gr.className="grade two";gr.innerHTML=`<button id="rvExit2">Back to decks</button>`;return}
+  const groups=stemGroups(pv.keys);
+  card.innerHTML=`<div class="pv-head"><h2 class="sec">The next ${fmtN(pv.keys.length)} ${esc(deckName(store.deck))} cards</h2><p class="note" style="margin:0">Read them through, then add them to your ${esc(qt().name)} cardbox.${groups.length>1?" Racks that share a stem are grouped together.":""}</p></div>
+    ${groups.map(g=>`<section class="pv-group">${g.stem?`<div class="label">${esc(dispA(g.stem))} + ? · ${g.keys.length}</div>`:groups.length>1?`<div class="label">Others · ${g.keys.length}</div>`:""}${g.keys.map(previewItemHTML).join("")}</section>`).join("")}`;
+  gr.className="grade two";gr.innerHTML=`<button class="good" id="pvAdd">Add these ${fmtN(pv.keys.length)} to cardbox</button><button id="rvExit2">Back without adding</button>`;
+}
+
 /* ---------- speed round ---------- */
 let sp=null,spTick=null;
 const speedKey=()=>`${store.gameSpeedDeck}|${store.settings.speedSecs}|${store.settings.speedPool}`;
@@ -1369,6 +1427,7 @@ function renderStatsPage(){
   renderStats();renderStatsPanel();
 }
 function renderReviewBar(){
+  if(store.mode==="preview"){$("rvTitle").textContent=`${deckName(store.deck)} · Preview`;$("rvProg").textContent=pv?`${fmtN(pv.keys.length)} ${pv.keys.length===1?"card":"cards"} · ${qt().name}`:"";$("rvUndo").hidden=true;$("rvPhony").hidden=true;$("rvFull").hidden=!document.fullscreenEnabled;return}
   if(store.mode==="speed"){$("rvTitle").textContent=`${deckName(store.deck)} · Speed round`;$("rvProg").textContent=sp?`${sp.racks.length} ${sp.racks.length===1?"rack":"racks"}`:"";$("rvUndo").hidden=true;$("rvPhony").hidden=true;$("rvFull").hidden=!document.fullscreenEnabled;return}
   const ph=store.mode==="phony";
   $("rvTitle").textContent=`${deckName(store.deck)} · ${ph?"Valid or phony?":qt().name}`;
@@ -1424,7 +1483,7 @@ function startReview(id,mode){
   store.deck=id;store.mode=mode;save();runAutoAdd();reviewing=true;lastK=null;undoStack=[];session={n:0,again:0,start:Date.now()};next();
 }
 function exitReview(){
-  reviewing=false;cur=null;flipped=false;noteEditing=false;clearTimer();clearInterval(spTick);sp=null;snapshotProgress();
+  reviewing=false;cur=null;flipped=false;noteEditing=false;clearTimer();clearInterval(spTick);sp=null;if(store.mode==="preview"){store.mode="learn";pv=pv&&pv.keep?pv:null}snapshotProgress();
   if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});
   render();
 }
@@ -1454,6 +1513,7 @@ function render(){
   renderReviewBar();
   const now=Date.now(),card=$("card"),gr=$("grade");
   if(store.mode==="speed"){renderSpeed(card,gr);return}
+  if(store.mode==="preview"){renderPreview(card,gr);return}
   if(!cur){
     card.className="card";gr.className="grade two";gr.innerHTML="";
     if(store.mode==="phony"){card.innerHTML=`<div class="done"><h2>This deck is empty</h2></div><div class="actions" style="justify-content:center"><button class="btn ghost" id="rvExit2">Back to games</button></div>`;return}
@@ -1524,6 +1584,11 @@ function render(){
         :nt?`<div class="notebox"><div class="label">Your note</div><div class="notetext">${esc(nt)}</div><button class="linkbtn" id="noteEdit">Edit note</button></div>`:"";
       if(cur.timedOut)html+=`<div class="meta">Time's up.</div>`;
       html+=`<div class="meta">${cur.secs!=null?`${cur.secs.toFixed(1)} s · `:""}${nt||noteEditing?"":'<button class="linkbtn" id="noteEdit">Add note</button> · '}${st.state==="new"?"First time seen":`Stability ${st.s.toFixed(1)}d · difficulty ${st.d.toFixed(1)} · ${st.lapses} lapse${st.lapses===1?"":"s"}`} · <button class="linkbtn" id="suspendCur">Suspend</button> · <button class="linkbtn" id="removeCur">Remove from cardbox</button></div>`;
+      if(cur.intro){
+        card.innerHTML=html.replace('<div class="corner"><span class="badge new">new</span>','<div class="corner"><span class="badge new">new · study it</span>');
+        gr.className="grade two";gr.innerHTML=`<button class="good full" id="introNext">Got it<small>you'll be tested on it in a few cards · Return or Space</small></button>`;
+        return;
+      }
       const L=g=>fmtIvl(preview[g].due-now),cls={1:"again",2:"",3:"good",4:"easy"},nm={1:"Again",2:"Hard",3:"Good",4:"Easy"};
       gr.className="grade";
       gr.innerHTML=[1,2,3,4].map(g=>`<button class="${cls[g]} ${suggest===g?"suggest":""}" data-g="${g}">${nm[g]}<small>${L(g)} · ${g-1}</small></button>`).join("");
@@ -2164,6 +2229,7 @@ const META={
   custom:{get:()=>store.custom,set:v=>{store.custom=v;clearCache("custom");$("customText").value=v||""}},
   bury:{get:()=>store.bury,set:v=>{store.bury=v}},
   auto:{get:()=>store.autoAdd,set:v=>{store.autoAdd=v||{}}},
+  faceup:{get:()=>store.faceUp,set:v=>{store.faceUp=v||{}}},
   hist:{get:()=>store.hist,set:v=>{store.hist=v||{}}},
   games:{get:()=>({fooled:store.fooled,doubted:store.doubted,speedBest:store.speedBest}),set:v=>{store.fooled=v.fooled||{};store.doubted=v.doubted||{};const b={...store.speedBest};for(const k in v.speedBest||{})if(!b[k]||v.speedBest[k].score>b[k].score)b[k]=v.speedBest[k];store.speedBest=b}},
 };
@@ -2364,6 +2430,9 @@ document.addEventListener("click",e=>{
     case "lookupClose":closeLookup();break;
     case "lkToggle":if(document.querySelector("header.top").classList.contains("lk-open"))closeLookup();else openLookup();break;
 
+    case "prevBtn":{prevNVal=Math.max(1,Math.min(200,Math.round(+$("prevN").value||20)));const keys=previewKeys(store.deck,prevNVal);pv={keys};startReview(store.deck,"preview");$("review").scrollTop=0;break}
+    case "pvAdd":{if(pv&&pv.keys.length){const n=addKeys(pv.keys);pv=null;exitReview();note("rowNote",`Added ${fmtN(n)} to your ${qt().name} cardbox.`)}break}
+    case "introNext":introContinue();break;
     case "aheadBtn":{
       aheadDays=Math.max(1,Math.min(60,Math.round(+$("aheadDays").value||3)));
       const n=bringForward(store.deck,aheadDays);render();
@@ -2441,6 +2510,8 @@ $("addCond").addEventListener("change",e=>{const t=e.target.value;if(!t)return;c
 $("seenBox").addEventListener("toggle",()=>{if($("seenBox").open&&ready)renderSeen()});
 $("deckList").addEventListener("change",e=>{
   const id=e.target.id;
+  if(id==="faceUpOn"){const f={...store.faceUp};if(e.target.checked)f[store.deck]=true;else delete f[store.deck];store.faceUp=f;save();syncSoon();return}
+  if(id==="prevN"){prevNVal=Math.max(1,Math.min(200,Math.round(+e.target.value||20)));return}
   if(id==="aheadDays"){aheadDays=Math.max(1,Math.min(60,Math.round(+e.target.value||3)));render();return}
   if(id!=="autoOn"&&id!=="autoN")return;
   const key=store.deck+"|"+store.qtype,n=Math.max(1,Math.min(1000,Math.round(+$("autoN").value||20)));autoNVal=n;
@@ -2510,10 +2581,10 @@ document.addEventListener("keydown",e=>{
     const front=store.mode==="learn"&&cur&&!flipped;
     if(tag==="SUMMARY"||(tag==="BUTTON"&&!(k==="enter"&&front)))return;
     e.preventDefault();
-    if(store.mode==="learn"){if(!flipped)reveal(false);else if(k===" ")grade(GOOD)}
+    if(store.mode==="learn"){if(cur&&cur.intro)introContinue();else if(!flipped)reveal(false);else if(k===" ")grade(GOOD)}
     else if(phonyAns!==null)next();
   }
-  else if(["0","1","2","3"].includes(k)){e.preventDefault();if(store.mode==="learn"&&!flipped)reveal(false);else grade(+k+1)} // 0 Again · 1 Hard · 2 Good · 3 Easy
+  else if(["0","1","2","3"].includes(k)){e.preventDefault();if(cur&&cur.intro)return;if(store.mode==="learn"&&!flipped)reveal(false);else grade(+k+1)} // 0 Again · 1 Hard · 2 Good · 3 Easy
   else if(store.mode==="phony"&&["v","y","arrowright"].includes(k)){e.preventDefault();answerPhony(false)}
   else if(store.mode==="phony"&&["p","n","arrowleft"].includes(k)){e.preventDefault();answerPhony(true)}
   else if(k==="f")toggleFullscreen();
