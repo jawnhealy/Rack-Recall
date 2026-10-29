@@ -371,6 +371,9 @@ textarea{width:100%;min-height:140px;font-family:var(--f-mono);font-size:13px;bo
 .progress i{display:block;height:100%;width:0;background:var(--tl)}
 .wl{overflow-x:auto;margin-top:8px}
 .st-sec{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.lenacc{display:grid;grid-template-columns:max-content minmax(80px,1fr) max-content max-content;gap:6px 10px;align-items:center;font-size:13px;margin-top:8px}
+.lenacc .bar{height:10px;background:var(--line);border-radius:5px;overflow:hidden}
+.lenacc .bar i{display:block;height:100%;background:var(--good)}
 .rpd{display:flex;gap:3px;align-items:flex-end;height:90px}
 .rpd div{flex:1;display:flex;flex-direction:column-reverse;min-width:0}
 .rpd i{display:block;background:var(--tl)} .rpd i.f{background:var(--bad)}
@@ -819,6 +822,7 @@ const QT={
   S:{name:"Blanks",unit:"alpha",typed:true},
   W:{name:"Definitions",unit:"word",typed:false},
   R:{name:"Reverse definitions",unit:"word",typed:true},
+  V:{name:"Valid or Phony?",unit:"word",typed:false},
 };
 const qt=()=>QT[store.qtype];
 const unit=()=>qt().unit;
@@ -832,6 +836,7 @@ function answersFor(k){
     case "E":return extensions(k);
     case "R":{const d=LEX.words.get(k).def;return LEX.wordsByLen[k.length].filter(w=>LEX.words.get(w).def===d)}
     case "S":return blankAnswers(k).flatMap(x=>x[1]);
+    case "V":return [k];
     default:return [];
   }
 }
@@ -1041,7 +1046,9 @@ const retrievability=(t,s)=>Math.pow(1+FACTOR*t/s,DECAY);
 function nextD(d,g){return clampD(W[7]*initD(EASY)+(1-W[7])*(d-W[6]*(g-3)))}
 function recallS(d,s,r,g){return s*(1+Math.exp(W[8])*(11-d)*Math.pow(s,-W[9])*(Math.exp((1-r)*W[10])-1)*(g===HARD?W[15]:1)*(g===EASY?W[16]:1))}
 function forgetS(d,s,r){return Math.min(s,W[11]*Math.pow(d,-W[12])*(Math.pow(s+1,W[13])-1)*Math.exp((1-r)*W[14]))}
-function intervalDays(s){return Math.min(36500,Math.max(1,Math.round(s/FACTOR*(Math.pow(store.settings.retention,1/DECAY)-1))))}
+// while studying a deck with its own retention target, that target sets the intervals
+const retNow=()=>(reviewing&&store.deckRet&&store.deckRet[store.deck])||store.settings.retention;
+function intervalDays(s){return Math.min(36500,Math.max(1,Math.round(s/FACTOR*(Math.pow(retNow(),1/DECAY)-1))))}
 // interval fuzz: cards added or answered together drift apart instead of coming due in clumps.
 // The spread is fixed per card and review, so the times shown on the buttons are the times you get.
 function fuzzUnit(seed){let h=2166136261;for(let i=0;i<seed.length;i++){h^=seed.charCodeAt(i);h=Math.imul(h,16777619)}return ((h>>>0)/4294967295)*2-1}
@@ -1084,7 +1091,7 @@ const recallNow=(r,now)=>r&&r[0]>0?retrievability(Math.max(0,(now-r[4])/DAY),Mat
 const KEY="rack-recall-nwl23-v2",LOGKEY="rack-recall-log-v1";
 const SEED_DECKS=[{id:"s:sev8",name:"Bingos",conds:[{t:"lengths",a:"7,8"}],order:"prob"}];
 const DEFAULTS={cards:{},custom:"",deck:"s:sev8",migr:{bingo:1,ext:1},mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"lengths",a:"7"},{t:"prob",a:1,b:100}],
-  notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},autoAdd:{},autoDay:{},hist:{},faceUp:{},conf:{},confPh:{},frontNote:{},fooled:{},doubted:{},typos:{},speedBest:{},
+  notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},autoAdd:{},autoDay:{},hist:{},faceUp:{},conf:{},confPh:{},frontNote:{},fooled:{},doubted:{},typos:{},deckRet:{},speedBest:{},
   settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"learning",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",alphaStyle:"abc",mixMistakes:"on",speedSecs:60,speedPool:1000,tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,affix:true,collins:true,typo:true,misspell:true},w:null,fit:null}};
 let store=structuredClone(DEFAULTS),LOG="";
 function mergeStore(s){
@@ -1350,6 +1357,7 @@ function next(){
     if(cur)session.shown++;
     if(cur&&!cur.intro&&unit()==="alpha"&&store.settings.tileOrder==="shuffle")cur.order=shuffleStr(k);
   }
+  if(cur&&store.mode==="learn"&&store.qtype==="V"&&!cur.intro&&!cur.rescue)setupVP(cur);
   if(cur)cur.t0=Date.now();
   render();armTimer();
   const inp=$("ansIn");if(inp)inp.focus({preventScroll:true});
@@ -1362,6 +1370,7 @@ function reshuffle(){
 }
 function reveal(fromForm){
   if(!cur||store.mode!=="learn"||flipped)return;
+  if(store.qtype==="V"&&!cur.intro){if(cur.timedOut)answerVP(null);return}
   const inp=$("ansIn");
   if(inp){
     const guesses=[...new Set(inp.value.toUpperCase().split(/[^A-Z]+/).filter(Boolean))];
@@ -1380,8 +1389,16 @@ function grade(g){
   if(cur.rescue)return;
   if(drill){
     const ok=g>=GOOD;
-    undoStack.push({drill:{i:drill.i,right:drill.right,wrong:drill.wrong,missed:drill.missed.slice(),first:[...drill.firstMissed],keys:drill.keys,round:drill.round},n:session.n,again:session.again,cur:{key:cur.key,order:cur.order}});
+    const ck=ckey(cur.key);
+    undoStack.push({drill:{i:drill.i,right:drill.right,wrong:drill.wrong,missed:drill.missed.slice(),first:[...drill.firstMissed],keys:drill.keys,round:drill.round},n:session.n,again:session.again,cur:{key:cur.key,order:cur.order},ck,prevCard:store.cards[ck]?store.cards[ck].slice():null,vp:cur.vp,shown:cur.shown});
     recordTypos(cur.key,typed);
+    if(drill.opt.place){
+      // placement: words you know start with a long interval; the rest join the cardbox as new cards
+      if(ok){const now=Date.now(),S=30;setCard(cur.key,{state:"review",s:S,d:4,due:now+fuzzIvl(intervalDays(S),fuzzUnit(ck))*DAY,last:now,reps:1,lapses:0})}
+      else if(!store.cards[ck])addKeys([cur.key]);
+      if(ok)drill.right++;else{drill.wrong++;drill.firstMissed.add(cur.key)}
+      session.n++;if(!ok)session.again++;lastK=cur.key;next();return;
+    }
     if(ok)drill.right++;else{drill.wrong++;drill.missed.push(cur.key);if(drill.round===1)drill.firstMissed.add(cur.key)}
     session.n++;if(!ok)session.again++;lastK=cur.key;next();return;
   }
@@ -1483,8 +1500,9 @@ function introContinue(){
 function undoGrade(){
   // take back the last grade: the card, the log line and today's counters return to how they were
   const u=undoStack.pop();if(!u||!reviewing||store.mode!=="learn")return;
-  if(u.drill){if(!drill)return;const d=u.drill;Object.assign(drill,{i:d.i,right:d.right,wrong:d.wrong,missed:d.missed,firstMissed:new Set(d.first),keys:d.keys,round:d.round});session.n=u.n;session.again=u.again;
-    clearTimer();flipped=false;typed=null;preview=null;noteEditing=false;cur={key:u.cur.key,order:u.cur.order,ans:answersFor(u.cur.key),t0:Date.now()};lastK=null;
+  if(u.drill){if(!drill)return;const d=u.drill;
+    if(drill.opt.place&&u.ck){if(u.prevCard)store.cards[u.ck]=u.prevCard.slice(0,7).concat(Date.now());else if(store.cards[u.ck]){delete store.cards[u.ck];store.tomb[u.ck]=Date.now()}save();syncSoon()}Object.assign(drill,{i:d.i,right:d.right,wrong:d.wrong,missed:d.missed,firstMissed:new Set(d.first),keys:d.keys,round:d.round});session.n=u.n;session.again=u.again;
+    clearTimer();flipped=false;typed=null;preview=null;noteEditing=false;cur={key:u.cur.key,order:u.cur.order,ans:answersFor(u.cur.key),t0:Date.now(),vp:u.vp,shown:u.shown};lastK=null;
     render();armTimer();const inp=$("ansIn");if(inp)inp.focus({preventScroll:true});return}
   if(u.prev)store.cards[u.ck]=u.prev.slice(0,7).concat(Date.now());else delete store.cards[u.ck];
   unlogLine(u.line);
@@ -1582,7 +1600,10 @@ function renderDecks(){
         else if(op==="postN"){n=Math.min(postNVal,s.overdue);ok=n>0;ctl=`<span class="nobr">${num("postNVal",postNVal,1,5000,"Number of reviews")} <span class="note">by</span> ${num("postDays",postDays,1,365,"Days")} <span class="note">days</span></span>`;btn=`<button class="btn ghost" id="postNBtn" ${ok?"":"disabled"}>${ok?`Postpone ${fmtN(n)}`:"Postpone"}</button>`;empty="Nothing is due right now.";help="Pushes back that many of today's due reviews, the ones you're least likely to have forgotten first, so the shakiest stay due today."}
         else{n=s.overdue;ok=n>1;ctl=`<span class="nobr">${num("spreadDays",spreadDays,2,60,"Days")} <span class="note">days</span></span>`;btn=`<button class="btn ghost" id="spreadBtn" ${ok?"":"disabled"}>${ok?`Spread ${fmtN(n)}`:"Spread out"}</button>`;empty="No backlog right now.";help="Overdue reviews are re-dated across the days you choose, most at risk of being forgotten first, so you face a steady amount each day instead of the whole pile."}
         const opt=(v,l)=>`<option value="${v}" ${op===v?"selected":""}>${l}</option>`;
-        sched=`<div class="msec"><div class="label">Schedule</div>
+        const dr=store.deckRet[id],cramList=cramKeys(id,cramCut),cn=cramList.length;
+        const retRow=`<div class="addctl"><label for="deckRet">Target retention</label><span class="nobr"><input type="number" id="deckRet" min="70" max="99" step="1" value="${dr?Math.round(dr*100):""}" placeholder="${Math.round(store.settings.retention*100)}" aria-label="Target retention for this deck, percent"> <span class="note">%</span></span><span class="note">${dr?"for this deck":`blank uses your default (${Math.round(store.settings.retention*100)}%)`}</span>${ib("ret","deck retention")}</div>${info("ret","The recall chance you want this deck's cards to have when they come due. It sets the intervals while you study this deck: higher means more reviews and fewer misses. For example 92% for bingos you'll draw, 85% for rare 8s.")}`;
+        const cramRow=`<div class="addctl"><label for="cramCut">Cram cards below</label><span class="nobr"><input type="number" id="cramCut" min="50" max="99" step="1" value="${cramCut}" aria-label="Recall cutoff, percent"> <span class="note">% recall</span></span><button class="btn ghost" id="cramBtn" ${cn?"":"disabled"}>${cn?`Cram ${fmtN(cn)}`:"Cram"}</button>${ib("cram","cram mode")}${cn?"":`<span class="note">Nothing below ${cramCut}% right now.</span>`}</div>${info("cram","Quizzes every studied card whose recall has slipped below the cutoff, due or not, weakest first, like a last pass before a tournament. It doesn't change your schedule.")}`;
+        sched=`<div class="msec"><div class="label">Schedule</div>${retRow}${cramRow}
           <div class="addctl"><select id="schedOp" aria-label="Schedule action">${opt("spread","Spread the backlog over")}${opt("postN","Postpone due reviews")}${opt("ahead","Bring forward reviews due in")}${opt("nextN","Bring forward the next")}</select>
           ${ctl}${btn}${ib("sched","scheduling tools")}
           ${ok?"":`<span class="note">${empty}</span>`}</div>
@@ -1592,7 +1613,7 @@ function renderDecks(){
       row+=`<div class="more">${leech?`<div class="msec"><div class="actions"><button class="btn ghost sm" id="suspLeeches">Suspend all ${fmtN(s.total)} leeches</button></div></div>`:`<div class="msec"><div class="label">New cards</div>
         <div class="boxinfo"><div class="boxbar"><i style="width:${s.total?s.boxed/s.total*100:0}%"></i></div></div>
         <div class="addctl"><label for="addN">Next</label><span class="nobr"><input type="number" id="addN" min="1" max="5000" step="1" value="${addNVal}"> <span class="note">cards</span></span>
-          <button class="btn ghost" id="prevBtn" ${s.out?"":"disabled"}>Preview</button><button class="btn" id="addBtn" ${s.out?"":"disabled"}>Add</button><button class="btn ghost" id="addAll" ${s.out?"":"disabled"}>${confirm?`Tap again to add ${fmtN(s.out)}`:`Add all (${fmtN(s.out)})`}</button></div>
+          <button class="btn ghost" id="prevBtn" ${s.out?"":"disabled"}>Preview</button><button class="btn ghost" id="placeBtn" ${s.out?"":"disabled"} title="Mark which of the next cards you already know">Placement test</button><button class="btn" id="addBtn" ${s.out?"":"disabled"}>Add</button><button class="btn ghost" id="addAll" ${s.out?"":"disabled"}>${confirm?`Tap again to add ${fmtN(s.out)}`:`Add all (${fmtN(s.out)})`}</button></div>
         <div class="addctl"><label class="switch"><input type="checkbox" id="autoOn" ${keepN?"checked":""}> <span id="keepLbl">Keep ${fmtN(keepN||addNVal)} ready daily</span></label>${ib("keep","Keep ready daily")}
           <label class="switch"><input type="checkbox" id="faceUpOn" ${store.faceUp[id]?"checked":""}> <span>Show new cards face up first</span></label>${ib("face","face up first")}</div>
         ${info("keep",`Once a day, tops this deck up so ${fmtN(keepN||addNVal)} unstudied cards are waiting in your ${esc(cn)} cardbox, taking the next ones in deck order. It never piles up. Turning it on uses the number in Next; to change it, set Next and switch it off and on again. Your daily new-card limit in Settings still decides how many you see each day.`)}
@@ -1640,7 +1661,7 @@ function previewItemHTML(k){
   switch(store.qtype){
     case "S":return `<div class="pv-item"><div class="pv-key">${esc(dispA(k))}?</div><div class="build">${blankAnswers(k).map(([ch,g])=>`<div class="bgrp"><span class="blen">${ch}</span><div class="bwords">${g.map(w=>wordHTML(w,"",true)).join("")}</div></div>`).join("")||'<span class="note">no words</span>'}</div></div>`;
     case "E":return `<div class="pv-item">${ansRows([k])}${extensions(k).length?extHTML(k,extensions(k)):""}</div>`;
-    case "H":case "W":case "R":return `<div class="pv-item">${ansRows([k])}</div>`;
+    case "H":case "W":case "R":case "V":return `<div class="pv-item">${ansRows([k])}</div>`;
     default:return `<div class="pv-item"><div class="pv-key">${esc(dispA(k))}</div>${ansRows(LEX.anag.get(k))}</div>`;
   }
 }
@@ -1730,7 +1751,8 @@ function renderReviewBar(){
   if(store.mode==="preview"){$("rvTitle").textContent=`${deckName(store.deck)} · Preview`;$("rvProg").textContent=pv?`${fmtN(pv.keys.length)} ${pv.keys.length===1?"card":"cards"} · ${qt().name}`:"";$("rvUndo").hidden=true;$("rvPhony").hidden=true;$("rvFull").hidden=!document.fullscreenEnabled;return}
   if(store.mode==="speed"){$("rvTitle").textContent=`${deckName(store.deck)} · Speed round`;$("rvProg").textContent=sp?`${sp.racks.length} ${sp.racks.length===1?"rack":"racks"}`:"";$("rvUndo").hidden=true;$("rvPhony").hidden=true;$("rvFull").hidden=!document.fullscreenEnabled;return}
   if(drill&&store.mode==="learn"){
-    $("rvTitle").textContent=`${drill.name} · ${qt().name} quiz`;
+    $("rvTitle").textContent=drill.opt.place?`${drill.name} · Placement test`:drill.opt.cram?`${drill.name} · Cram`:`${drill.name} · ${qt().name} quiz`;
+    if(drill.opt.place){$("rvProg").textContent=`${fmtN(Math.min(drill.i,drill.keys.length))} of ${fmtN(drill.keys.length)} · ${fmtN(drill.right)} known, ${fmtN(drill.wrong)} to learn`;$("rvUndo").hidden=false;$("rvUndo").disabled=!undoStack.length;$("rvPhony").hidden=true;$("rvFull").hidden=!document.fullscreenEnabled;return}
     $("rvProg").textContent=`${drill.round>1?`Round ${drill.round} · `:""}${fmtN(Math.min(drill.i,drill.keys.length))} of ${fmtN(drill.keys.length)} · ${fmtN(drill.right)} right, ${fmtN(drill.wrong)} missed`;
     $("rvUndo").hidden=false;$("rvUndo").disabled=!undoStack.length;$("rvPhony").hidden=true;
     $("rvFull").hidden=!document.fullscreenEnabled;$("rvFull").textContent=document.fullscreenElement?"Exit fullscreen":"Fullscreen";return;
@@ -1756,6 +1778,9 @@ function spreadBacklog(deck,days){
   list.forEach(([ck],i)=>{const d=Math.floor(i/per);if(!d)return;const r=store.cards[ck];r[3]=start.getTime()+d*DAY+(i%per);r[7]=now+i});
   save();syncSoon();return {n:list.length,per,days:Math.ceil(list.length/per)};
 }
+let cramCut=85;
+// studied cards whose recall has slipped below the cutoff, weakest first
+function cramKeys(deck,cut){const now=Date.now(),pre=store.qtype+":",out=[];for(const k of deckKeys(deck)){const r=store.cards[pre+k];if(!r||r[0]===0||r[0]>=10)continue;const rc=recallNow(r,now);if(rc!=null&&rc*100<cut)out.push([k,rc])}return out.sort((a,b)=>a[1]-b[1]).map(x=>x[0])}
 let spreadDays=7,aheadDays=3,schedOp="spread",infoOpen=null,nextNVal=50,postNVal=50,postDays=3;
 // reviews not yet due, soonest first
 function upcomingReviews(deck){const now=Date.now(),pre=store.qtype+":",out=[];for(const k of deckKeys(deck)){const r=store.cards[pre+k];if(r&&r[0]===2&&r[3]>now)out.push([pre+k,r[3]])}return out.sort((a,b)=>a[1]-b[1]).map(x=>x[0])}
@@ -1799,11 +1824,42 @@ function runAutoAdd(){
 }
 /* ---------- quiz a list without touching the cardbox ---------- */
 let drill=null;
-function startDrill(keys,name,q){
-  if(!keys.length)return;
+/* ---------- Valid or Phony? as a scheduled quiz: each word card shows the word itself or a near-miss phony of it ---------- */
+function setupVP(c){
+  c.vp=null;c.said=undefined;
+  if(Math.random()<.5){const k=c.key,opts=[];const m=misspellings(k);if(m.length)opts.push({key:m[Math.floor(Math.random()*m.length)],kind:"misspell",src:k});const f=phonyMadeUp(k);if(f)opts.push(f);
+    if(opts.length)c.vp=opts[Math.floor(Math.random()*opts.length)]}
+  c.shown=c.vp?c.vp.key:c.key;
+}
+function answerVP(saidPhony){
+  if(!cur||store.qtype!=="V"||flipped||cur.intro)return;
+  cur.said=saidPhony;clearTimer();if(cur.secs==null)cur.secs=(Date.now()-cur.t0)/1000;
+  flipped=true;preview=schedule(cardState(cur.key),Date.now(),ckey(cur.key));render();$("card").focus({preventScroll:true});
+}
+function phonyExplainHTML(k,cur){
+  let html="";
+        const cs=CSW.def.get(k),tag={made:"made-up",ending:"wrong ending",collins:"Collins only",misspell:"misspelling",typo:"your typo",affix:"prefix or suffix"}[cur.kind];
+        html+=`<div class="meta"><span class="badge">${tag}</span></div>`;
+        if(cur.kind==="made"){const same=alpha(k)===alpha(cur.src);html+=`<div class="hint">${esc(k)} is not in NWL23. ${same?"Same letters as:":"It's close to:"}</div>`+ansRows(same?LEX.anag.get(alpha(cur.src)):[cur.src])}
+        else if(cur.kind==="affix"){const real=LEX.words.get(cur.base)?[cur.base]:[];html+=`<div class="hint">${esc(k)} is not in NWL23: ${esc(cur.base)} doesn't take ${esc(cur.type)}.</div>`+(real.length?ansRows(real):"")}
+        else if(cur.kind==="misspell")html+=`<div class="hint">${esc(k)} is not in NWL23. It's a misspelling of:</div>`+ansRows([cur.src]);
+        else if(cur.kind==="typo"){const n=store.typos[k]?.n||1;html+=`<div class="hint">${esc(k)} is not in NWL23. You typed it${n>1?` ${n} times`:""} while studying${cur.src?`; you meant:`:cur.rack&&LEX.anag.get(cur.rack)?` ${esc(dispA(cur.rack))}, which makes:`:"."}</div>`+(cur.src&&LEX.words.has(cur.src)?ansRows([cur.src]):cur.rack&&LEX.anag.get(cur.rack)?ansRows(LEX.anag.get(cur.rack)):"")}
+        else if(cur.kind==="ending")html+=`<div class="hint">${esc(k)} is not in NWL23: ${esc(cur.base)} doesn't take -${cur.type}.</div>`+ansRows([cur.base]);
+        if(cs!==undefined)html+=`<div class="hint">${cur.kind==="collins"?esc(k)+" is valid in Collins (CSW24) but not in NWL23.":"It is valid in Collins (CSW24), though."}</div>${cs?`<div class="single"><div class="def">${esc(cs)}</div></div>`:""}`;
+        return html;
+}
+function vpBackHTML(k){
+  const right=cur.said===!!cur.vp;
+  let h=`<div class="verdict ${right?"ok":"no"}">${cur.said==null?"Time's up":right?"Correct":"Wrong"}: ${cur.vp?"phony":"valid"}</div>`;
+  if(cur.vp)h+=phonyExplainHTML(cur.shown,cur.vp);else h+=ansRows([k]);
+  if(cur.vp&&cur.vp.src!==k)h+=`<div class="meta">This card's word:</div>`+ansRows([k]);
+  return h;
+}
+function startDrill(keys,name,q,opt){
+  if(!keys.length)return;opt=opt||{};
   const prevQt=store.qtype;if(q&&QT[q])store.qtype=q;
-  const ks=keys.slice();for(let i=ks.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[ks[i],ks[j]]=[ks[j],ks[i]]}
-  drill={name,keys:ks,i:0,right:0,wrong:0,missed:[],firstMissed:new Set(),round:1,total:ks.length,prevQt,allKeys:keys.slice(),q:store.qtype};
+  const ks=keys.slice();if(!opt.keepOrder)for(let i=ks.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[ks[i],ks[j]]=[ks[j],ks[i]]}
+  drill={name,keys:ks,i:0,right:0,wrong:0,missed:[],firstMissed:new Set(),round:1,total:ks.length,prevQt,allKeys:keys.slice(),q:store.qtype,opt,deck:store.deck};
   store.mode="learn";reviewing=true;lastK=null;undoStack=[];session={n:0,again:0,start:Date.now()};
   renderChrome();next();
 }
@@ -1823,12 +1879,13 @@ function toggleFullscreen(){
 }
 // swipes in Valid or Phony?: right = valid, left = phony
 let swipe=null;
-$("card").addEventListener("touchstart",e=>{if(store.mode==="phony"&&e.touches.length===1)swipe={x:e.touches[0].clientX,y:e.touches[0].clientY,t:Date.now()};else swipe=null},{passive:true});
+$("card").addEventListener("touchstart",e=>{if((store.mode==="phony"||(store.mode==="learn"&&store.qtype==="V"&&cur&&!flipped&&!cur.intro))&&e.touches.length===1)swipe={x:e.touches[0].clientX,y:e.touches[0].clientY,t:Date.now()};else swipe=null},{passive:true});
 $("card").addEventListener("touchmove",e=>{if(!swipe)return;const dx=e.touches[0].clientX-swipe.x;$("card").style.transform=`translateX(${Math.max(-60,Math.min(60,dx/3))}px)`},{passive:true});
 $("card").addEventListener("touchend",e=>{
   $("card").style.transform="";if(!swipe)return;
   const t=e.changedTouches[0],dx=t.clientX-swipe.x,dy=t.clientY-swipe.y;swipe=null;
   if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.5)return;
+  if(store.mode==="learn"){answerVP(dx<0);return}
   if(phonyAns===null)answerPhony(dx<0);else next();
 });
 document.addEventListener("fullscreenchange",()=>{if(reviewing)renderReviewBar()});
@@ -1844,6 +1901,11 @@ function render(){
   const now=Date.now(),card=$("card"),gr=$("grade");
   if(store.mode==="speed"){renderSpeed(card,gr);return}
   if(store.mode==="preview"){renderPreview(card,gr);return}
+  if(!cur&&drill&&store.mode==="learn"&&drill.opt.place){
+    card.className="card";
+    card.innerHTML=`<div class="done"><h2>Placement done</h2></div><div class="hint">${fmtN(drill.right)} you knew are scheduled for review in about a month. ${fmtN(drill.wrong)} you didn't are in your ${esc(qt().name)} cardbox as new cards.</div>`;
+    gr.className="grade two";gr.innerHTML=`<button id="rvExit2">Back to decks</button>`;return;
+  }
   if(!cur&&drill&&store.mode==="learn"){
     card.className="card";const n=drill.total,first=n-drill.firstMissed.size,pct=n?Math.round(first/n*100):0,fm=drill.firstMissed.size;
     const inBox=[...drill.firstMissed].filter(k=>store.cards[ckey(k)]).length;
@@ -1880,7 +1942,7 @@ function render(){
     const st=cardState(k),r=store.cards[ckey(k)],ans=cur.ans,isAlpha=unit()==="alpha";
     const rankTxt=isAlpha?`#${fmtN(LEX.rank.get(k))} of ${fmtN(LEX.byLen[k.length].length)}`:`#${fmtN(LEX.wrank.get(k))} of ${fmtN(LEX.wordsByLen[k.length].length)}`;
     const rc=recallNow(r,now),leech=st.lapses>=store.settings.leech;
-    html=`<div class="corner">${drill?'<span class="badge">quiz</span>':`<span class="badge ${st.state}">${st.state}</span>`}${!drill&&leech?'<span class="badge leech">leech</span>':""}${cur.contrast?`<span class="badge" title="You've mixed this up with ${esc(unit()==="alpha"?dispA(cur.contrast):cur.contrast)}">look-alike</span>`:""}${store.settings.showRank==="off"?"":`<span>${rankTxt}</span>`}</div><div class="corner r"><span class="qname">${esc(qt().name)}</span>${rc!=null&&!drill?`<span title="Estimated chance you recall this card right now">recall ${Math.round(rc*100)}%</span>`:""}</div>${store.qtype==="R"?`<div class="revdef">${esc(clueOf(k))}</div><div class="tiles" id="tiles" title="Tap to reveal" style="--n:${k.length}">${'<div class="tile slot"></div>'.repeat(k.length)}</div>`:tiles(isAlpha?(!flipped&&cur.order?cur.order:dispA(k)):k,store.qtype==="S")}`;
+    html=`<div class="corner">${drill?'<span class="badge">quiz</span>':`<span class="badge ${st.state}">${st.state}</span>`}${!drill&&leech?'<span class="badge leech">leech</span>':""}${cur.contrast?`<span class="badge" title="You've mixed this up with ${esc(unit()==="alpha"?dispA(cur.contrast):cur.contrast)}">look-alike</span>`:""}${store.settings.showRank==="off"?"":`<span>${rankTxt}</span>`}</div><div class="corner r"><span class="qname">${esc(qt().name)}</span>${rc!=null&&!drill?`<span title="Estimated chance you recall this card right now">recall ${Math.round(rc*100)}%</span>`:""}</div>${store.qtype==="R"?`<div class="revdef">${esc(clueOf(k))}</div><div class="tiles" id="tiles" title="Tap to reveal" style="--n:${k.length}">${'<div class="tile slot"></div>'.repeat(k.length)}</div>`:tiles(isAlpha?(!flipped&&cur.order?cur.order:dispA(k)):(cur.shown||k),store.qtype==="S")}`;
     if(!flipped){
       if(isAlpha)html+=`<button class="linkbtn shuf" id="shuffleBtn" title="Shuffle the tiles (5)">Shuffle <kbd>5</kbd></button>`;
       if(store.settings.timeLimit)html+=`<div class="timer" aria-hidden="true"><i style="animation-duration:${store.settings.timeLimit}s;animation-delay:-${Math.min(store.settings.timeLimit,(Date.now()-cur.t0)/1000)}s"></i></div>`;
@@ -1890,8 +1952,10 @@ function render(){
         html+=`<form class="typebox" id="ansForm" autocomplete="off"><input id="ansIn" aria-label="Your answers" placeholder="${store.qtype==="R"?"Type the word":"Type the words, space between"}" spellcheck="false" autocapitalize="characters"><button class="btn" type="submit">Check</button></form>`;
       }
       gr.className="grade";gr.innerHTML=`<button class="full" id="g-show">Show answer<small>${qt().typed&&store.settings.typing==="on"?"Return":"Return, Space or 0–3"}</small></button>`;
+      if(store.qtype==="V"&&!cur.intro){html+=`<div class="hint">Would this play stand up to a challenge?</div>`;gr.className="grade two";gr.innerHTML=`<button class="again" id="vpPhony">Phony<small>P · N · ← · swipe left</small></button><button class="good" id="vpValid">Valid<small>V · Y · → · swipe right</small></button>`}
     }else{
       let suggest=null;const found=typed?typed.hit:null;
+      if(store.qtype==="V"&&cur.said!==undefined){suggest=cur.said===!!cur.vp?(cur.secs>6?HARD:GOOD):AGAIN;cur.suggest=suggest}
       if(typed){
         const nAns=ans.length,nHit=typed.hit.size;
         const ok=!typed.missed.length&&!typed.wrong.length;
@@ -1915,6 +1979,7 @@ function render(){
         case "R":{const e=LEX.words.get(k);
           html+=`<div class="single"><div class="hooksline">${hooksHTML(k,"f",found)||"–"} <b>${wordHTML(k,typed?(found.has(k)?"hit":"miss"):"",true)}</b> ${hooksHTML(k,"b",found)||"–"}</div><div class="def">${esc(e.def)}</div></div>`;
           if(ans.length>1)html+=ansRows(ans.filter(w=>w!==k),{found});break}
+        case "V":html+=cur.said!==undefined?vpBackHTML(k):ansRows([k]);break;
         case "W":{const e=LEX.words.get(k);
           html+=`<div class="single"><div class="hooksline">${hooksHTML(k,"f")||"–"} <b>${wordHTML(k,"",true)}</b> ${hooksHTML(k,"b")||"–"}</div><div class="def">${esc(e.def)}</div></div>`;
           const sibs=LEX.anag.get(e.a).filter(w=>w!==k);if(sibs.length)html+=`<div class="meta">Anagrams: ${sibs.map(w=>wordHTML(w)).join(" ")}</div>`;break}
@@ -1930,7 +1995,7 @@ function render(){
         gr.className="grade two";gr.innerHTML=`<button class="good full" id="introNext">Got it<small>you'll be tested on it in a few cards · Return, Space or 0–3</small></button>`;
         return;
       }
-      if(drill){gr.className="grade two";gr.innerHTML=`<button class="again ${suggest&&suggest<GOOD?"suggest":""}" data-g="1">Missed<small>comes back next round · 0</small></button><button class="good ${!suggest||suggest>=GOOD?"suggest":""}" data-g="3">Got it<small>Space · 2</small></button>`;card.innerHTML=html;return}
+      if(drill){const pl=drill.opt.place;gr.className="grade two";gr.innerHTML=`<button class="again ${suggest&&suggest<GOOD?"suggest":""}" data-g="1">${pl?"Didn't know it":"Missed"}<small>${pl?"added as a new card":"comes back next round"} · 0</small></button><button class="good ${!suggest||suggest>=GOOD?"suggest":""}" data-g="3">${pl?"Knew it":"Got it"}<small>${pl?"first review in about a month":"Space"} · 2</small></button>`;card.innerHTML=html;return}
       const L=g=>fmtIvl(preview[g].due-now),cls={1:"again",2:"",3:"good",4:"easy"},nm={1:"Again",2:"Hard",3:"Good",4:"Easy"};
       gr.className="grade";
       gr.innerHTML=[1,2,3,4].map(g=>`<button class="${cls[g]} ${suggest===g?"suggest":""}" data-g="${g}">${nm[g]}<small>${L(g)} · ${g-1}</small></button>`).join("");
@@ -1945,16 +2010,7 @@ function render(){
       html+=`<div class="verdict ${ok?"ok":"no"}">${ok?"Correct":"Wrong"}: ${cur.phony?"phony":"valid"}</div>`;
       if(cur.again)html+=`<div class="meta"><span class="badge leech">${cur.phony?"you fell for this one before":"you doubted this one before"}</span></div>`;
       if(!cur.phony)html+=ansRows([k]);
-      else{
-        const cs=CSW.def.get(k),tag={made:"made-up",ending:"wrong ending",collins:"Collins only",misspell:"misspelling",typo:"your typo",affix:"prefix or suffix"}[cur.kind];
-        html+=`<div class="meta"><span class="badge">${tag}</span></div>`;
-        if(cur.kind==="made"){const same=alpha(k)===alpha(cur.src);html+=`<div class="hint">${esc(k)} is not in NWL23. ${same?"Same letters as:":"It's close to:"}</div>`+ansRows(same?LEX.anag.get(alpha(cur.src)):[cur.src])}
-        else if(cur.kind==="affix"){const real=LEX.words.get(cur.base)?[cur.base]:[];html+=`<div class="hint">${esc(k)} is not in NWL23: ${esc(cur.base)} doesn't take ${esc(cur.type)}.</div>`+(real.length?ansRows(real):"")}
-        else if(cur.kind==="misspell")html+=`<div class="hint">${esc(k)} is not in NWL23. It's a misspelling of:</div>`+ansRows([cur.src]);
-        else if(cur.kind==="typo"){const n=store.typos[k]?.n||1;html+=`<div class="hint">${esc(k)} is not in NWL23. You typed it${n>1?` ${n} times`:""} while studying${cur.src?`; you meant:`:cur.rack&&LEX.anag.get(cur.rack)?` ${esc(dispA(cur.rack))}, which makes:`:"."}</div>`+(cur.src&&LEX.words.has(cur.src)?ansRows([cur.src]):cur.rack&&LEX.anag.get(cur.rack)?ansRows(LEX.anag.get(cur.rack)):"")}
-        else if(cur.kind==="ending")html+=`<div class="hint">${esc(k)} is not in NWL23: ${esc(cur.base)} doesn't take -${cur.type}.</div>`+ansRows([cur.base]);
-        if(cs!==undefined)html+=`<div class="hint">${cur.kind==="collins"?esc(k)+" is valid in Collins (CSW24) but not in NWL23.":"It is valid in Collins (CSW24), though."}</div>${cs?`<div class="single"><div class="def">${esc(cs)}</div></div>`:""}`;
-      }
+      else html+=phonyExplainHTML(k,cur);
       const pk=session.pk||{},tally=Object.entries({valid:"Valid words",...PHONY_KINDS}).filter(([k])=>pk[k]).map(([k,n])=>`${n} ${pk[k][0]}/${pk[k][1]}`).join(" · ");
       if(tally)html+=`<div class="meta">This session: ${tally}</div>`;
       gr.className="grade two";gr.innerHTML=`<button class="full" id="g-next">Next word<small>Space · Return · swipe</small></button>`;
@@ -2244,7 +2300,27 @@ function renderStatsPanel(){
   html+=`<div class="st-sec"><div class="label">Does FSRS predict you well?</div><p>Reviews grouped by the recall chance FSRS gave each card at the moment you saw it. The bar is how often you actually got it right; the line is what FSRS predicted. When they match, the schedule is well tuned.</p>`;
   html+=nCal?`<div class="calib">${bins.filter(b=>b.n).map(b=>{const p=b.pred/b.n,a=b.act/b.n;return `<span>${b.label}</span><div class="bars" title="Predicted ${Math.round(p*100)}%, actual ${Math.round(a*100)}%"><i style="width:${a*100}%"></i><b style="left:calc(${p*100}% - 1px)"></b></div><span>${Math.round(a*100)}% · ${fmtN(b.n)}</span>`}).join("")}</div><div class="legend"><span style="--c:var(--tl)">actual</span><span style="--c:var(--ink)">predicted</span></div>`:`<p class="note">No data yet. This fills in as you review cards you've already learned. Reviews logged before this version don't include predictions.</p>`;
   html+=`</div>`;
+  html+=patternStatsHTML(L);
   $("statsOut").innerHTML=html;
+}
+// accuracy by word length, time spent per day, and the racks that take you longest
+function patternStatsHTML(L){
+  const now=Date.now(),since=now-30*DAY,pre=store.qtype+":";let h="";
+  // by length (all quiz types)
+  const byLen={};for(const e of L){if(e.t<since||e.st===0)continue;const k=e.key.slice(2),n=k.length;const b=byLen[n]=byLen[n]||[0,0];b[1]++;if(e.g>1)b[0]++}
+  const lens=Object.keys(byLen).map(Number).sort((a,b)=>a-b);
+  if(lens.length){const mx=Math.max(...lens.map(n=>byLen[n][1]));
+    h+=`<div class="st-sec"><div class="label">Accuracy by word length, last 30 days</div><p class="note" style="margin:0">Share of reviews you got right (not counting first looks at new cards), all quiz types.</p><div class="lenacc">${lens.map(n=>{const [ok,t]=byLen[n],p=ok/t;return `<span>${n}s</span><div class="bar" title="${ok} of ${t} right"><i style="width:${Math.round(p*100)}%;opacity:${.45+.55*t/mx}"></i></div><b>${Math.round(p*100)}%</b><span class="note">${fmtN(t)}</span>`}).join("")}</div></div>`}
+  // minutes per day
+  const start=new Date();start.setHours(0,0,0,0);const day0=start.getTime()-29*DAY,mins=new Array(30).fill(0);
+  for(const e of L){if(e.t<day0||e.secs==null)continue;const i=Math.floor((e.t-day0)/DAY);if(i>=0&&i<30)mins[i]+=Math.min(e.secs,120)/60}
+  const tot=mins.reduce((a,b)=>a+b,0),mm=Math.max(1,...mins),days=mins.filter(m=>m>0).length;
+  h+=`<div class="st-sec"><div class="label">Time spent answering, last 30 days</div><p class="note" style="margin:0">${tot?`${tot<1?"Under a minute":Math.round(tot)+" min"} in all, about ${Math.max(1,Math.round(tot/Math.max(1,days)))} min on days you studied. Counts the time on each card until you answered, capped at 2 min.`:"No timed reviews yet."}</p>${tot?`<div class="rpd">${mins.map((v,i)=>`<div title="${new Date(day0+i*DAY).toLocaleDateString()}: ${Math.round(v)} min"><i style="height:${v/mm*90}px"></i></div>`).join("")}</div><div class="fc-axis"><span>30 days ago</span><span>today</span></div>`:""}</div>`;
+  // slowest cards in the current quiz type
+  const by=new Map();for(const e of L){if(e.t<now-90*DAY||e.secs==null||!e.key.startsWith(pre)||e.st===0)continue;const a=by.get(e.key)||[0,0,0];a[0]+=e.secs;a[1]++;if(e.g>1)a[2]++;by.set(e.key,a)}
+  const slow=[...by].filter(([,a])=>a[1]>=2).map(([k,a])=>[k.slice(2),a[0]/a[1],a[2]/a[1],a[1]]).sort((x,y)=>y[1]-x[1]).slice(0,12);
+  h+=`<div class="st-sec"><div class="label">Slowest ${esc(qt().name)} cards, last 90 days</div>${slow.length?`<div class="wl"><table><thead><tr><th>Card</th><th class="num">Avg time</th><th class="num">Right</th><th class="num">Reviews</th></tr></thead><tbody>${slow.map(([k,t,p,n])=>`<tr><td class="w">${esc(unit()==="alpha"?dispA(k):k)}</td><td class="num">${t.toFixed(1)} s</td><td class="num">${Math.round(p*100)}%</td><td class="num">${n}</td></tr>`).join("")}</tbody></table></div>`:`<p class="note" style="margin:0">Cards show up here once you've reviewed them at least twice.</p>`}</div>`;
+  return h;
 }
 
 /* =================== FSRS fitting =================== */
@@ -2634,6 +2710,7 @@ const META={
   bury:{get:()=>store.bury,set:v=>{store.bury=v}},
   auto:{get:()=>store.autoAdd,set:v=>{store.autoAdd=v||{}}},
   faceup:{get:()=>store.faceUp,set:v=>{store.faceUp=v||{}}},
+  deckret:{get:()=>store.deckRet,set:v=>{store.deckRet=v||{}}},
   conf:{get:()=>({conf:store.conf,ph:store.confPh,front:store.frontNote}),set:v=>{store.conf=v.conf||{};store.confPh=v.ph||{};store.frontNote=v.front||{}}},
   hist:{get:()=>store.hist,set:v=>{store.hist=v||{}}},
   games:{get:()=>({fooled:store.fooled,doubted:store.doubted,speedBest:store.speedBest,typos:store.typos}),set:v=>{store.fooled=v.fooled||{};store.doubted=v.doubted||{};store.typos={...store.typos,...(v.typos||{})};const b={...store.speedBest};for(const k in v.speedBest||{})if(!b[k]||v.speedBest[k].score>b[k].score)b[k]=v.speedBest[k];store.speedBest=b}},
@@ -2790,7 +2867,7 @@ function setDeck(id){store.deck=id;save();lastK=null;render()}
 document.addEventListener("submit",e=>{if(e.target.id==="ansForm"){e.preventDefault();reveal(true)}if(e.target.id==="spForm"){e.preventDefault();speedSubmit()}});
 document.addEventListener("click",e=>{
   if(!ready)return;
-  if(e.target.closest("#tiles")){if(store.mode==="learn")reveal(false);else if(phonyAns!==null)next();return}
+  if(e.target.closest("#tiles")){if(store.mode==="learn"&&store.qtype==="V")return;if(store.mode==="learn")reveal(false);else if(phonyAns!==null)next();return}
   const t=e.target.closest("button");if(!t)return;
   if(e.detail>0)setTimeout(()=>{if(document.activeElement===t)t.blur()},0);
   const ds=t.dataset;
@@ -2842,10 +2919,14 @@ document.addEventListener("click",e=>{
     case "prevBtn":{addNVal=Math.max(1,Math.round(+$("addN").value||20));const keys=previewKeys(store.deck,Math.min(500,addNVal));pv={keys};startReview(store.deck,"preview");$("review").scrollTop=0;break}
     case "pvAdd":{if(pv&&pv.keys.length){const n=addKeys(pv.keys);pv=null;exitReview();note("rowNote",`Added ${fmtN(n)} to your ${qt().name} cardbox.`)}break}
     case "introNext":introContinue();break;
+    case "vpPhony":answerVP(true);break;
+    case "vpValid":answerVP(false);break;
     case "drillAdd":{if(cur){addKeys([cur.key]);render()}break}
     case "drillAddMissed":{if(drill){const n=addKeys([...drill.firstMissed]);t.disabled=true;t.textContent=`Added ${fmtN(n)}`}break}
-    case "drillAgain":{if(drill){const d=drill;store.qtype=d.prevQt;drill=null;startDrill(d.allKeys,d.name,d.q)}break}
+    case "drillAgain":{if(drill){const d=drill;store.qtype=d.prevQt;drill=null;startDrill(d.allKeys,d.name,d.q,d.opt)}break}
     case "quizResults":{if(!lastResult)break;const q=$("resQt").value,ks=wordsToKeys(lastResult.words,QT[q].unit);if(ks.length)startDrill(ks,"Search results",q);else note("resNote","No results to quiz.");break}
+    case "placeBtn":{addNVal=Math.max(1,Math.round(+$("addN").value||20));const ks=previewKeys(store.deck,addNVal);if(ks.length)startDrill(ks,deckName(store.deck),store.qtype,{keepOrder:true,place:true});break}
+    case "cramBtn":{cramCut=Math.max(50,Math.min(99,Math.round(+$("cramCut").value||85)));const ks=cramKeys(store.deck,cramCut);if(ks.length)startDrill(ks,deckName(store.deck),store.qtype,{keepOrder:true,cram:true});break}
     case "quizDeck":{const ks=deckKeys(store.deck);if(ks.length)startDrill(ks,deckName(store.deck),store.qtype);break}
     case "rescueSave":rescueDone("save");break;
     case "rescueSkip":rescueDone("skip");break;
@@ -2936,7 +3017,9 @@ $("deckList").addEventListener("change",e=>{
   if(id==="schedOp"){schedOp=e.target.value;render();return}
   if(id==="addN")return;
   if(id==="aheadDays"){aheadDays=Math.max(1,Math.min(60,Math.round(+e.target.value||3)));render();return}
-  if(id==="nextNVal"||id==="postNVal")return; // handled as you type, so a click on the button isn't lost to a redraw
+  if(id==="nextNVal"||id==="postNVal")return;
+  if(id==="deckRet"){const v=e.target.value.trim(),d={...store.deckRet};if(v==="")delete d[store.deck];else d[store.deck]=Math.max(.7,Math.min(.99,Math.round(+v)/100));store.deckRet=d;save();syncSoon();return}
+  if(id==="cramCut"){cramCut=Math.max(50,Math.min(99,Math.round(+e.target.value||85)));return} // handled as you type, so a click on the button isn't lost to a redraw
   if(id==="postDays"){postDays=Math.max(1,Math.min(365,Math.round(+e.target.value||3)));return}
   if(id!=="autoOn")return;
   const key=store.deck+"|"+store.qtype,n=Math.max(1,Math.min(1000,addNVal));
@@ -2945,6 +3028,7 @@ $("deckList").addEventListener("change",e=>{
   save();render();
 });
 $("deckList").addEventListener("input",e=>{
+  if(e.target.id==="cramCut"){cramCut=Math.max(50,Math.min(99,Math.round(+e.target.value||85)));const n=cramKeys(store.deck,cramCut).length,b=$("cramBtn");if(b){b.disabled=!n;b.textContent=n?`Cram ${fmtN(n)}`:"Cram"}}
   if(e.target.id==="nextNVal"){nextNVal=Math.max(1,Math.min(5000,Math.round(+e.target.value||50)));const n=Math.min(nextNVal,upcomingReviews(store.deck).length),b=$("nextNBtn");if(b){b.disabled=!n;b.textContent=n?`Bring forward ${fmtN(n)}`:"Bring forward"}}
   if(e.target.id==="postNVal"){postNVal=Math.max(1,Math.min(5000,Math.round(+e.target.value||50)));const n=Math.min(postNVal,scan(store.deck,Date.now()).overdue),b=$("postNBtn");if(b){b.disabled=!n;b.textContent=n?`Postpone ${fmtN(n)}`:"Postpone"}}if(e.target.id==="autoN")autoNVal=Math.max(1,Math.min(1000,Math.round(+e.target.value||20)));if(e.target.id==="addN"){addNVal=Math.max(1,Math.round(+e.target.value||20));if(!store.autoAdd[store.deck+"|"+store.qtype]&&$("keepLbl"))$("keepLbl").textContent=`Keep ${fmtN(addNVal)} ready daily`}if(e.target.id==="spreadDays")spreadDays=Math.max(2,Math.min(60,Math.round(+e.target.value||7)))});
 $("lookupOut").addEventListener("change",e=>{if(e.target.id==="lkQt"){lkQt=e.target.value;lookup()}});
@@ -3025,6 +3109,13 @@ document.addEventListener("keydown",e=>{
     return;
   }
   if(store.mode==="speed"){if(e.key==="5"){e.preventDefault();reshuffle()}return}
+  if(store.mode==="learn"&&store.qtype==="V"&&cur&&!cur.intro&&!cur.rescue){
+    const t=e.target.tagName,kk=e.key.toLowerCase();
+    if(t!=="TEXTAREA"&&t!=="INPUT"&&!e.metaKey&&!e.ctrlKey&&!e.altKey){
+      if(!flipped){if(["v","y","arrowright"].includes(kk)){e.preventDefault();answerVP(false);return}if(["p","n","arrowleft"].includes(kk)){e.preventDefault();answerVP(true);return}if([" ","enter","0","1","2","3"].includes(kk)){e.preventDefault();return}}
+      else if(kk===" "||(kk==="enter"&&t!=="BUTTON")){e.preventDefault();grade(cur.suggest||GOOD);return}
+    }
+  }
   if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.key.toLowerCase()==="z"&&!(e.target.tagName==="INPUT"&&e.target.value)&&e.target.tagName!=="TEXTAREA"){e.preventDefault();undoGrade();return}
   if(e.key==="5"&&e.target.tagName!=="TEXTAREA"&&store.mode==="learn"&&!flipped){e.preventDefault();reshuffle();return}
   const tag=e.target.tagName;if(tag==="TEXTAREA"||tag==="SELECT"||(tag==="INPUT"&&e.target.type!=="checkbox")||e.metaKey||e.ctrlKey||e.altKey)return;
