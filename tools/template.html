@@ -174,7 +174,12 @@ sup.nw{color:var(--tw);font-size:.7em;margin-left:1px}
 .bgrp{display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:baseline}
 .blen{font-family:var(--f-display);font-weight:700;color:var(--muted);text-align:right}
 .bwords{display:flex;flex-wrap:wrap;gap:5px 12px;font-family:var(--f-mono);font-size:16.5px;font-weight:500}
-.ih{color:var(--tw);font-weight:700;padding:0 1px;cursor:help}
+.ih{color:var(--tw);font-weight:700;padding:0 1px;cursor:help;display:inline-block;width:.8em;text-align:center}
+th.wc,td.wc{text-align:center}
+.ih.off{visibility:hidden;cursor:default}
+.ih:focus-visible{outline:2px solid var(--tw);outline-offset:1px;border-radius:3px}
+#ihTip{position:fixed;z-index:100;max-width:300px;padding:7px 10px;border-radius:8px;background:var(--ink);color:var(--surface);font:13px/1.4 var(--f-body);box-shadow:0 6px 20px rgba(0,0,0,.2);pointer-events:none}
+#ihTip b{font-family:var(--f-mono);letter-spacing:.04em;margin-right:6px}
 .cousins .chg{color:var(--tw);font-weight:700}
 .bwords .bl{color:var(--tw);font-weight:600}
 .bwords .base{opacity:.5;font-weight:400}
@@ -1352,10 +1357,13 @@ function answerPhony(saidPhony){
 const tiles=(w,blank)=>`<div class="tiles" id="tiles" title="Tap to reveal" style="--n:${w.length+(blank?1:0)};--g:${w.length+(blank?1:0)>11?"2px":w.length+(blank?1:0)>8?"4px":"6px"}" ${w.length+(blank?1:0)>=11?"data-tiny":""}>${w.split("").map(l=>`<div class="tile">${l}<sub>${SCORES[l]}</sub></div>`).join("")}${blank?'<div class="tile blank" aria-label="blank">?</div>':""}</div>`;
 // inner hooks, as Zyzzyva shows them: a dot before the word if it's still a word without its first
 // letter, a dot after if it's still a word without its last letter (·LOBELIAS· = OBELIAS, LOBELIA)
+function shortDef(d){d=String(d||"").split(" / ")[0].replace(/\s*\[[^\]]*\]/g,"").replace(/\s+:\s+[A-Z]+$/,"").replace(/\s+/g," ").trim();return d.length>90?d.slice(0,88).replace(/\s+\S*$/,"")+"…":d}
 function innerDots(w){
-  if(w.length<3)return ["",""];
-  const f=w.slice(1),b=w.slice(0,-1);
-  return [LEX.words.has(f)?`<span class="ih" title="${esc(f)}">·</span>`:"",LEX.words.has(b)?`<span class="ih" title="${esc(b)}">·</span>`:""];
+  // both sides always get a slot, so words line up whether or not they have inner hooks
+  const off='<span class="ih off" aria-hidden="true">·</span>';
+  if(w.length<3)return [off,off];
+  const f=w.slice(1),b=w.slice(0,-1),dot=x=>{const d=LEX.words.get(x).def||"";return `<span class="ih" tabindex="0" data-tip="${esc(x)}" aria-label="${esc(x)}: ${esc(shortDef(d))}">·</span>`};
+  return [LEX.words.has(f)?dot(f):off,LEX.words.has(b)?dot(b):off];
 }
 const wordHTML=(w,cls,dots)=>{const [f,b]=dots?innerDots(w):["",""];return `${f}<span class="${cls||""}">${esc(w)}</span>${b}${isNew(w)?'<sup class="nw">+</sup>':""}`};
 function hooksHTML(w,side,found){
@@ -1798,7 +1806,7 @@ function renderResults(){
   const {words,alphas}=lastResult;
   $("resultSummary").innerHTML=`<b>${fmtN(words.length)}</b> words in <b>${fmtN(alphas)}</b> alphagrams`;
   const shown=words.slice(0,300);
-  $("results").innerHTML=words.length?`<table><thead><tr><th class="num">Prob.</th><th class="num">Play.</th><th>Front</th><th>Word</th><th>Back</th><th>Alphagram</th><th>Definition</th></tr></thead><tbody>${shown.map(w=>{const e=LEX.words.get(w);return `<tr><td class="num">${fmtN(LEX.rank.get(e.a))}</td><td class="num" title="Playability score ${fmtN(e.pscore)}">${fmtN(e.play)}</td><td class="fh" style="text-align:right">${hooksHTML(w,"f")}</td><td class="w">${wordHTML(w,"",true)}</td><td class="bh">${hooksHTML(w,"b")}</td><td class="w" style="color:var(--muted)">${dispA(e.a)}</td><td class="d">${esc(e.def)}</td></tr>`}).join("")}</tbody></table>${words.length>300?`<p class="note">Showing the first 300. Save the list or add it to your cardbox to use all ${fmtN(words.length)}.</p>`:""}`:`<p class="note">No words match. Try loosening a condition.</p>`;
+  $("results").innerHTML=words.length?`<table><thead><tr><th class="num">Prob.</th><th class="num">Play.</th><th style="text-align:right">Front</th><th class="wc">Word</th><th>Back</th><th>Alphagram</th><th>Definition</th></tr></thead><tbody>${shown.map(w=>{const e=LEX.words.get(w);return `<tr><td class="num">${fmtN(LEX.rank.get(e.a))}</td><td class="num" title="Playability score ${fmtN(e.pscore)}">${fmtN(e.play)}</td><td class="fh" style="text-align:right">${hooksHTML(w,"f")}</td><td class="w wc">${wordHTML(w,"",true)}</td><td class="bh">${hooksHTML(w,"b")}</td><td class="w" style="color:var(--muted)">${dispA(e.a)}</td><td class="d">${esc(e.def)}</td></tr>`}).join("")}</tbody></table>${words.length>300?`<p class="note">Showing the first 300. Save the list or add it to your cardbox to use all ${fmtN(words.length)}.</p>`:""}`:`<p class="note">No words match. Try loosening a condition.</p>`;
 }
 let editingId=null;
 function doSearch(){
@@ -2662,6 +2670,16 @@ $("deckList").addEventListener("change",e=>{
 $("deckList").addEventListener("input",e=>{if(e.target.id==="autoN")autoNVal=Math.max(1,Math.min(1000,Math.round(+e.target.value||20)));if(e.target.id==="addN"){addNVal=Math.max(1,Math.round(+e.target.value||20));if(!store.autoAdd[store.deck+"|"+store.qtype]&&$("keepLbl"))$("keepLbl").textContent=`Keep ${fmtN(addNVal)} ready daily`}if(e.target.id==="spreadDays")spreadDays=Math.max(2,Math.min(60,Math.round(+e.target.value||7)))});
 $("lookupOut").addEventListener("change",e=>{if(e.target.id==="lkQt"){lkQt=e.target.value;lookup()}});
 document.addEventListener("click",e=>{for(const d of document.querySelectorAll("details.dropdown[open]"))if(!d.contains(e.target))d.open=false});
+// inner-hook dots: hover, focus or tap shows the shorter word and a brief definition
+{let tip=null,owner=null;
+const show=el=>{const w=el.dataset.tip,e=LEX.words.get(w);if(!e)return;if(!tip){tip=document.createElement("div");tip.id="ihTip";tip.setAttribute("role","tooltip");document.body.appendChild(tip)}
+  tip.innerHTML=`<b>${esc(w)}</b>${esc(shortDef(e.def))}`;tip.hidden=false;owner=el;
+  const r=el.getBoundingClientRect(),tw=tip.offsetWidth,th=tip.offsetHeight;let x=Math.min(window.innerWidth-tw-8,Math.max(8,r.left+r.width/2-tw/2)),y=r.top-th-8;if(y<8)y=r.bottom+8;tip.style.left=x+"px";tip.style.top=y+"px"};
+const hide=()=>{if(tip)tip.hidden=true;owner=null};
+document.addEventListener("mouseover",e=>{const el=e.target.closest&&e.target.closest(".ih[data-tip]");if(el)show(el);else if(owner&&!e.target.closest(".ih"))hide()});
+document.addEventListener("focusin",e=>{const el=e.target.closest&&e.target.closest(".ih[data-tip]");if(el)show(el);else hide()});
+document.addEventListener("click",e=>{const el=e.target.closest&&e.target.closest(".ih[data-tip]");if(el){e.stopPropagation();if(owner===el&&matchMedia("(hover:none)").matches)hide();else show(el)}else hide()},true);
+addEventListener("scroll",hide,true);}
 // swipe the Look up panel sideways to close it
 {const P=$("lookupPanel");let sw=null;
 P.addEventListener("touchstart",e=>{sw=e.touches.length===1?{x:e.touches[0].clientX,y:e.touches[0].clientY,dx:0,on:false}:null},{passive:true});
