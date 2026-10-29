@@ -237,7 +237,22 @@ form.lookup input::placeholder{text-transform:none;font-family:var(--f-body)}
 .deckrow .ct b{color:var(--ink);font-weight:600}
 .deckrow .ct b.due{color:var(--tw)}
 .deckrow .dact{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-.deckrow .more{grid-column:1/-1;display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-top:12px}
+.deckrow .more{grid-column:1/-1;display:flex;flex-direction:column;gap:14px;border-top:1px solid var(--line);padding-top:12px}
+.nobr{white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.msec{display:flex;flex-direction:column;gap:8px}
+.msec+.msec{border-top:1px dashed var(--line);padding-top:12px}
+.msec .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.msec select{font:inherit;font-size:13.5px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink)}
+button.info{width:20px;height:20px;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);font:italic 600 12px/1 Georgia,serif;cursor:pointer;flex:none}
+button.info[aria-expanded=true]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.infotext{margin:0;padding:8px 10px;border-radius:8px;background:var(--bg);max-width:62ch}
+.btn.ghost.danger{color:var(--bad,#b3261e);border-color:color-mix(in srgb,var(--bad,#b3261e) 35%,var(--line));margin-left:auto}
+details.dropdown{position:relative;border:0;padding:0;margin:0;background:none;box-shadow:none}
+details.dropdown summary{list-style:none;cursor:pointer}
+details.dropdown summary::-webkit-details-marker{display:none}
+details.dropdown .menu{position:absolute;z-index:20;top:calc(100% + 4px);left:0;display:flex;flex-direction:column;min-width:180px;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:0 8px 24px rgba(0,0,0,.14)}
+details.dropdown .menu button{all:unset;cursor:pointer;padding:8px 10px;border-radius:6px;font-size:13.5px}
+details.dropdown .menu button:hover,details.dropdown .menu button:focus-visible{background:var(--bg)}
 @media (max-width:620px){.deckrow{grid-template-columns:minmax(0,1fr)}.deckrow .dact{justify-content:flex-start}}
 /* study screen */
 #review{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column;overflow:auto}
@@ -1284,7 +1299,7 @@ function renderDecks(){
   const now=Date.now(),ids=deckIds(),u=unit()==="alpha"?"alphagrams":"words";
   if(expanded&&!ids.includes(expanded))expanded=null;
   $("deckList").innerHTML=ids.length?ids.map(id=>{
-    if(id==="susp"){const n=suspKeys().length;return `<div class="deckrow"><div style="min-width:0"><div class="nm">Suspended</div><div class="ct"><b>${fmtN(n)}</b> ${esc(qt().name)} ${n===1?"card":"cards"} set aside; they keep their schedule history</div></div><div class="dact"><button class="btn ghost" id="unsuspAll">Unsuspend all</button><button class="btn ghost" data-expand="susp" aria-expanded="${expanded==="susp"}">${expanded==="susp"?"Less":"More"}</button></div>${expanded==="susp"?`<div class="more"><div class="actions"><span class="note">Export</span><button class="btn ghost sm" data-export="txt">Word list (.txt)</button><button class="btn ghost sm" data-export="csv">Spreadsheet (.csv)</button><span class="note" id="rowNote"></span></div></div>`:""}</div>`}
+    if(id==="susp"){const n=suspKeys().length;return `<div class="deckrow"><div style="min-width:0"><div class="nm">Suspended</div><div class="ct"><b>${fmtN(n)}</b> ${esc(qt().name)} ${n===1?"card":"cards"} set aside; they keep their schedule history</div></div><div class="dact"><button class="btn ghost" id="unsuspAll">Unsuspend all</button><button class="btn ghost" data-expand="susp" aria-expanded="${expanded==="susp"}">${expanded==="susp"?"Less":"More"}</button></div>${expanded==="susp"?`<div class="more"><div class="actions"><details class="dropdown"><summary class="btn ghost sm">Export ▾</summary><div class="menu"><button data-export="txt">Word list (.txt)</button><button data-export="csv">Spreadsheet (.csv)</button></div></details><span class="note" id="rowNote"></span></div></div>`:""}</div>`}
     const s=scan(id,now),readyN=s.due.length+s.newAvail,leech=id==="leech",open=expanded===id;
     const counts=leech?`<b>${fmtN(s.total)}</b> ${qt().name} cards lapsed ${store.settings.leech}+ times · <b class="${s.due.length?"due":""}">${fmtN(s.due.length)}</b> due`
       :`<b class="${s.due.length?"due":""}">${fmtN(s.due.length)}</b> due${s.held?` (${fmtN(s.held)} more held by your daily limit)`:""} · <b>${s.newAvail}</b> new today${s.nw>s.newAvail?` (${fmtN(s.nw)} waiting)`:""} · ${fmtN(s.boxed)} of ${fmtN(s.total)} ${u} in your ${esc(qt().name)} cardbox${s.seen?` · ${Math.round(s.mature/s.seen*100)}% mature`:""}${s.buried?` · ${fmtN(s.buried)} buried today`:""}`;
@@ -1292,15 +1307,31 @@ function renderDecks(){
       <div class="dact"><button class="btn" data-review="${esc(id)}">${readyN?`Study ${fmtN(readyN)}`:"Study"}</button><button class="btn ghost" data-expand="${esc(id)}" aria-expanded="${open}">${open?"Less":"More"}</button></div>`;
     if(open){
       const confirm=$("deckList").dataset.confirm===id;
-      row+=`<div class="more">${leech?"":`<div class="boxinfo"><div class="boxbar"><i style="width:${s.total?s.boxed/s.total*100:0}%"></i></div></div>
-        <div class="addctl"><label for="addN">Add next</label><input type="number" id="addN" min="1" max="5000" step="1" value="${addNVal}"><button class="btn" id="addBtn" ${s.out?"":"disabled"}>Add to cardbox</button><button class="btn ghost" id="addAll" ${s.out?"":"disabled"}>${confirm?`Tap again to add ${fmtN(s.out)}`:`Add all (${fmtN(s.out)})`}</button></div>`}
-        ${leech?`<div class="actions"><button class="btn ghost sm" id="suspLeeches">Suspend all ${fmtN(s.total)} leeches</button></div>`:`<div class="addctl"><label class="switch"><input type="checkbox" id="autoOn" ${store.autoAdd[id+"|"+store.qtype]?"checked":""}> <span>Keep</span></label><input type="number" id="autoN" min="1" max="1000" step="1" value="${store.autoAdd[id+"|"+store.qtype]||autoNVal}" aria-label="New cards to keep ready"><span class="note">new cards ready each day, added automatically in deck order</span></div>`}
-        ${leech?"":`<div class="addctl"><label for="spreadDays">${s.overdue>1?`Spread ${fmtN(s.overdue)} due reviews over`:"Spread due reviews over"}</label><input type="number" id="spreadDays" min="2" max="60" step="1" value="${spreadDays}" ${s.overdue>1?"":"disabled"}><span class="note">days</span><button class="btn ghost" id="spreadBtn" ${s.overdue>1?"":"disabled"}>Spread out</button>${s.overdue>1?"":`<span class="note">No backlog in your ${esc(qt().name)} cardbox for this deck right now.</span>`}</div>`}
-        ${leech?"":`<div class="addctl"><label for="prevN">Preview the next</label><input type="number" id="prevN" min="1" max="200" step="1" value="${prevNVal}"><span class="note">cards</span><button class="btn ghost" id="prevBtn" ${s.out?"":"disabled"}>Preview</button></div>
-        <div class="addctl"><label class="switch"><input type="checkbox" id="faceUpOn" ${store.faceUp[id]?"checked":""}> <span>Show new cards face up first</span></label><span class="note">then test each one a few cards later</span></div>`}
-        ${leech?"":(()=>{const n=aheadList(id,aheadDays).length;return `<div class="addctl"><label for="aheadDays">Bring forward reviews due in the next</label><input type="number" id="aheadDays" min="1" max="60" step="1" value="${aheadDays}"><span class="note">days</span><button class="btn ghost" id="aheadBtn" ${n?"":"disabled"}>${n?`Bring forward ${fmtN(n)}`:"None due then"}</button></div>`})()}
-        <div class="actions"><span class="note">Export</span><button class="btn ghost sm" data-export="txt">Word list (.txt)</button><button class="btn ghost sm" data-export="csv">Spreadsheet (.csv)</button></div>
-        <div class="actions">${id.startsWith("s:")?`<button class="btn ghost sm" id="editDeck">Edit deck</button>`:""}<button class="btn ghost sm" id="resetDeck">Remove this deck from your ${esc(qt().name)} cardbox</button><span class="note" id="rowNote"></span></div></div>`;
+      const akey=id+"|"+store.qtype,keepN=store.autoAdd[akey],cn=qt().name;
+      const info=(k,txt)=>infoOpen===k?`<p class="note infotext">${txt}</p>`:"";
+      const ib=(k,label)=>`<button class="info" data-info="${k}" aria-expanded="${infoOpen===k}" aria-label="About ${label}" title="About ${label}">i</button>`;
+      const exportMenu=`<details class="dropdown"><summary class="btn ghost sm">Export ▾</summary><div class="menu"><button data-export="txt">Word list (.txt)</button><button data-export="csv">Spreadsheet (.csv)</button></div></details>`;
+      let sched="";
+      if(!leech){
+        const isA=schedOp==="ahead",n=isA?aheadList(id,aheadDays).length:s.overdue,okN=isA?n>0:n>1;
+        sched=`<div class="msec"><div class="label">Schedule</div>
+          <div class="addctl"><select id="schedOp" aria-label="Schedule action"><option value="spread" ${isA?"":"selected"}>Spread the backlog over</option><option value="ahead" ${isA?"selected":""}>Bring forward reviews due in</option></select>
+          <span class="nobr"><input type="number" id="${isA?"aheadDays":"spreadDays"}" min="${isA?1:2}" max="60" step="1" value="${isA?aheadDays:spreadDays}" aria-label="Days"> <span class="note">days</span></span>
+          <button class="btn ghost" id="${isA?"aheadBtn":"spreadBtn"}" ${okN?"":"disabled"}>${isA?(n?`Bring forward ${fmtN(n)}`:"Bring forward"):(okN?`Spread ${fmtN(n)}`:"Spread out")}</button>${ib("sched","scheduling tools")}
+          ${okN?"":`<span class="note">${isA?`Nothing due in the next ${aheadDays} ${aheadDays===1?"day":"days"}.`:"No backlog right now."}</span>`}</div>
+          ${info("sched",isA?"Makes reviews due in the next few days due now, so you can study ahead. FSRS counts the shorter gap when you grade them.":"Overdue reviews are re-dated across the days you choose, most at risk of being forgotten first, so you face a steady amount each day instead of the whole pile.")}</div>`;
+      }
+      row+=`<div class="more">${leech?`<div class="msec"><div class="actions"><button class="btn ghost sm" id="suspLeeches">Suspend all ${fmtN(s.total)} leeches</button></div></div>`:`<div class="msec"><div class="label">New cards</div>
+        <div class="boxinfo"><div class="boxbar"><i style="width:${s.total?s.boxed/s.total*100:0}%"></i></div></div>
+        <div class="addctl"><label for="addN">Next</label><span class="nobr"><input type="number" id="addN" min="1" max="5000" step="1" value="${addNVal}"> <span class="note">cards</span></span>
+          <button class="btn ghost" id="prevBtn" ${s.out?"":"disabled"}>Preview</button><button class="btn" id="addBtn" ${s.out?"":"disabled"}>Add</button><button class="btn ghost" id="addAll" ${s.out?"":"disabled"}>${confirm?`Tap again to add ${fmtN(s.out)}`:`Add all (${fmtN(s.out)})`}</button></div>
+        <div class="addctl"><label class="switch"><input type="checkbox" id="autoOn" ${keepN?"checked":""}> <span>Keep ${fmtN(keepN||addNVal)} ready daily</span></label>${ib("keep","Keep ready daily")}
+          <label class="switch"><input type="checkbox" id="faceUpOn" ${store.faceUp[id]?"checked":""}> <span>Show new cards face up first</span></label>${ib("face","face up first")}</div>
+        ${info("keep",`Once a day, tops this deck up so ${fmtN(keepN||addNVal)} unstudied cards are waiting in your ${esc(cn)} cardbox, taking the next ones in deck order. It never piles up. Turning it on uses the number in Next; to change it, set Next and switch it off and on again. Your daily new-card limit in Settings still decides how many you see each day.`)}
+        ${info("face","Each new card is first shown with its answers and a Got it button. That first look isn't graded or logged. The card then comes back as a normal test a few cards later.")}</div>`}
+        ${sched}
+        <div class="msec"><div class="label">Deck</div><div class="actions">${exportMenu}${id.startsWith("s:")?`<button class="btn ghost sm" id="editDeck">Edit deck</button>`:""}<button class="btn ghost sm danger" id="resetDeck">Remove from ${esc(cn)} cardbox</button></div></div>
+        <span class="note" id="rowNote"></span></div>`;
     }
     return row+`</div>`;
   }).join(""):`<div class="panel"><p class="note" style="margin:0">No decks yet. Press New deck, or save one from Search, where the built-in lists are.</p></div>`;
@@ -1450,7 +1481,7 @@ function spreadBacklog(deck,days){
   list.forEach(([ck],i)=>{const d=Math.floor(i/per);if(!d)return;const r=store.cards[ck];r[3]=start.getTime()+d*DAY+(i%per);r[7]=now+i});
   save();syncSoon();return {n:list.length,per,days:Math.ceil(list.length/per)};
 }
-let spreadDays=7,aheadDays=3;
+let spreadDays=7,aheadDays=3,schedOp="spread",infoOpen=null;
 // study ahead: reviews due before the end of the Nth day from today (not yet due)
 function aheadList(deck,days){
   const now=Date.now(),end=new Date();end.setHours(0,0,0,0);const until=end.getTime()+(days+1)*DAY;
@@ -2398,7 +2429,8 @@ document.addEventListener("click",e=>{
   if(ds.add){const i=ds.add.indexOf(":");addKeys([ds.add.slice(i+1)],ds.add.slice(0,i+1));lookup();if(!cur&&store.mode==="learn")next();else render();return}
   if(ds.susp){const r=store.cards[ds.susp];if(r){setSusp(ds.susp,!isSusp(r));save();syncSoon()}lookup();render();return}
   if(ds.typo&&typed){const [w,m]=ds.typo.split("|");typed.wrong=typed.wrong.filter(x=>x!==w);typed.missed=typed.missed.filter(x=>x!==m);typed.hit.add(m);render();return}
-  if(ds.export){exportWords(deckWords(store.deck),deckName(store.deck),ds.export,"rowNote",true);return}
+  if(ds.info){infoOpen=infoOpen===ds.info?null:ds.info;render();return}
+  if(ds.export){const d=t.closest("details");if(d)d.open=false;exportWords(deckWords(store.deck),deckName(store.deck),ds.export,"rowNote",true);return}
   if(ds.resexport&&lastResult){exportWords(lastResult.words,$("saveName").value||"search",ds.resexport,"resNote",false);return}
   if(ds.remove){delCard(ds.remove);save();syncSoon();lookup();if(cur&&ckey(cur.key)===ds.remove)next();else render();return}
   if(ds.rm){store.draft.splice(+ds.rm,1);save();renderSearch();return}
@@ -2430,7 +2462,7 @@ document.addEventListener("click",e=>{
     case "lookupClose":closeLookup();break;
     case "lkToggle":if(document.querySelector("header.top").classList.contains("lk-open"))closeLookup();else openLookup();break;
 
-    case "prevBtn":{prevNVal=Math.max(1,Math.min(200,Math.round(+$("prevN").value||20)));const keys=previewKeys(store.deck,prevNVal);pv={keys};startReview(store.deck,"preview");$("review").scrollTop=0;break}
+    case "prevBtn":{addNVal=Math.max(1,Math.round(+$("addN").value||20));const keys=previewKeys(store.deck,Math.min(500,addNVal));pv={keys};startReview(store.deck,"preview");$("review").scrollTop=0;break}
     case "pvAdd":{if(pv&&pv.keys.length){const n=addKeys(pv.keys);pv=null;exitReview();note("rowNote",`Added ${fmtN(n)} to your ${qt().name} cardbox.`)}break}
     case "introNext":introContinue();break;
     case "aheadBtn":{
@@ -2511,17 +2543,18 @@ $("seenBox").addEventListener("toggle",()=>{if($("seenBox").open&&ready)renderSe
 $("deckList").addEventListener("change",e=>{
   const id=e.target.id;
   if(id==="faceUpOn"){const f={...store.faceUp};if(e.target.checked)f[store.deck]=true;else delete f[store.deck];store.faceUp=f;save();syncSoon();return}
-  if(id==="prevN"){prevNVal=Math.max(1,Math.min(200,Math.round(+e.target.value||20)));return}
+  if(id==="schedOp"){schedOp=e.target.value;render();return}
+  if(id==="addN"){if(!store.autoAdd[store.deck+"|"+store.qtype])render();return}
   if(id==="aheadDays"){aheadDays=Math.max(1,Math.min(60,Math.round(+e.target.value||3)));render();return}
-  if(id!=="autoOn"&&id!=="autoN")return;
-  const key=store.deck+"|"+store.qtype,n=Math.max(1,Math.min(1000,Math.round(+$("autoN").value||20)));autoNVal=n;
-  if(id==="autoN"&&!$("autoOn").checked)return;
+  if(id!=="autoOn")return;
+  const key=store.deck+"|"+store.qtype,n=Math.max(1,Math.min(1000,addNVal));
   if($("autoOn").checked){store.autoAdd={...store.autoAdd,[key]:n};delete store.autoDay[key];runAutoAdd()}
   else{const a={...store.autoAdd};delete a[key];store.autoAdd=a}
   save();render();
 });
 $("deckList").addEventListener("input",e=>{if(e.target.id==="autoN")autoNVal=Math.max(1,Math.min(1000,Math.round(+e.target.value||20)));if(e.target.id==="addN")addNVal=Math.max(1,Math.round(+e.target.value||20));if(e.target.id==="spreadDays")spreadDays=Math.max(2,Math.min(60,Math.round(+e.target.value||7)))});
 $("lookupOut").addEventListener("change",e=>{if(e.target.id==="lkQt"){lkQt=e.target.value;lookup()}});
+document.addEventListener("click",e=>{for(const d of document.querySelectorAll("details.dropdown[open]"))if(!d.contains(e.target))d.open=false});
 // swipe the Look up panel sideways to close it
 {const P=$("lookupPanel");let sw=null;
 P.addEventListener("touchstart",e=>{sw=e.touches.length===1?{x:e.touches[0].clientX,y:e.touches[0].clientY,dx:0,on:false}:null},{passive:true});
