@@ -1072,14 +1072,15 @@ const recallNow=(r,now)=>r&&r[0]>0?retrievability(Math.max(0,(now-r[4])/DAY),Mat
 const KEY="rack-recall-nwl23-v2",LOGKEY="rack-recall-log-v1";
 const SEED_DECKS=[{id:"s:sev8",name:"Bingos",conds:[{t:"lengths",a:"7,8"}],order:"prob"}];
 const DEFAULTS={cards:{},custom:"",deck:"s:sev8",migr:{bingo:1,ext:1},mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"lengths",a:"7"},{t:"prob",a:1,b:100}],
-  notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},autoAdd:{},autoDay:{},hist:{},faceUp:{},conf:{},confPh:{},frontNote:{},fooled:{},doubted:{},speedBest:{},
-  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"learning",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",alphaStyle:"abc",mixMistakes:"on",speedSecs:60,speedPool:1000,tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,collins:true},w:null,fit:null}};
+  notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},autoAdd:{},autoDay:{},hist:{},faceUp:{},conf:{},confPh:{},frontNote:{},fooled:{},doubted:{},typos:{},speedBest:{},
+  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"learning",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",alphaStyle:"abc",mixMistakes:"on",speedSecs:60,speedPool:1000,tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,collins:true,typo:true,misspell:true},w:null,fit:null}};
 let store=structuredClone(DEFAULTS),LOG="";
 function mergeStore(s){
   store={...structuredClone(DEFAULTS),...s,settings:{...DEFAULTS.settings,...(s.settings||{})}};
   if(!s.migr)store.migr={}; // saved before this version: run the one-time deck update
   if(s.front&&!s.qtype)store.qtype=s.front==="word"?"W":"A";delete store.front;
   if(!QT[store.qtype])store.qtype="A";
+  if(!store.migr.pk2){store.migr={...store.migr,pk2:1};store.settings.phonyKinds={...store.settings.phonyKinds,typo:true,misspell:true}}
   if(!store.migr.count){store.migr={...store.migr,count:1};if(store.settings.showCount==="on")store.settings.showCount="learning"} // new default: count only while learning
   // "Length range" became part of "Length" (7, 7-8, 2-4 ...)
   const fixLen=cs=>Array.isArray(cs)?cs.map(c=>{if(c.t!=="length")return c;const a=c.a===""||c.a==null?2:+c.a,b=c.b===""||c.b==null?15:+c.b;return {t:"lengths",a:a===b?String(a):`${a}-${b}`,neg:c.neg}}):cs;
@@ -1205,11 +1206,37 @@ function phonyEnding(L){
   return null;
 }
 function phonyCollins(L){const pool=CSW.byLen[L];if(!pool||!pool.length)return null;const f=pool[Math.floor(Math.random()*pool.length)];return {key:f,kind:"collins"}}
-const PHONY_KINDS={made:"Made-up words",ending:"Wrong endings",collins:"Collins-only words"};
+const PHONY_KINDS={made:"Made-up words",ending:"Wrong endings",collins:"Collins-only words",misspell:"Misspellings",typo:"Your typos"};
+// words you typed while studying that aren't words: they make convincing phonies because they fooled you once
+function recordTypos(k,t){
+  if(!t||!t.wrong.length)return;const list={...store.typos};let changed=false;
+  for(const w of t.wrong){if(w.length<2||LEX.words.has(w))continue;const m=t.missed.find(a=>oneEdit(w,a))||(unit()==="word"?k:null);
+    list[w]={src:m||null,rack:m?null:k,n:(list[w]?.n||0)+1,t:Date.now()};changed=true}
+  if(!changed)return;
+  const ks=Object.keys(list);if(ks.length>400)for(const x of ks.sort((a,b)=>list[a].t-list[b].t).slice(0,ks.length-400))delete list[x];
+  store.typos=list;syncSoon();
+}
+function phonyTypo(){const ks=Object.keys(store.typos).filter(w=>!LEX.words.has(w));if(!ks.length)return null;const w=ks[Math.floor(Math.random()*ks.length)],r=store.typos[w];return {key:w,kind:"typo",src:r.src,rack:r.rack}}
+// the slips people make spelling real words: doubled or single letters, IE/EI, -ABLE/-IBLE, -ANCE/-ENCE ...
+const MISSPELL_SWAPS=[["IE","EI"],["EI","IE"],["ABLE","IBLE"],["IBLE","ABLE"],["ANCE","ENCE"],["ENCE","ANCE"],["ANT","ENT"],["ENT","ANT"],["ARY","ERY"],["ERY","ARY"],["ER","OR"],["OR","ER"],["TION","SION"],["SION","TION"],["OUS","US"],["EOUS","IOUS"],["IOUS","EOUS"],["ITE","ATE"],["ATE","ITE"],["PH","F"],["CK","K"],["SC","S"],["CEED","CEDE"],["CEDE","CEED"]];
+function misspellings(w){
+  const out=new Set(),V="AEIOU",L=w.length;
+  for(let i=0;i<L;i++){const c=w[i];
+    if(i<L-1&&w[i+1]===c&&!V.includes(c))out.add(w.slice(0,i)+w.slice(i+1));          // drop one of a double
+    else if("CDFGLMNPRST".includes(c)&&i>0&&i<L-1&&V.includes(w[i-1])&&V.includes(w[i+1]))out.add(w.slice(0,i+1)+c+w.slice(i+1)); // double a single
+  }
+  for(const [a,b] of MISSPELL_SWAPS){let i=w.indexOf(a,1);while(i>0){out.add(w.slice(0,i)+b+w.slice(i+a.length));i=w.indexOf(a,i+1)}}
+  return [...out].filter(x=>x.length>=3&&x.length<=15&&!LEX.words.has(x)&&!(CSW.ready&&CSW.def.has(x)));
+}
+function phonyMisspell(w){
+  const keys=deckKeys(store.deck,"word");
+  for(let t=0;t<12;t++){const src=t?keys[Math.floor(Math.random()*keys.length)]:w;if(!src||src.length<4)continue;const c=misspellings(src);if(c.length)return {key:c[Math.floor(Math.random()*c.length)],kind:"misspell",src}}
+  return null;
+}
 function phonyFor(w){
   const on=Object.keys(PHONY_KINDS).filter(k=>store.settings.phonyKinds[k]&&(k!=="collins"||CSW.ready));
   const order=on.sort(()=>Math.random()-.5);if(!order.length)order.push("made");
-  for(const k of order){const r=k==="made"?phonyMadeUp(w):k==="ending"?phonyEnding(w.length):phonyCollins(w.length);if(r)return r}
+  for(const k of order){const r=k==="made"?phonyMadeUp(w):k==="ending"?phonyEnding(w.length):k==="misspell"?phonyMisspell(w):k==="typo"?phonyTypo():phonyCollins(w.length);if(r)return r}
   return phonyMadeUp(w);
 }
 
@@ -1241,7 +1268,7 @@ function next(){
     const mf=Object.keys(store.fooled),md=Object.keys(store.doubted);
     if(store.settings.mixMistakes==="on"&&mf.length+md.length&&Math.random()<.3){
       const i=Math.floor(Math.random()*(mf.length+md.length));
-      if(i<mf.length){const k=mf[i],r=store.fooled[k];cur={key:k,phony:true,kind:r.kind||"made",src:r.src,base:r.base,type:r.type,again:true}}
+      if(i<mf.length){const k=mf[i],r=store.fooled[k];cur={key:k,phony:true,kind:r.kind||"made",src:r.src,base:r.base,type:r.type,rack:r.rack,again:true}}
       else{const k=md[i-mf.length];cur={key:k,phony:false,again:true}}
       if(cur.phony&&LEX.words.has(cur.key)){delete store.fooled[cur.key];cur=null}
       else if(!cur.phony&&!LEX.words.has(cur.key)){delete store.doubted[cur.key];cur=null}
@@ -1303,6 +1330,7 @@ function grade(g){
   if(drill){
     const ok=g>=GOOD;
     undoStack.push({drill:{i:drill.i,right:drill.right,wrong:drill.wrong,missed:drill.missed.slice(),first:[...drill.firstMissed],keys:drill.keys,round:drill.round},n:session.n,again:session.again,cur:{key:cur.key,order:cur.order}});
+    recordTypos(cur.key,typed);
     if(ok)drill.right++;else{drill.wrong++;drill.missed.push(cur.key);if(drill.round===1)drill.firstMissed.add(cur.key)}
     session.n++;if(!ok)session.again++;lastK=cur.key;next();return;
   }
@@ -1314,7 +1342,7 @@ function grade(g){
   const nc=schedule(st,now,ck)[g];setCard(cur.key,nc);
   session.n++;if(g===AGAIN)session.again++;
   if(store.frontNote[ck]){const f={...store.frontNote};if(--f[ck]<=0)delete f[ck];store.frontNote=f}
-  if(typed&&typed.wrong.length)recordConfusion(cur.key,typed.wrong);
+  if(typed&&typed.wrong.length){recordConfusion(cur.key,typed.wrong);recordTypos(cur.key,typed)}
   if(cur.contrast&&g>=GOOD)easeConfusion(cur.key,cur.contrast);
   queueContrasts(cur.key);
   save();
@@ -1422,7 +1450,7 @@ function answerPhony(saidPhony){
   const kind=cur.phony?cur.kind:"valid",pk=session.pk=session.pk||{};pk[kind]=pk[kind]||[0,0];pk[kind][1]++;if(right)pk[kind][0]++;
   // remember mistakes so they come back; two right in a row retires one
   const k=cur.key,book=cur.phony?"fooled":"doubted",list={...store[book]},rec=list[k];
-  if(!right){list[k]={...(cur.phony?{kind:cur.kind,src:cur.src,base:cur.base,type:cur.type}:{}),n:(rec?.n||0)+1,ok:0,t:Date.now()}}
+  if(!right){list[k]={...(cur.phony?{kind:cur.kind,src:cur.src,base:cur.base,type:cur.type,rack:cur.rack}:{}),n:(rec?.n||0)+1,ok:0,t:Date.now()}}
   else if(rec){if(rec.ok+1>=2)delete list[k];else list[k]={...rec,ok:rec.ok+1}}
   store[book]=list;save();syncSoon();
   render();
@@ -1521,7 +1549,7 @@ function renderDecks(){
   }).join(""):`<div class="panel"><p class="note" style="margin:0">No decks yet. Press New deck, or save one from Search, where the built-in lists are.</p></div>`;
   placeEditor();
 }
-const phonyKindsHTML=()=>Object.entries(PHONY_KINDS).filter(([k])=>k!=="collins"||hasCSW()).map(([k,n])=>`<label class="switch"><input type="checkbox" data-pk="${k}" ${store.settings.phonyKinds[k]?"checked":""}> <span>${n}</span></label>`).join("");
+const phonyKindsHTML=()=>Object.entries(PHONY_KINDS).filter(([k])=>k!=="collins"||hasCSW()).map(([k,n])=>`<label class="switch"><input type="checkbox" data-pk="${k}" ${store.settings.phonyKinds[k]?"checked":""}> <span>${n}${k==="typo"?` (${fmtN(Object.keys(store.typos).length)})`:""}</span></label>`).join("");
 function renderGames(){
   const ids=deckIds().filter(id=>id!=="susp"&&id!=="leech"),pick=ids.includes(store.gameDeck)?store.gameDeck:ids.includes(store.deck)?store.deck:ids[0];
   $("gameDeck").innerHTML=ids.map(id=>`<option value="${esc(id)}" ${id===pick?"selected":""}>${esc(deckName(id))} (${fmtN(deckKeys(id,"word").length)} words)</option>`).join("");
@@ -1850,9 +1878,11 @@ function render(){
       if(cur.again)html+=`<div class="meta"><span class="badge leech">${cur.phony?"you fell for this one before":"you doubted this one before"}</span></div>`;
       if(!cur.phony)html+=ansRows([k]);
       else{
-        const cs=CSW.def.get(k),tag={made:"made-up",ending:"wrong ending",collins:"Collins only"}[cur.kind];
+        const cs=CSW.def.get(k),tag={made:"made-up",ending:"wrong ending",collins:"Collins only",misspell:"misspelling",typo:"your typo"}[cur.kind];
         html+=`<div class="meta"><span class="badge">${tag}</span></div>`;
         if(cur.kind==="made"){const same=alpha(k)===alpha(cur.src);html+=`<div class="hint">${esc(k)} is not in NWL23. ${same?"Same letters as:":"It's close to:"}</div>`+ansRows(same?LEX.anag.get(alpha(cur.src)):[cur.src])}
+        else if(cur.kind==="misspell")html+=`<div class="hint">${esc(k)} is not in NWL23. It's a misspelling of:</div>`+ansRows([cur.src]);
+        else if(cur.kind==="typo"){const n=store.typos[k]?.n||1;html+=`<div class="hint">${esc(k)} is not in NWL23. You typed it${n>1?` ${n} times`:""} while studying${cur.src?`; you meant:`:cur.rack&&LEX.anag.get(cur.rack)?` ${esc(dispA(cur.rack))}, which makes:`:"."}</div>`+(cur.src&&LEX.words.has(cur.src)?ansRows([cur.src]):cur.rack&&LEX.anag.get(cur.rack)?ansRows(LEX.anag.get(cur.rack)):"")}
         else if(cur.kind==="ending")html+=`<div class="hint">${esc(k)} is not in NWL23: ${esc(cur.base)} doesn't take -${cur.type}.</div>`+ansRows([cur.base]);
         if(cs!==undefined)html+=`<div class="hint">${cur.kind==="collins"?esc(k)+" is valid in Collins (CSW24) but not in NWL23.":"It is valid in Collins (CSW24), though."}</div>${cs?`<div class="single"><div class="def">${esc(cs)}</div></div>`:""}`;
       }
@@ -2518,7 +2548,7 @@ const META={
   faceup:{get:()=>store.faceUp,set:v=>{store.faceUp=v||{}}},
   conf:{get:()=>({conf:store.conf,ph:store.confPh,front:store.frontNote}),set:v=>{store.conf=v.conf||{};store.confPh=v.ph||{};store.frontNote=v.front||{}}},
   hist:{get:()=>store.hist,set:v=>{store.hist=v||{}}},
-  games:{get:()=>({fooled:store.fooled,doubted:store.doubted,speedBest:store.speedBest}),set:v=>{store.fooled=v.fooled||{};store.doubted=v.doubted||{};const b={...store.speedBest};for(const k in v.speedBest||{})if(!b[k]||v.speedBest[k].score>b[k].score)b[k]=v.speedBest[k];store.speedBest=b}},
+  games:{get:()=>({fooled:store.fooled,doubted:store.doubted,speedBest:store.speedBest,typos:store.typos}),set:v=>{store.fooled=v.fooled||{};store.doubted=v.doubted||{};store.typos={...store.typos,...(v.typos||{})};const b={...store.speedBest};for(const k in v.speedBest||{})if(!b[k]||v.speedBest[k].score>b[k].score)b[k]=v.speedBest[k];store.speedBest=b}},
 };
 function syncStatus(msg,ok){syncState={msg,ok,at:Date.now()};renderSyncUI()}
 function renderSyncUI(){
