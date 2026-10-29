@@ -1563,13 +1563,18 @@ function renderDecks(){
       const exportMenu=`<details class="dropdown"><summary class="btn ghost sm">Export ▾</summary><div class="menu"><button data-export="txt">Word list (.txt)</button><button data-export="csv">Spreadsheet (.csv)</button></div></details>`;
       let sched="";
       if(!leech){
-        const isA=schedOp==="ahead",n=isA?aheadList(id,aheadDays).length:s.overdue,okN=isA?n>0:n>1;
+        const op=schedOp,num=(nid,v,min,max,lab)=>`<input type="number" id="${nid}" min="${min}" max="${max}" step="1" value="${v}" aria-label="${lab}">`;
+        let n=0,ok=false,ctl="",btn="",empty="",help="";
+        if(op==="ahead"){n=aheadList(id,aheadDays).length;ok=n>0;ctl=`<span class="nobr">${num("aheadDays",aheadDays,1,60,"Days")} <span class="note">days</span></span>`;btn=`<button class="btn ghost" id="aheadBtn" ${ok?"":"disabled"}>${n?`Bring forward ${fmtN(n)}`:"Bring forward"}</button>`;empty=`Nothing due in the next ${aheadDays} ${aheadDays===1?"day":"days"}.`;help="Makes reviews due in the next few days due now, so you can study ahead. FSRS counts the shorter gap when you grade them."}
+        else if(op==="nextN"){const tot=upcomingReviews(id).length;n=Math.min(nextNVal,tot);ok=n>0;ctl=`<span class="nobr">${num("nextNVal",nextNVal,1,5000,"Number of reviews")} <span class="note">reviews</span></span>`;btn=`<button class="btn ghost" id="nextNBtn" ${ok?"":"disabled"}>${ok?`Bring forward ${fmtN(n)}`:"Bring forward"}</button>`;empty="No upcoming reviews.";help="Takes the reviews coming up soonest, however far off, and makes that many due now."}
+        else if(op==="postN"){n=Math.min(postNVal,s.overdue);ok=n>0;ctl=`<span class="nobr">${num("postNVal",postNVal,1,5000,"Number of reviews")} <span class="note">by</span> ${num("postDays",postDays,1,365,"Days")} <span class="note">days</span></span>`;btn=`<button class="btn ghost" id="postNBtn" ${ok?"":"disabled"}>${ok?`Postpone ${fmtN(n)}`:"Postpone"}</button>`;empty="Nothing is due right now.";help="Pushes back that many of today's due reviews, the ones you're least likely to have forgotten first, so the shakiest stay due today."}
+        else{n=s.overdue;ok=n>1;ctl=`<span class="nobr">${num("spreadDays",spreadDays,2,60,"Days")} <span class="note">days</span></span>`;btn=`<button class="btn ghost" id="spreadBtn" ${ok?"":"disabled"}>${ok?`Spread ${fmtN(n)}`:"Spread out"}</button>`;empty="No backlog right now.";help="Overdue reviews are re-dated across the days you choose, most at risk of being forgotten first, so you face a steady amount each day instead of the whole pile."}
+        const opt=(v,l)=>`<option value="${v}" ${op===v?"selected":""}>${l}</option>`;
         sched=`<div class="msec"><div class="label">Schedule</div>
-          <div class="addctl"><select id="schedOp" aria-label="Schedule action"><option value="spread" ${isA?"":"selected"}>Spread the backlog over</option><option value="ahead" ${isA?"selected":""}>Bring forward reviews due in</option></select>
-          <span class="nobr"><input type="number" id="${isA?"aheadDays":"spreadDays"}" min="${isA?1:2}" max="60" step="1" value="${isA?aheadDays:spreadDays}" aria-label="Days"> <span class="note">days</span></span>
-          <button class="btn ghost" id="${isA?"aheadBtn":"spreadBtn"}" ${okN?"":"disabled"}>${isA?(n?`Bring forward ${fmtN(n)}`:"Bring forward"):(okN?`Spread ${fmtN(n)}`:"Spread out")}</button>${ib("sched","scheduling tools")}
-          ${okN?"":`<span class="note">${isA?`Nothing due in the next ${aheadDays} ${aheadDays===1?"day":"days"}.`:"No backlog right now."}</span>`}</div>
-          ${info("sched",isA?"Makes reviews due in the next few days due now, so you can study ahead. FSRS counts the shorter gap when you grade them.":"Overdue reviews are re-dated across the days you choose, most at risk of being forgotten first, so you face a steady amount each day instead of the whole pile.")}</div>`;
+          <div class="addctl"><select id="schedOp" aria-label="Schedule action">${opt("spread","Spread the backlog over")}${opt("postN","Postpone due reviews")}${opt("ahead","Bring forward reviews due in")}${opt("nextN","Bring forward the next")}</select>
+          ${ctl}${btn}${ib("sched","scheduling tools")}
+          ${ok?"":`<span class="note">${empty}</span>`}</div>
+          ${info("sched",help)}</div>`;
       }
       if(inlineEdit===id){row+=`<div class="more" id="deSlot"></div>`;return row+`</div>`}
       row+=`<div class="more">${leech?`<div class="msec"><div class="actions"><button class="btn ghost sm" id="suspLeeches">Suspend all ${fmtN(s.total)} leeches</button></div></div>`:`<div class="msec"><div class="label">New cards</div>
@@ -1739,7 +1744,19 @@ function spreadBacklog(deck,days){
   list.forEach(([ck],i)=>{const d=Math.floor(i/per);if(!d)return;const r=store.cards[ck];r[3]=start.getTime()+d*DAY+(i%per);r[7]=now+i});
   save();syncSoon();return {n:list.length,per,days:Math.ceil(list.length/per)};
 }
-let spreadDays=7,aheadDays=3,schedOp="spread",infoOpen=null;
+let spreadDays=7,aheadDays=3,schedOp="spread",infoOpen=null,nextNVal=50,postNVal=50,postDays=3;
+// reviews not yet due, soonest first
+function upcomingReviews(deck){const now=Date.now(),pre=store.qtype+":",out=[];for(const k of deckKeys(deck)){const r=store.cards[pre+k];if(r&&r[0]===2&&r[3]>now)out.push([pre+k,r[3]])}return out.sort((a,b)=>a[1]-b[1]).map(x=>x[0])}
+function bringForwardN(deck,n){const list=upcomingReviews(deck).slice(0,n),now=Date.now();list.forEach((ck,i)=>{const r=store.cards[ck];r[3]=now-1000-i;r[7]=now+i});if(list.length){save();syncSoon()}return list.length}
+function postponeN(deck,n,days){
+  // push back the due reviews you're most likely to still remember; the shakiest stay due today
+  const now=Date.now(),pre=store.qtype+":",list=[];
+  for(const k of deckKeys(deck)){const r=store.cards[pre+k];if(r&&r[0]===2&&r[3]<=now)list.push([pre+k,recallNow(r,now)])}
+  list.sort((a,b)=>b[1]-a[1]);const pick=list.slice(0,n);
+  const start=new Date();start.setHours(0,0,0,0);
+  pick.forEach(([ck],i)=>{const r=store.cards[ck];r[3]=start.getTime()+days*DAY+i;r[7]=now+i});
+  if(pick.length){save();syncSoon()}return pick.length;
+}
 // study ahead: reviews due before the end of the Nth day from today (not yet due)
 function aheadList(deck,days){
   const now=Date.now(),end=new Date();end.setHours(0,0,0,0);const until=end.getTime()+(days+1)*DAY;
@@ -2805,6 +2822,11 @@ document.addEventListener("click",e=>{
       const n=bringForward(store.deck,aheadDays);render();
       if(n)note("rowNote",`${fmtN(n)} ${n===1?"review is":"reviews are"} due now.${store.settings.revLimit>0?` Your limit of ${fmtN(store.settings.revLimit)} reviews a day still applies.`:""}`);
       break}
+    case "nextNBtn":{nextNVal=Math.max(1,Math.min(5000,Math.round(+$("nextNVal").value||50)));const n=bringForwardN(store.deck,nextNVal);render();
+      if(n)note("rowNote",`${fmtN(n)} ${n===1?"review is":"reviews are"} due now.${store.settings.revLimit>0?` Your limit of ${fmtN(store.settings.revLimit)} reviews a day still applies.`:""}`);break}
+    case "postNBtn":{postNVal=Math.max(1,Math.min(5000,Math.round(+$("postNVal").value||50)));postDays=Math.max(1,Math.min(365,Math.round(+$("postDays").value||3)));
+      const n=postponeN(store.deck,postNVal,postDays);render();
+      if(n){const d=new Date();d.setDate(d.getDate()+postDays);note("rowNote",`${fmtN(n)} ${n===1?"review moves":"reviews move"} to ${d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})}.`)}break}
     case "spreadBtn":{
       spreadDays=Math.max(2,Math.min(60,Math.round(+$("spreadDays").value||7)));
       const r=spreadBacklog(store.deck,spreadDays);render();
@@ -2881,13 +2903,17 @@ $("deckList").addEventListener("change",e=>{
   if(id==="schedOp"){schedOp=e.target.value;render();return}
   if(id==="addN")return;
   if(id==="aheadDays"){aheadDays=Math.max(1,Math.min(60,Math.round(+e.target.value||3)));render();return}
+  if(id==="nextNVal"||id==="postNVal")return; // handled as you type, so a click on the button isn't lost to a redraw
+  if(id==="postDays"){postDays=Math.max(1,Math.min(365,Math.round(+e.target.value||3)));return}
   if(id!=="autoOn")return;
   const key=store.deck+"|"+store.qtype,n=Math.max(1,Math.min(1000,addNVal));
   if($("autoOn").checked){store.autoAdd={...store.autoAdd,[key]:n};delete store.autoDay[key];runAutoAdd()}
   else{const a={...store.autoAdd};delete a[key];store.autoAdd=a}
   save();render();
 });
-$("deckList").addEventListener("input",e=>{if(e.target.id==="autoN")autoNVal=Math.max(1,Math.min(1000,Math.round(+e.target.value||20)));if(e.target.id==="addN"){addNVal=Math.max(1,Math.round(+e.target.value||20));if(!store.autoAdd[store.deck+"|"+store.qtype]&&$("keepLbl"))$("keepLbl").textContent=`Keep ${fmtN(addNVal)} ready daily`}if(e.target.id==="spreadDays")spreadDays=Math.max(2,Math.min(60,Math.round(+e.target.value||7)))});
+$("deckList").addEventListener("input",e=>{
+  if(e.target.id==="nextNVal"){nextNVal=Math.max(1,Math.min(5000,Math.round(+e.target.value||50)));const n=Math.min(nextNVal,upcomingReviews(store.deck).length),b=$("nextNBtn");if(b){b.disabled=!n;b.textContent=n?`Bring forward ${fmtN(n)}`:"Bring forward"}}
+  if(e.target.id==="postNVal"){postNVal=Math.max(1,Math.min(5000,Math.round(+e.target.value||50)));const n=Math.min(postNVal,scan(store.deck,Date.now()).overdue),b=$("postNBtn");if(b){b.disabled=!n;b.textContent=n?`Postpone ${fmtN(n)}`:"Postpone"}}if(e.target.id==="autoN")autoNVal=Math.max(1,Math.min(1000,Math.round(+e.target.value||20)));if(e.target.id==="addN"){addNVal=Math.max(1,Math.round(+e.target.value||20));if(!store.autoAdd[store.deck+"|"+store.qtype]&&$("keepLbl"))$("keepLbl").textContent=`Keep ${fmtN(addNVal)} ready daily`}if(e.target.id==="spreadDays")spreadDays=Math.max(2,Math.min(60,Math.round(+e.target.value||7)))});
 $("lookupOut").addEventListener("change",e=>{if(e.target.id==="lkQt"){lkQt=e.target.value;lookup()}});
 document.addEventListener("click",e=>{for(const d of document.querySelectorAll("details.dropdown[open]"))if(!d.contains(e.target))d.open=false});
 // inner-hook dots: hover, focus or tap shows the shorter word and a brief definition
