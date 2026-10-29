@@ -861,16 +861,16 @@ function leechKeys(){
 
 /* =================== search =================== */
 const COND={
-  lengths:{label:"Lengths",kind:"letters",hint:"e.g. 7,8 or 5 or 2-4"},
-  length:{label:"Length range",kind:"range",def:[7,7]},
+  lengths:{label:"Length",kind:"letters",hint:"e.g. 7,8 or 5 or 2-4"},
+  length:{label:"Length range",kind:"range",def:[7,7],gone:1},
   prob:{label:"Probability rank",kind:"range",def:[1,100],hint:"two-blank probability rank of the alphagram within its length; 1 is most likely"},
   play:{label:"Playability rank",kind:"range",def:[1,100],hint:"rank among words of its length by how often it is played"},
-  pscore:{label:"Playability score",kind:"range",def:[1,""],hint:"0 means never recorded in play"},
+  pscore:{label:"Playability score",kind:"range",def:[1,""],gone:1,hint:"0 means never recorded in play"},
   anagram:{label:"Anagram of",kind:"letters",hint:"? is a blank"},
   subanagram:{label:"Subanagram of",kind:"letters",hint:"uses only these tiles; ? is a blank"},
   pattern:{label:"Pattern",kind:"letters",hint:"? one letter, * any letters, [AEIOU] one of"},
   includes:{label:"Includes letters",kind:"letters",hint:"all of these, with repeats"},
-  excludes:{label:"Uses none of",kind:"letters"},
+  excludes:{label:"Uses none of",kind:"letters",gone:1},
   prefix:{label:"Starts with",kind:"letters"},
   suffix:{label:"Ends with",kind:"letters"},
   substring:{label:"Contains string",kind:"letters"},
@@ -1016,7 +1016,7 @@ const recallNow=(r,now)=>r&&r[0]>0?retrievability(Math.max(0,(now-r[4])/DAY),Mat
 /* =================== storage =================== */
 const KEY="rack-recall-nwl23-v2",LOGKEY="rack-recall-log-v1";
 const SEED_DECKS=[{id:"s:sev8",name:"Bingos",conds:[{t:"lengths",a:"7,8"}],order:"prob"}];
-const DEFAULTS={cards:{},custom:"",deck:"s:sev8",migr:{bingo:1,ext:1},mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"length",a:7,b:7},{t:"prob",a:1,b:100}],
+const DEFAULTS={cards:{},custom:"",deck:"s:sev8",migr:{bingo:1,ext:1},mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"lengths",a:"7"},{t:"prob",a:1,b:100}],
   notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},autoAdd:{},autoDay:{},hist:{},faceUp:{},conf:{},confPh:{},frontNote:{},fooled:{},doubted:{},speedBest:{},
   settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"on",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",alphaStyle:"abc",mixMistakes:"on",speedSecs:60,speedPool:1000,tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,collins:true},w:null,fit:null}};
 let store=structuredClone(DEFAULTS),LOG="";
@@ -1025,6 +1025,9 @@ function mergeStore(s){
   if(!s.migr)store.migr={}; // saved before this version: run the one-time deck update
   if(s.front&&!s.qtype)store.qtype=s.front==="word"?"W":"A";delete store.front;
   if(!QT[store.qtype])store.qtype="A";
+  // "Length range" became part of "Length" (7, 7-8, 2-4 ...)
+  const fixLen=cs=>Array.isArray(cs)?cs.map(c=>{if(c.t!=="length")return c;const a=c.a===""||c.a==null?2:+c.a,b=c.b===""||c.b==null?15:+c.b;return {t:"lengths",a:a===b?String(a):`${a}-${b}`,neg:c.neg}}):cs;
+  store.draft=fixLen(store.draft);store.searches=(store.searches||[]).map(x=>({...x,conds:fixLen(x.conds)}));
   W=Array.isArray(store.settings.w)&&store.settings.w.length===17?store.settings.w.slice():W_DEFAULT.slice();
 }
 try{const s=JSON.parse(localStorage.getItem(KEY)||"null");if(s)mergeStore(s)}catch(e){}
@@ -1785,14 +1788,14 @@ function renderSeen(rows,now){
 let lastResult=null;
 function renderSearch(){
   $("presets").innerHTML=PRESETS.map((p,i)=>`<button class="chip" data-preset="${i}" title="${esc(describeConds(p.conds))}">${esc(p.name)}</button>`).join("");
-  $("addCond").innerHTML=`<option value="">Add a condition…</option>`+Object.entries(COND).map(([k,d])=>`<option value="${k}">${d.label}</option>`).join("");
+  $("addCond").innerHTML=`<option value="">Add a condition…</option>`+Object.entries(COND).filter(([,d])=>!d.gone).map(([k,d])=>`<option value="${k}">${d.label}</option>`).join("");
   $("conds").innerHTML=store.draft.length?store.draft.map((c,i)=>{
     const d=COND[c.t];let p="";
     if(d.kind==="range")p=`<input type="number" data-i="${i}" data-f="a" value="${esc(c.a??"")}" placeholder="min" aria-label="${d.label} minimum"> to <input type="number" data-i="${i}" data-f="b" value="${esc(c.b??"")}" placeholder="max" aria-label="${d.label} maximum">`;
     else if(d.kind==="letters")p=`<input type="text" data-i="${i}" data-f="a" value="${esc(c.a??"")}" aria-label="${d.label}" spellcheck="false" autocomplete="off">`;
     else if(d.kind==="text")p=`<input type="text" class="plain" data-i="${i}" data-f="a" value="${esc(c.a??"")}" aria-label="${d.label}" autocomplete="off">`;
     if(d.hint)p+=`<span class="chint">${d.hint}</span>`;
-    return `<div class="cond"><select data-i="${i}" data-f="t" aria-label="Condition type">${Object.entries(COND).map(([k,dd])=>`<option value="${k}" ${k===c.t?"selected":""}>${dd.label}</option>`).join("")}</select><div class="params">${p}</div><label class="neg"><input type="checkbox" data-i="${i}" data-f="neg" ${c.neg?"checked":""}> Not</label><button class="x" data-rm="${i}" aria-label="Remove condition">×</button></div>`;
+    return `<div class="cond"><select data-i="${i}" data-f="t" aria-label="Condition type">${Object.entries(COND).filter(([k,dd])=>!dd.gone||k===c.t).map(([k,dd])=>`<option value="${k}" ${k===c.t?"selected":""}>${dd.label}</option>`).join("")}</select><div class="params">${p}</div><label class="neg"><input type="checkbox" data-i="${i}" data-f="neg" ${c.neg?"checked":""}> Not</label><button class="x" data-rm="${i}" aria-label="Remove condition">×</button></div>`;
   }).join(""):`<p class="note">No conditions: a search now would return all ${fmtN(LEX.words.size)} words. Add a condition to narrow it.</p>`;
   $("resQt").innerHTML=Object.entries(QT).map(([k,q])=>`<option value="${k}" ${k===store.qtype?"selected":""}>${q.name}</option>`).join("");
   $("savedSearches").innerHTML=store.searches.length?store.searches.map(s=>`<div class="saved"><span class="nm">${esc(s.name)}</span><button class="btn sm" data-study="${s.id}">Study</button><button class="btn ghost sm" data-load="${s.id}">Edit</button><button class="btn ghost sm" data-del="${s.id}">${delPending===s.id?"Tap again to delete":"Delete"}</button><span class="ds">${esc(describeConds(s.conds))}</span></div>`).join(""):`<p class="note">Decks you save appear here and in Study under Your decks.</p>`;
