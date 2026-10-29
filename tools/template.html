@@ -175,7 +175,6 @@ sup.nw{color:var(--tw);font-size:.7em;margin-left:1px}
 .blen{font-family:var(--f-display);font-weight:700;color:var(--muted);text-align:right}
 .bwords{display:flex;flex-wrap:wrap;gap:5px 12px;font-family:var(--f-mono);font-size:16.5px;font-weight:500}
 .ih{color:var(--tw);font-weight:700;padding:0 1px;cursor:help;display:inline-block;width:.8em;text-align:center}
-th.wc,td.wc{text-align:center}
 .ih.off{visibility:hidden;cursor:default}
 .ih:focus-visible{outline:2px solid var(--tw);outline-offset:1px;border-radius:3px}
 #ihTip{position:fixed;z-index:100;max-width:300px;padding:7px 10px;border-radius:8px;background:var(--ink);color:var(--surface);font:13px/1.4 var(--f-body);box-shadow:0 6px 20px rgba(0,0,0,.2);pointer-events:none}
@@ -1806,7 +1805,7 @@ function renderResults(){
   const {words,alphas}=lastResult;
   $("resultSummary").innerHTML=`<b>${fmtN(words.length)}</b> words in <b>${fmtN(alphas)}</b> alphagrams`;
   const shown=words.slice(0,300);
-  $("results").innerHTML=words.length?`<table><thead><tr><th class="num">Prob.</th><th class="num">Play.</th><th style="text-align:right">Front</th><th class="wc">Word</th><th>Back</th><th>Alphagram</th><th>Definition</th></tr></thead><tbody>${shown.map(w=>{const e=LEX.words.get(w);return `<tr><td class="num">${fmtN(LEX.rank.get(e.a))}</td><td class="num" title="Playability score ${fmtN(e.pscore)}">${fmtN(e.play)}</td><td class="fh" style="text-align:right">${hooksHTML(w,"f")}</td><td class="w wc">${wordHTML(w,"",true)}</td><td class="bh">${hooksHTML(w,"b")}</td><td class="w" style="color:var(--muted)">${dispA(e.a)}</td><td class="d">${esc(e.def)}</td></tr>`}).join("")}</tbody></table>${words.length>300?`<p class="note">Showing the first 300. Save the list or add it to your cardbox to use all ${fmtN(words.length)}.</p>`:""}`:`<p class="note">No words match. Try loosening a condition.</p>`;
+  $("results").innerHTML=words.length?`<table><thead><tr><th class="num">Prob.</th><th class="num">Play.</th><th style="text-align:right">Front</th><th>Word</th><th>Back</th><th>Alphagram</th><th>Definition</th></tr></thead><tbody>${shown.map(w=>{const e=LEX.words.get(w);return `<tr><td class="num">${fmtN(LEX.rank.get(e.a))}</td><td class="num" title="Playability score ${fmtN(e.pscore)}">${fmtN(e.play)}</td><td class="fh" style="text-align:right">${hooksHTML(w,"f")}</td><td class="w">${wordHTML(w,"",true)}</td><td class="bh">${hooksHTML(w,"b")}</td><td class="w" style="color:var(--muted)">${dispA(e.a)}</td><td class="d">${esc(e.def)}</td></tr>`}).join("")}</tbody></table>${words.length>300?`<p class="note">Showing the first 300. Save the list or add it to your cardbox to use all ${fmtN(words.length)}.</p>`:""}`:`<p class="note">No words match. Try loosening a condition.</p>`;
 }
 let editingId=null;
 function doSearch(){
