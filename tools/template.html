@@ -391,10 +391,6 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div class="label">Quiz type</div>
         <div class="seg" role="group" aria-label="Quiz type" id="qtypes"></div>
       </div>
-      <div class="actions">
-        <label class="switch" title="How many answers a card has, shown before you answer"><span>Answer count</span><select id="hideCount" aria-label="Answer count"><option value="learning">While learning</option><option value="on">Always</option><option value="off">Never</option></select></label>
-        <label class="switch"><input type="checkbox" id="flashMode"> <span>Flashcard mode</span></label>
-      </div>
     </div>
 
     <div class="decklist" id="deckList"></div>
@@ -576,8 +572,8 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div><select id="showRank"><option value="on">On</option><option value="off">Off</option></select> <span class="note">the “#1 of 21,223” in the card's corner</span></div>
         <label for="showCount">Show answer count</label>
         <div><select id="showCount"><option value="learning">While learning (new and relearning cards)</option><option value="on">Always</option><option value="off">Never</option></select></div>
-        <label for="typing">Type your answers</label>
-        <div><select id="typing"><option value="on">On: type the answers, then check</option><option value="off">Off: flashcard mode</option></select></div>
+        <label for="typing">Answer mode</label>
+        <div><select id="typing"><option value="on">Type the answers, then check</option><option value="off">Flashcard mode: flip, then grade with 0–3</option></select></div>
       </div>
     </div>
 
@@ -1436,8 +1432,6 @@ function renderChrome(){
   for(const pg of PAGES){$("n-"+pg).setAttribute("aria-pressed",PAGE===pg);$(pg+"View").hidden=PAGE!==pg}
   $("review").hidden=!reviewing;document.documentElement.classList.toggle("reviewing",reviewing);
   $("qtypes").innerHTML=Object.entries(QT).map(([k,q])=>`<button data-qt="${k}" aria-pressed="${k===store.qtype}">${q.name}</button>`).join("");
-  $("flashMode").checked=store.settings.typing==="off";
-  $("hideCount").value=store.settings.showCount;
 }
 function deckIds(){const ids=store.searches.map(s=>s.id);if(store.custom&&deckKeys("custom").length)ids.push("custom");if(leechKeys().length)ids.push("leech");if(suspKeys().length)ids.push("susp");return ids}
 function renderDecks(){
@@ -2829,7 +2823,6 @@ function applyTheme(){
 }
 for(const id of ["tileStyle","tilePoints"])$(id).addEventListener("change",e=>{store.settings[id]=e.target.value;save();applyTheme()});
 $("theme").addEventListener("change",e=>{store.settings.theme=e.target.value;save();applyTheme()});
-$("hideCount").addEventListener("change",e=>{store.settings.showCount=e.target.value;$("showCount").value=store.settings.showCount;save();render()});
 $("phonyKinds").addEventListener("change",e=>{const k=e.target.dataset.pk;if(!k)return;store.settings.phonyKinds={...store.settings.phonyKinds,[k]:e.target.checked};save();next()});
 $("gamePhonyKinds").addEventListener("change",e=>{const k=e.target.dataset.pk;if(!k)return;store.settings.phonyKinds={...store.settings.phonyKinds,[k]:e.target.checked};save()});
 $("saveOrder").addEventListener("change",e=>resortResults(e.target.value,false));
@@ -2837,7 +2830,6 @@ $("gameDeck").addEventListener("change",e=>{store.gameDeck=e.target.value;save()
 $("gameMistakes").addEventListener("change",e=>{if(e.target.id==="mixMistakes"){store.settings.mixMistakes=e.target.checked?"on":"off";save()}});
 $("speedDeck").addEventListener("change",e=>{store.gameSpeedDeck=e.target.value;save();renderSpeedSetup()});
 for(const id of ["speedSecs","speedPool"])$(id).addEventListener("change",e=>{store.settings[id]=+e.target.value;save();renderSpeedSetup()});
-$("flashMode").addEventListener("change",e=>{store.settings.typing=e.target.checked?"off":"on";$("typing").value=store.settings.typing;save();if(!flipped)next();else render()});
 document.addEventListener("keydown",e=>{
   if(!ready)return;
   if(e.key==="Escape"&&reviewing&&e.target.tagName!=="TEXTAREA"){e.preventDefault();exitReview();return}
