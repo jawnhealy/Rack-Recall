@@ -595,6 +595,8 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <div class="settings">
         <label for="retention">Target retention</label>
         <div><input type="number" id="retention" min="0.7" max="0.99" step="0.01"> <span class="note">0.90 is the FSRS default. Higher means more reviews.</span></div>
+        <label for="smoothLoad">Smooth review load</label>
+        <div><select id="smoothLoad"><option value="on">On: put each card on the quietest nearby day</option><option value="off">Off: random spread only</option></select> <span class="note">Each interval can move a little (about ±5–15%); with this on it lands on the day with the fewest reviews already due, so upcoming days even out.</span></div>
         <label for="retCurve">Retention by probability</label>
         <div><select id="retCurve"><option value="off">Off: every card uses the target above</option><option value="on">On: higher targets for likelier words</option><option value="bingos">Bingos only: the curve for 7s and 8s, the target above for everything else</option></select>
           <details class="curvebox"><summary class="note">What it uses</summary><table class="curve"><tbody>
@@ -1084,20 +1086,42 @@ function intervalDays(s,ck){if(ck!==undefined)schedCK=ck;return Math.min(36500,M
 // The spread is fixed per card and review, so the times shown on the buttons are the times you get.
 function fuzzUnit(seed){let h=2166136261;for(let i=0;i<seed.length;i++){h^=seed.charCodeAt(i);h=Math.imul(h,16777619)}return ((h>>>0)/4294967295)*2-1}
 function fuzzIvl(ivl,u){if(u==null||ivl<3)return ivl;const r=ivl<7?.15:ivl<20?.1:.05;return Math.max(2,Math.round(ivl*(1+r*u)))}
+// Load smoothing: within each card's fuzz window, pick the day that has the fewest reviews already due,
+// so upcoming days even out. The choice depends only on the cardbox, so the buttons show what you'll get.
+let storeVer=0,loadCache=null;
+function dayBase(){const d=new Date();d.setHours(0,0,0,0);return d.getTime()}
+function loadMap(pre){
+  const base=dayBase();
+  if(loadCache&&loadCache.ver===storeVer&&loadCache.pre===pre&&loadCache.base===base)return loadCache;
+  const m=new Map();
+  for(const ck in store.cards){if(!ck.startsWith(pre))continue;const r=store.cards[ck];if(r[0]!==2)continue;const i=Math.floor((r[3]-base)/DAY);if(i<1)continue;m.set(i,(m.get(i)||0)+1)}
+  return loadCache={ver:storeVer,pre,base,m};
+}
+function placeIvl(ivl,u,seed,now){
+  if(store.settings.smoothLoad==="off"||!seed||ivl<3)return fuzzIvl(ivl,u);
+  const r=ivl<7?.15:ivl<20?.1:.05,lo=Math.max(2,Math.round(ivl*(1-r))),hi=Math.max(lo,Math.round(ivl*(1+r)));
+  if(hi===lo)return lo;
+  const L=loadMap(seed.slice(0,2)),own=store.cards[seed],ownDay=own&&own[0]===2?Math.floor((own[3]-L.base)/DAY):null;
+  let best=lo,bc=Infinity;
+  for(let d=lo;d<=hi;d++){const day=Math.floor((now+d*DAY-L.base)/DAY);let load=(L.m.get(day)||0)-(day===ownDay?1:0);
+    const cost=load+Math.abs(d-ivl)/(hi-lo+1)*.6+(((d*7919+Math.round((u+1)*1e4))%97)/97)*.01;
+    if(cost<bc){bc=cost;best=d}}
+  return best;
+}
 function schedule(c,now,seed){
   schedCK=seed||null;
   const out={},u=seed?fuzzUnit(seed+"#"+c.reps):null;
   if(c.state==="new"){
     for(const g of [AGAIN,HARD,GOOD,EASY]){
       const s=initS(g),d=initD(g),base={s,d,last:now,reps:1,lapses:0};
-      out[g]=g===EASY?{...base,state:"review",due:now+fuzzIvl(intervalDays(s),u)*DAY}:{...base,state:"learning",due:now+({1:1,2:5,3:10})[g]*MIN};
+      out[g]=g===EASY?{...base,state:"review",due:now+placeIvl(intervalDays(s),u,seed,now)*DAY}:{...base,state:"learning",due:now+({1:1,2:5,3:10})[g]*MIN};
     }
   }else if(c.state==="learning"||c.state==="relearning"){
     for(const g of [AGAIN,HARD,GOOD,EASY]){
       const d=nextD(c.d,g),base={...c,d,last:now,reps:c.reps+1};
       if(g===AGAIN)out[g]={...base,due:now+5*MIN};
       else if(g===HARD)out[g]={...base,due:now+10*MIN};
-      else{const s=g===EASY?Math.max(c.s,initS(EASY)):c.s;let ivl=intervalDays(s);if(g===EASY)ivl=Math.max(ivl,intervalDays(c.s)+1);ivl=fuzzIvl(ivl,u);out[g]={...base,s,state:"review",due:now+ivl*DAY}}
+      else{const s=g===EASY?Math.max(c.s,initS(EASY)):c.s;let ivl=intervalDays(s);if(g===EASY)ivl=Math.max(ivl,intervalDays(c.s)+1);ivl=placeIvl(ivl,u,seed,now);out[g]={...base,s,state:"review",due:now+ivl*DAY}}
     }
   }else{
     const t=Math.max(0,(now-c.last)/DAY),r=retrievability(t,c.s),ivls={};
@@ -1106,7 +1130,7 @@ function schedule(c,now,seed){
       if(g===AGAIN)out[g]={...c,d,s:forgetS(c.d,c.s,r),state:"relearning",due:now+10*MIN,last:now,reps:c.reps+1,lapses:c.lapses+1};
       else{const s=recallS(c.d,c.s,r,g);ivls[g]=intervalDays(s);out[g]={...c,d,s,state:"review",last:now,reps:c.reps+1}}
     }
-    for(const g of [HARD,GOOD,EASY])ivls[g]=fuzzIvl(ivls[g],u);
+    for(const g of [HARD,GOOD,EASY])ivls[g]=placeIvl(ivls[g],u,seed,now);
     ivls[HARD]=Math.min(ivls[HARD],ivls[GOOD]);ivls[GOOD]=Math.max(ivls[GOOD],ivls[HARD]+1);ivls[EASY]=Math.max(ivls[EASY],ivls[GOOD]+1);
     for(const g of [HARD,GOOD,EASY])out[g].due=now+ivls[g]*DAY;
   }
@@ -1124,7 +1148,7 @@ const KEY="rack-recall-nwl23-v2",LOGKEY="rack-recall-log-v1";
 const SEED_DECKS=[{id:"s:sev8",name:"Bingos",conds:[{t:"lengths",a:"7,8"}],order:"prob"}];
 const DEFAULTS={cards:{},custom:"",deck:"s:sev8",migr:{bingo:1,ext:1},mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"lengths",a:"7"},{t:"prob",a:1,b:100}],
   notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},autoAdd:{},autoDay:{},hist:{},faceUp:{},conf:{},confPh:{},frontNote:{},fooled:{},doubted:{},typos:{},deckRet:{},speedBest:{},
-  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"learning",retCurve:"off",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",alphaStyle:"abc",mixMistakes:"on",speedSecs:60,speedPool:1000,tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,affix:true,collins:true,typo:true,misspell:true},w:null,fit:null}};
+  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"learning",retCurve:"off",smoothLoad:"on",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",alphaStyle:"abc",mixMistakes:"on",speedSecs:60,speedPool:1000,tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,affix:true,collins:true,typo:true,misspell:true},w:null,fit:null}};
 let store=structuredClone(DEFAULTS),LOG="";
 function mergeStore(s){
   store={...structuredClone(DEFAULTS),...s,settings:{...DEFAULTS.settings,...(s.settings||{})}};
@@ -1141,7 +1165,7 @@ function mergeStore(s){
 }
 try{const s=JSON.parse(localStorage.getItem(KEY)||"null");if(s)mergeStore(s)}catch(e){}
 try{LOG=localStorage.getItem(LOGKEY)||""}catch(e){}
-function save(){if(syncReady)syncSoon(true);try{localStorage.setItem(KEY,JSON.stringify(store))}catch(e){note("settingsNote","Couldn't save: browser storage is full or blocked. Back up your progress.")}}
+function save(){storeVer++;if(syncReady)syncSoon(true);try{localStorage.setItem(KEY,JSON.stringify(store))}catch(e){note("settingsNote","Couldn't save: browser storage is full or blocked. Back up your progress.")}}
 function saveLog(){try{localStorage.setItem(LOGKEY,LOG)}catch(e){note("settingsNote","The review log no longer fits in browser storage. Back up your progress.")}}
 // card record: [state, stability, difficulty, due, last, reps, lapses]. No record = not in cardbox. State 0 = added, not yet studied (due = time added).
 const SC=["new","learning","review","relearning"];
@@ -1809,6 +1833,15 @@ function spreadBacklog(deck,days){
   if(!list.length)return {n:0,per:0};
   list.sort((a,b)=>a[1]-b[1]);
   const per=Math.ceil(list.length/days),start=new Date();start.setHours(0,0,0,0);
+  if(store.settings.smoothLoad!=="off"){
+    // fill the days so each ends up with about the same total, counting reviews already due then; the shakiest stay today
+    const L=loadMap(pre),load=[0];for(let d=1;d<days;d++)load[d]=L.m.get(d)||0;
+    // "water level": the daily total T at which topping every lighter day up to T uses exactly the backlog
+    let lo=0,hi=list.length+Math.max(...load);for(let it=0;it<40;it++){const T=(lo+hi)/2,need=load.reduce((a,v)=>a+Math.max(0,T-v),0);if(need<list.length)lo=T;else hi=T}
+    const cap=load.map(v=>Math.max(0,Math.round(hi-v)));let extra=list.length-cap.reduce((a,b)=>a+b,0);for(let d=0;extra>0;d=(d+1)%days){cap[d]++;extra--}for(let d=0;extra<0;d++){if(cap[d]>0){cap[d]--;extra++}}
+    let d=0;list.forEach(([ck],i)=>{while(d<days-1&&cap[d]<=0)d++;cap[d]--;if(d){const r=store.cards[ck];r[3]=start.getTime()+d*DAY+i;r[7]=now+i}else load[0]++});
+    save();syncSoon();return {n:list.length,per:load[0],days,smooth:true};
+  }
   list.forEach(([ck],i)=>{const d=Math.floor(i/per);if(!d)return;const r=store.cards[ck];r[3]=start.getTime()+d*DAY+(i%per);r[7]=now+i});
   save();syncSoon();return {n:list.length,per,days:Math.ceil(list.length/per)};
 }
@@ -1825,7 +1858,9 @@ function postponeN(deck,n,days){
   for(const k of deckKeys(deck)){const r=store.cards[pre+k];if(r&&r[0]===2&&r[3]<=now)list.push([pre+k,recallNow(r,now)])}
   list.sort((a,b)=>b[1]-a[1]);const pick=list.slice(0,n);
   const start=new Date();start.setHours(0,0,0,0);
-  pick.forEach(([ck],i)=>{const r=store.cards[ck];r[3]=start.getTime()+days*DAY+i;r[7]=now+i});
+  // place each one on the quietest day from D to about D + 25%, so a big postpone doesn't pile onto one day
+  const lo=days,hi=days+Math.max(store.settings.smoothLoad==="off"?0:1,Math.round(days*.25)),L=loadMap(pre),m=new Map(L.m),b0=Math.floor((start.getTime()-L.base)/DAY);
+  pick.forEach(([ck],i)=>{const r=store.cards[ck];let best=lo,bl=Infinity;for(let d=lo;d<=hi;d++){const v=(m.get(b0+d)||0)+(d-lo)*.01;if(v<bl){bl=v;best=d}}m.set(b0+best,(m.get(b0+best)||0)+1);r[3]=start.getTime()+best*DAY+i;r[7]=now+i});
   if(pick.length){save();syncSoon()}return pick.length;
 }
 // study ahead: reviews due before the end of the Nth day from today (not yet due)
@@ -2979,7 +3014,7 @@ document.addEventListener("click",e=>{
     case "spreadBtn":{
       spreadDays=Math.max(2,Math.min(60,Math.round(+$("spreadDays").value||7)));
       const r=spreadBacklog(store.deck,spreadDays);render();
-      if(r.n)note("rowNote",`${fmtN(Math.min(r.per,r.n))} stay due today; the other ${fmtN(Math.max(0,r.n-r.per))} come back over the next ${r.days-1} ${r.days-1===1?"day":"days"}, about ${fmtN(r.per)} a day.`);
+      if(r.n)note("rowNote",r.smooth?`${fmtN(Math.min(r.per,r.n))} stay due today; the other ${fmtN(Math.max(0,r.n-r.per))} are spread over the next ${r.days-1} ${r.days-1===1?"day":"days"} so each day's total, counting reviews already due, comes out about even.`:`${fmtN(Math.min(r.per,r.n))} stay due today; the other ${fmtN(Math.max(0,r.n-r.per))} come back over the next ${r.days-1} ${r.days-1===1?"day":"days"}, about ${fmtN(r.per)} a day.`);
       break}
     case "addBtn":case "addBtn2":{if($("addN"))addNVal=Math.max(1,Math.round(+$("addN").value||20));addNext(store.deck,addNVal);if(reviewing&&!cur)next();else render();break}
     case "addAll":{
@@ -3106,7 +3141,7 @@ $("importFile").addEventListener("change",e=>{
   rd.readAsText(f);e.target.value="";
 });
 const NUMS={retention:[.7,.99,.9],newLimit:[0,1000,20],revLimit:[0,10000,0],slowSecs:[0,300,20],timeLimit:[0,600,0],buildMin:[2,15,4],leech:[2,50,6],extMin:[1,13,2],extMax:[1,13,7]};
-function syncInputs(){for(const id of ["retention","newLimit","revLimit","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn","showRank","retCurve","theme","tileOrder","alphaStyle","tileStyle","tilePoints","slowSecs","timeLimit"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
+function syncInputs(){for(const id of ["retention","newLimit","revLimit","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn","showRank","retCurve","smoothLoad","theme","tileOrder","alphaStyle","tileStyle","tilePoints","slowSecs","timeLimit"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
 for(const id in NUMS)$(id).addEventListener("change",e=>{const [lo,hi,def]=NUMS[id];let v=+e.target.value;if(isNaN(v)||e.target.value==="")v=def;v=Math.min(hi,Math.max(lo,v));if(id!=="retention")v=Math.round(v);store.settings[id]=v;e.target.value=v;save();
   if(id==="leech")clearCache("leech");
   if(id==="extMin"&&store.settings.extMax<v){store.settings.extMax=v;$("extMax").value=v}
@@ -3114,7 +3149,7 @@ for(const id in NUMS)$(id).addEventListener("change",e=>{const [lo,hi,def]=NUMS[
   if(cur&&store.mode==="learn"){cur.ans=answersFor(cur.key);if(flipped)preview=schedule(cardState(cur.key),Date.now(),ckey(cur.key))}
   if(!cur&&store.mode==="learn")next();else render()});
 $("retCurve").addEventListener("change",e=>{store.settings.retCurve=e.target.value;save();if(flipped&&cur){preview=schedule(cardState(cur.key),Date.now(),ckey(cur.key))}render()});
-for(const id of ["newOrder","typing","showCount","buryOn","showRank","tileOrder","alphaStyle"])$(id).addEventListener("change",e=>{store.settings[id]=e.target.value;save();if(!flipped)next();else render()});
+for(const id of ["newOrder","typing","showCount","buryOn","showRank","tileOrder","alphaStyle","smoothLoad"])$(id).addEventListener("change",e=>{store.settings[id]=e.target.value;save();if(!flipped)next();else render()});
 $("extDir").addEventListener("change",e=>{store.settings.extDir=e.target.value;save();if(cur&&store.mode==="learn")cur.ans=answersFor(cur.key);render()});
 function applyTheme(){
   const t=store.settings.theme,el=document.documentElement;
