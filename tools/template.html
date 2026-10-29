@@ -167,6 +167,12 @@ svg.prog .studied-dot{fill:var(--tl)} svg.prog .mature-dot{fill:var(--good)}
 sup.nw{color:var(--tw);font-size:.7em;margin-left:1px}
 .ans .def{font-size:15.5px;min-width:0}
 @media (max-width:560px){.ans{grid-template-columns:auto auto auto 1fr}.ans .def{grid-column:1/-1;padding-left:2px}}
+/* all rows share one set of columns, so hooks, words and definitions line up down the list */
+@supports (grid-template-columns:subgrid){
+  .answers{display:grid;grid-template-columns:minmax(50px,max-content) max-content minmax(50px,max-content) minmax(0,1fr);column-gap:12px}
+  .ans{grid-column:1/-1;grid-template-columns:subgrid;column-gap:12px}
+  @media (max-width:560px){.answers{grid-template-columns:minmax(24px,max-content) max-content minmax(24px,max-content) minmax(0,1fr)}}
+}
 .single{text-align:center;display:flex;flex-direction:column;gap:6px;max-width:56ch}
 .single .def{font-size:20px;font-weight:500;text-wrap:balance}
 .hooksline{font-family:var(--f-mono);font-size:21px;color:var(--muted);letter-spacing:.08em}
