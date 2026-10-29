@@ -596,7 +596,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <label for="retention">Target retention</label>
         <div><input type="number" id="retention" min="0.7" max="0.99" step="0.01"> <span class="note">0.90 is the FSRS default. Higher means more reviews.</span></div>
         <label for="retCurve">Retention by probability</label>
-        <div><select id="retCurve"><option value="off">Off: every card uses the target above</option><option value="on">On: higher targets for likelier words</option></select>
+        <div><select id="retCurve"><option value="off">Off: every card uses the target above</option><option value="on">On: higher targets for likelier words</option><option value="bingos">Bingos only: the curve for 7s and 8s, the target above for everything else</option></select>
           <details class="curvebox"><summary class="note">What it uses</summary><table class="curve"><tbody>
           <tr><td>2s</td><td>97%</td></tr><tr><td>3s and 4s with J, Q, X or Z</td><td>95%</td></tr><tr><td>Other 3s</td><td>94%</td></tr><tr><td>Other 4s</td><td>90% for the likelier half, 88% for the rest</td></tr>
           <tr><td>5 letters and up, probability rank 1</td><td>95%</td></tr><tr><td>rank 1,000</td><td>94%</td></tr><tr><td>rank 5,000</td><td>91%</td></tr><tr><td>rank 10,000</td><td>87.5%</td></tr><tr><td>rank 20,000</td><td>84%</td></tr><tr><td>rank 40,000 and beyond</td><td>80%</td></tr>
@@ -606,7 +606,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <label for="revLimit">Reviews per day</label>
         <div><input type="number" id="revLimit" min="0" max="10000" step="1"> <span class="note">per deck and quiz type; 0 means no limit. When more are due, the cards you're most likely to have forgotten come first.</span></div>
         <label for="newOrder">Order of added cards</label>
-        <div><select id="newOrder"><option value="prob">Order added (most probable first)</option><option value="random">Random</option></select></div>
+        <div><select id="newOrder"><option value="prob">Order added (most probable first)</option><option value="play">Most playable first</option><option value="random">Random</option></select></div>
         <label for="buryOn">Bury siblings</label>
         <div><select id="buryOn"><option value="on">On: one quiz type per set of letters per day</option><option value="off">Off</option></select> <span class="note">stops an Anagrams card from priming its Build or Hooks sibling the same day</span></div>
         <label for="leech">Leech after</label>
@@ -1070,9 +1070,11 @@ function curveRet(ck){
   return .80;
 }
 // the target for one card: a deck's own target wins, then the probability curve if it's on, then your default
+const curveLen=ck=>{const q=ck[0],k=ck.slice(2);return k.length};
 function retFor(ck){
   if(reviewing&&store.deckRet&&store.deckRet[store.deck])return store.deckRet[store.deck];
-  if(store.settings.retCurve==="on"){const r=curveRet(ck);if(r)return r}
+  const rc=store.settings.retCurve;
+  if(rc==="on"||(rc==="bingos"&&ck&&curveLen(ck)>=7&&curveLen(ck)<=8)){const r=curveRet(ck);if(r)return r}
   return store.settings.retention;
 }
 let schedCK=null;
@@ -1204,10 +1206,12 @@ function scan(deck,now){
   const newAvail=Math.min(nw,Math.max(0,store.settings.newLimit-newDoneToday(deck)));
   return {keys,due,held,susp,overdue:dueRev.length,soon,newKeys:newKeys.map(x=>x[0]),newAvail:Math.min(newAvail,newKeys.length),nw,mature,seen,out,leeches,buried,boxed:keys.length-out,total:keys.length};
 }
+// how often a card's word (or, for a rack, its most played anagram) turns up in play
+function playScore(k){if(unit()==="alpha"){let m=0;for(const w of LEX.anag.get(k)||[]){const e=LEX.words.get(w);if(e.pscore>m)m=e.pscore}return m}const e=LEX.words.get(k);return e?e.pscore:0}
 function pickNext(deck,now,exclude,skip){
   const s=scan(deck,now),ok=k=>k!==exclude&&!(skip&&skip.has(k));
   const d=s.due.find(x=>ok(x[0]));if(d)return d[0];
-  if(s.newAvail>0&&s.newKeys.length){const pool=s.newKeys.filter(ok);if(pool.length)return store.settings.newOrder==="random"?pool[Math.floor(Math.random()*pool.length)]:pool[0]}
+  if(s.newAvail>0&&s.newKeys.length){const pool=s.newKeys.filter(ok);if(pool.length){const o=store.settings.newOrder;if(o==="random")return pool[Math.floor(Math.random()*pool.length)];if(o==="play"){let best=pool[0],bs=-1;for(const k of pool){const v=playScore(k);if(v>bs){bs=v;best=k}}return best}return pool[0]}}
   const dd=s.due.find(x=>!(skip&&skip.has(x[0])));if(dd)return dd[0];
   const sn=s.soon.find(x=>ok(x[0]))||s.soon.find(x=>!(skip&&skip.has(x[0])));return sn?sn[0]:null;
 }
@@ -1631,7 +1635,7 @@ function renderDecks(){
         else{n=s.overdue;ok=n>1;ctl=`<span class="nobr">${num("spreadDays",spreadDays,2,60,"Days")} <span class="note">days</span></span>`;btn=`<button class="btn ghost" id="spreadBtn" ${ok?"":"disabled"}>${ok?`Spread ${fmtN(n)}`:"Spread out"}</button>`;empty="No backlog right now.";help="Overdue reviews are re-dated across the days you choose, most at risk of being forgotten first, so you face a steady amount each day instead of the whole pile."}
         const opt=(v,l)=>`<option value="${v}" ${op===v?"selected":""}>${l}</option>`;
         const dr=store.deckRet[id],cramList=cramKeys(id,cramCut),cn=cramList.length;
-        const retRow=`<div class="addctl"><label for="deckRet">Target retention</label><span class="nobr"><input type="number" id="deckRet" min="70" max="99" step="1" value="${dr?Math.round(dr*100):""}" placeholder="${Math.round(store.settings.retention*100)}" aria-label="Target retention for this deck, percent"> <span class="note">%</span></span><span class="note">${dr?"for this deck":store.settings.retCurve==="on"?"blank uses retention by probability":`blank uses your default (${Math.round(store.settings.retention*100)}%)`}</span>${ib("ret","deck retention")}</div>${info("ret","The recall chance you want this deck's cards to have when they come due. It sets the intervals while you study this deck: higher means more reviews and fewer misses. For example 92% for bingos you'll draw, 85% for rare 8s.")}`;
+        const retRow=`<div class="addctl"><label for="deckRet">Target retention</label><span class="nobr"><input type="number" id="deckRet" min="70" max="99" step="1" value="${dr?Math.round(dr*100):""}" placeholder="${Math.round(store.settings.retention*100)}" aria-label="Target retention for this deck, percent"> <span class="note">%</span></span><span class="note">${dr?"for this deck":store.settings.retCurve!=="off"?"blank uses retention by probability":`blank uses your default (${Math.round(store.settings.retention*100)}%)`}</span>${ib("ret","deck retention")}</div>${info("ret","The recall chance you want this deck's cards to have when they come due. It sets the intervals while you study this deck: higher means more reviews and fewer misses. For example 92% for bingos you'll draw, 85% for rare 8s.")}`;
         const cramRow=`<div class="addctl"><label for="cramCut">Cram cards below</label><span class="nobr"><input type="number" id="cramCut" min="50" max="99" step="1" value="${cramCut}" aria-label="Recall cutoff, percent"> <span class="note">% recall</span></span><button class="btn ghost" id="cramBtn" ${cn?"":"disabled"}>${cn?`Cram ${fmtN(cn)}`:"Cram"}</button>${ib("cram","cram mode")}${cn?"":`<span class="note">Nothing below ${cramCut}% right now.</span>`}</div>${info("cram","Quizzes every studied card whose recall has slipped below the cutoff, due or not, weakest first, like a last pass before a tournament. It doesn't change your schedule.")}`;
         sched=`<div class="msec"><div class="label">Schedule</div>${retRow}${cramRow}
           <div class="addctl"><select id="schedOp" aria-label="Schedule action">${opt("spread","Spread the backlog over")}${opt("postN","Postpone due reviews")}${opt("ahead","Bring forward reviews due in")}${opt("nextN","Bring forward the next")}</select>
@@ -2179,6 +2183,7 @@ function lookupBlanks(raw){
   $("lookupOut").innerHTML=html;
 }
 let lkQt=null;
+let lkQuery="";
 function openLookup(){const h=document.querySelector("header.top");h.classList.add("lk-open");$("lkToggle").setAttribute("aria-expanded","true");const i=$("lookupIn");i.focus();i.select()}
 // Look up over a quiz (F6): the same results panel, borrowed into a pop-up; the quiz clock pauses meanwhile
 let lkm=null;
@@ -2196,12 +2201,12 @@ function closeLookupModal(){
   lkm=null;
   if(reviewing){armTimer();const inp=$("ansIn");if(inp&&!flipped)inp.focus({preventScroll:true});else $("card").focus({preventScroll:true})}
 }
-$("lkmForm").addEventListener("submit",e=>{e.preventDefault();const v=$("lkmIn").value.trim();$("lookupIn").value=v;if(!v){$("lookupPanel").hidden=true;return}$("lookupPanel").hidden=false;$("lookupOut").innerHTML=`<p class="note">Looking up…</p>`;lookup();$("lkmIn").select()});
+$("lkmForm").addEventListener("submit",e=>{e.preventDefault();const v=$("lkmIn").value.trim();if(!v){$("lookupPanel").hidden=true;return}lkQuery=v;$("lkmIn").value="";$("lookupPanel").hidden=false;$("lookupOut").innerHTML=`<p class="note">Looking up…</p>`;lookup();$("lkmIn").focus()});
 $("lkModal").addEventListener("click",e=>{if(e.target.id==="lkModal")closeLookupModal()});
 function closeLookup(){
   if(lkm){closeLookupModal();return}$("lookupPanel").hidden=true;$("lookupIn").value="";const h=document.querySelector("header.top");h.classList.remove("lk-open");$("lkToggle").setAttribute("aria-expanded","false");$("lookupIn").blur()}
 function lookup(){
-  const raw=$("lookupIn").value.toUpperCase().replace(/[^A-Z?]/g,"");
+  const raw=lkQuery.toUpperCase().replace(/[^A-Z?]/g,"");
   if(raw.includes("?")){lookupBlanks(raw);return}
   const q=raw;if(!q){$("lookupOut").innerHTML="";return}
   const a=alpha(q),g=LEX.anag.get(a),valid=LEX.words.has(q);
@@ -3086,7 +3091,7 @@ const end=()=>{if(!sw)return;const go=sw.on&&Math.abs(sw.dx)>90;P.style.transiti
   if(go){P.style.transform=`translateX(${sw.dx>0?"":"-"}110%)`;P.style.opacity="0";setTimeout(()=>{closeLookup();P.style.transition=P.style.transform=P.style.opacity=""},180)}
   else{P.style.transform="";P.style.opacity=""}sw=null};
 P.addEventListener("touchend",end);P.addEventListener("touchcancel",end)}
-$("lookupForm").addEventListener("submit",e=>{e.preventDefault();const v=$("lookupIn").value.trim();if(!v){$("lookupPanel").hidden=true;return}$("lookupPanel").hidden=false;$("lookupOut").innerHTML=`<p class="note">Looking up…</p>`;lookup();$("lookupPanel").scrollIntoView({block:"nearest"})});
+$("lookupForm").addEventListener("submit",e=>{e.preventDefault();const v=$("lookupIn").value.trim();if(!v){$("lookupPanel").hidden=true;return}lkQuery=v;$("lookupIn").value="";$("lookupPanel").hidden=false;$("lookupOut").innerHTML=`<p class="note">Looking up…</p>`;lookup();$("lookupPanel").scrollIntoView({block:"nearest"})});
 $("zyzFile").addEventListener("change",e=>{const f=e.target.files[0];if(f)openZyz(f);e.target.value=""});
 $("zyzPanel").addEventListener("change",e=>{if(!zyz)return;const id=e.target.id;if(id==="zyzQt")zyz.qt=e.target.value;if(id==="zyzReplace")zyz.replace=e.target.checked;if(id==="zyzDeck")zyz.deck=e.target.checked;renderZyz()});
 $("updFile").addEventListener("change",e=>{const f=e.target.files[0];if(f)installUpdate(f);e.target.value=""});
