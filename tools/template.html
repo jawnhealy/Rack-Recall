@@ -311,6 +311,13 @@ details.dropdown .menu button{all:unset;cursor:pointer;padding:8px 10px;border-r
 details.dropdown .menu button:hover,details.dropdown .menu button:focus-visible{background:var(--bg)}
 @media (max-width:620px){.deckrow{grid-template-columns:minmax(0,1fr)}.deckrow .dact{justify-content:flex-start}}
 /* study screen */
+#lkModal{position:fixed;inset:0;z-index:70;background:rgba(10,20,25,.45);display:flex;justify-content:center;align-items:flex-start;padding:6vh 16px 16px;overflow:auto}
+#lkModal[hidden]{display:none}
+.lkm-box{width:min(760px,100%);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:16px;display:flex;flex-direction:column;gap:12px;max-height:88vh;overflow:auto}
+.lkm-form{display:flex;gap:8px;flex-wrap:wrap}
+.lkm-form input{flex:1 1 200px;font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.05em}
+#lkmSlot #lookupPanel{border:0;padding:0;margin:0;box-shadow:none;background:none}
+#lkmSlot #lookupPanel>.actions:first-child{display:none}
 #review{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column;overflow:auto}
 html.reviewing,html.reviewing body{overflow:hidden}
 .rv-top{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;background:var(--surface);border-bottom:1px solid var(--line);padding-block:max(10px,env(safe-area-inset-top,0px)) 10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -687,7 +694,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 
     <footer class="panel">
       <h2 class="sec">Keys and notes</h2>
-      <p class="note" style="margin:0">While studying: <kbd>Return</kbd> checks typed answers or flips the card, as do <kbd>Space</kbd> and <kbd>0</kbd>–<kbd>3</kbd> in flashcard mode. On the back, <kbd>0</kbd> Again · <kbd>1</kbd> Hard · <kbd>2</kbd> Good · <kbd>3</kbd> Easy (<kbd>Space</kbd> also means Good). In Games › Valid or Phony?, <kbd>V</kbd>/<kbd>Y</kbd>/<kbd>→</kbd> or a swipe right for valid, <kbd>P</kbd>/<kbd>N</kbd>/<kbd>←</kbd> or a swipe left for phony. <kbd>5</kbd> shuffles the tiles, <kbd>F</kbd> toggles fullscreen and <kbd>Esc</kbd> leaves the study screen. Anywhere else, <kbd>/</kbd> jumps to Look up and <kbd>Esc</kbd> closes it.</p>
+      <p class="note" style="margin:0">While studying: <kbd>Return</kbd> checks typed answers or flips the card, as do <kbd>Space</kbd> and <kbd>0</kbd>–<kbd>3</kbd> in flashcard mode. On the back, <kbd>0</kbd> Again · <kbd>1</kbd> Hard · <kbd>2</kbd> Good · <kbd>3</kbd> Easy (<kbd>Space</kbd> also means Good). In Games › Valid or Phony?, <kbd>V</kbd>/<kbd>Y</kbd>/<kbd>→</kbd> or a swipe right for valid, <kbd>P</kbd>/<kbd>N</kbd>/<kbd>←</kbd> or a swipe left for phony. <kbd>5</kbd> shuffles the tiles, <kbd>F6</kbd> opens Look up over the quiz (the clock pauses; <kbd>Esc</kbd> returns), <kbd>F</kbd> toggles fullscreen and <kbd>Esc</kbd> leaves the study screen. Anywhere else, <kbd>/</kbd> jumps to Look up and <kbd>Esc</kbd> closes it.</p>
       <p class="note" style="margin:0">Quiz types: Anagrams, Anagrams + hooks, Hooks, Build, Blanks (letters plus one blank), Extensions (longer words containing the word) and Definitions each keep their own cardbox. Valid or Phony? is practice and doesn't change your schedule; it mixes words from the deck with made-up words, real words with endings they don't take, and Collins-only words. Probability ranks use two-blank probability. Hooks appear either side of each word. A red <span class="ih">·</span> before or after a word marks an inner hook: it's still a word without that first or last letter, so <span class="ih">·</span>LOBELIAS<span class="ih">·</span> means OBELIAS and LOBELIA are words. A red <sup class="nw">+</sup> marks words and hooks new in NWL23. In Look up, <kbd>?</kbd> is a blank.</p>
       <details class="gloss"><summary>Glossary</summary><dl><dt>Alphagram</dt><dd>A word's letters in alphabetical order. RETAINS, NASTIER and STAINER share the alphagram AEINRST, so they're one Anagrams card.</dd><dt>Probability</dt><dd>How likely you are to draw a rack's tiles from a full bag. The app uses two-blank probability, which also counts racks you could make with one or both blanks. <b>Probability rank</b> is the position among alphagrams of the same length, with 1 the most likely.</dd><dt>Playability</dt><dd>How often a word was actually played across a large set of simulated games. The <b>score</b> is the raw count; the <b>rank</b> (the Play. column) is its position among words of the same length, with 1 the most played. A score of 0 means it never came up.</dd><dt>Hooks</dt><dd>Letters that can go in front of a word (front hooks) or after it (back hooks) to make another word: CARES takes S in front for SCARES and S behind for CARESS.</dd><dt>Inner hooks</dt><dd>A red dot before or after a word means it's still a word without that first or last letter: ·LOBELIAS· means OBELIAS and LOBELIA are words.</dd><dt>Extensions</dt><dd>Longer words that contain the word at the start or end: AUDIO to AUDIOBOOK.</dd><dt>Stem</dt><dd>A set of letters that combines with many single tiles to make bingos, written like AEINST + ?.</dd><dt>Cousins</dt><dd>Words one letter different in the same position, like MUNITION, MONITION and PUNITION.</dd><dt>Phony</dt><dd>A play that isn't in the lexicon. In Valid or Phony? phonies are made-up words, real words with endings they don't take, or Collins-only words.</dd><dt>NWL23 and Collins</dt><dd>NWL2023 is the North American word list used here. Collins Scrabble Words (CSW24) is the international list; words only in Collins count as phonies.</dd><dt>Card states</dt><dd><b>New</b>: added but not studied yet. <b>Learning</b>: being seen a few times in short steps. <b>Review</b>: learned and scheduled days or months ahead. <b>Relearning</b>: forgotten in review and back in short steps.</dd><dt>Grades</dt><dd><b>Again</b> (0): didn't know it. <b>Hard</b> (1): got it with real effort or slowly. <b>Good</b> (2): got it. <b>Easy</b> (3): instant. The schedule is built from these, so honest grades matter more than high ones.</dd><dt>Recall</dt><dd>The estimated chance you'd get a card right if it came up now. It falls between reviews and jumps back up after each one.</dd><dt>Stability</dt><dd>How long a memory lasts: the number of days until your recall chance drops to 90%. It grows each time you remember a card, more when the gap was long, and shrinks when you forget it.</dd><dt>Difficulty</dt><dd>How hard a card is for you, from 1 (easy) to 10 (hard). It rises with Again and Hard and falls with Easy. Harder cards gain stability more slowly, so they come back more often.</dd><dt>Target retention</dt><dd>The recall chance you want a card to have when it comes due (Settings, default 90%). Higher means more reviews and fewer misses; lower means fewer reviews and more misses.</dd><dt>Due and interval</dt><dd>A card is due when its review date arrives. The interval is the gap until the next review, shown on each grade button.</dd><dt>Lapse</dt><dd>Forgetting a card that was in review (grading it Again).</dd><dt>Leech</dt><dd>A card with many lapses (6 by default, set in Settings). Leeches get a badge, their own deck, and a rescue screen asking for a memory hook.</dd><dt>Mature</dt><dd>A card with a stability of 21 days or more.</dd><dt>Suspended</dt><dd>Set aside: never shown, but keeps its history. Unsuspend it from the Suspended deck.</dd><dt>Buried</dt><dd>Held until tomorrow because you already answered the same letters in another quiz type today (sibling burying, in Settings).</dd><dt>Look-alike</dt><dd>A rack you've mixed up with this one, linked when a wrong answer belonged to the other rack. Look-alikes come back close together until you sort them out.</dd><dt>Interval fuzz</dt><dd>A small random spread on review intervals so cards added together don't keep coming due together.</dd></dl></details>
       <p class="note" style="margin:0">Lexicon: <span id="lexInfo">NWL23</span>.</p>
@@ -697,12 +704,17 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 </div>
 
 <!-- ============ STUDY SCREEN (fills the window) ============ -->
+<div id="lkModal" hidden><div class="lkm-box" role="dialog" aria-modal="true" aria-label="Look up">
+  <form class="lkm-form" id="lkmForm" autocomplete="off"><input id="lkmIn" aria-label="Word or letters to look up" spellcheck="false" autocapitalize="characters" placeholder="Word, or letters with ? for a blank"><button class="btn" type="submit">Look up</button><button class="btn ghost" type="button" id="lkmClose" title="Back to the quiz (Esc or F6)">Close</button></form>
+  <div id="lkmSlot"></div>
+</div></div>
 <div id="review" hidden>
   <div class="rv-top">
     <button class="btn ghost sm" id="rvExit" title="Back (Esc)">← Back</button>
     <div class="rv-title" id="rvTitle"></div>
     <div class="rv-prog" id="rvProg"></div>
     <button class="btn ghost sm" id="rvUndo" title="Undo the last grade (Ctrl+Z)">Undo</button>
+    <button class="btn ghost sm" id="rvLookup" title="Look up a word without leaving the quiz (F6)">Look up</button>
     <button class="btn ghost sm" id="rvFull" title="Fullscreen (F)">Fullscreen</button>
   </div>
   <div class="rv-phony" id="rvPhony" hidden>
@@ -2082,7 +2094,26 @@ function lookupBlanks(raw){
 }
 let lkQt=null;
 function openLookup(){const h=document.querySelector("header.top");h.classList.add("lk-open");$("lkToggle").setAttribute("aria-expanded","true");const i=$("lookupIn");i.focus();i.select()}
-function closeLookup(){$("lookupPanel").hidden=true;$("lookupIn").value="";const h=document.querySelector("header.top");h.classList.remove("lk-open");$("lkToggle").setAttribute("aria-expanded","false");$("lookupIn").blur()}
+// Look up over a quiz (F6): the same results panel, borrowed into a pop-up; the quiz clock pauses meanwhile
+let lkm=null;
+function openLookupModal(){
+  if(lkm)return;const panel=$("lookupPanel");
+  lkm={parent:panel.parentNode,next:panel.nextSibling,at:Date.now()};clearTimer();
+  $("lkmSlot").appendChild(panel);panel.hidden=true;$("lookupOut").innerHTML="";
+  $("lkModal").hidden=false;const i=$("lkmIn");i.value="";i.focus();
+}
+function closeLookupModal(){
+  if(!lkm)return;const panel=$("lookupPanel");
+  lkm.parent.insertBefore(panel,lkm.next);panel.hidden=true;$("lookupOut").innerHTML="";$("lookupIn").value="";
+  $("lkModal").hidden=true;
+  if(cur&&cur.t0&&!flipped)cur.t0+=Date.now()-lkm.at;
+  lkm=null;
+  if(reviewing){armTimer();const inp=$("ansIn");if(inp&&!flipped)inp.focus({preventScroll:true});else $("card").focus({preventScroll:true})}
+}
+$("lkmForm").addEventListener("submit",e=>{e.preventDefault();const v=$("lkmIn").value.trim();$("lookupIn").value=v;if(!v){$("lookupPanel").hidden=true;return}$("lookupPanel").hidden=false;$("lookupOut").innerHTML=`<p class="note">Looking up…</p>`;lookup();$("lkmIn").select()});
+$("lkModal").addEventListener("click",e=>{if(e.target.id==="lkModal")closeLookupModal()});
+function closeLookup(){
+  if(lkm){closeLookupModal();return}$("lookupPanel").hidden=true;$("lookupIn").value="";const h=document.querySelector("header.top");h.classList.remove("lk-open");$("lkToggle").setAttribute("aria-expanded","false");$("lookupIn").blur()}
 function lookup(){
   const raw=$("lookupIn").value.toUpperCase().replace(/[^A-Z?]/g,"");
   if(raw.includes("?")){lookupBlanks(raw);return}
@@ -2804,6 +2835,8 @@ document.addEventListener("click",e=>{
     case "unsuspAll":{const pre=store.qtype+":";for(const k of suspKeys())setSusp(pre+k,false);save();syncSoon();render();break}
     case "suspLeeches":{const pre=store.qtype+":";for(const k of leechKeys())setSusp(pre+k,true);clearCache("leech");save();syncSoon();render();break}
     case "lookupClose":closeLookup();break;
+    case "lkmClose":closeLookupModal();break;
+    case "rvLookup":openLookupModal();break;
     case "lkToggle":if(document.querySelector("header.top").classList.contains("lk-open"))closeLookup();else openLookup();break;
 
     case "prevBtn":{addNVal=Math.max(1,Math.round(+$("addN").value||20));const keys=previewKeys(store.deck,Math.min(500,addNVal));pv={keys};startReview(store.deck,"preview");$("review").scrollTop=0;break}
@@ -2980,6 +3013,8 @@ $("speedDeck").addEventListener("change",e=>{store.gameSpeedDeck=e.target.value;
 for(const id of ["speedSecs","speedPool"])$(id).addEventListener("change",e=>{store.settings[id]=+e.target.value;save();renderSpeedSetup()});
 document.addEventListener("keydown",e=>{
   if(!ready)return;
+  if(e.key==="F6"){e.preventDefault();if(lkm)closeLookupModal();else if(reviewing)openLookupModal();else openLookup();return}
+  if(lkm){if(e.key==="Escape"){e.preventDefault();closeLookupModal()}return} // the quiz ignores keys while Look up is open
   if(e.key==="Escape"&&reviewing&&e.target.tagName!=="TEXTAREA"){e.preventDefault();exitReview();return}
   if(reviewing&&cur&&cur.rescue){if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();rescueDone("save")}else if(e.key==="Enter"&&e.target.tagName!=="TEXTAREA"&&e.target.tagName!=="BUTTON"){e.preventDefault();rescueDone("save")}return}
   if(!reviewing){
