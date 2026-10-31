@@ -684,7 +684,8 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <h2 class="sec">App updates</h2>
       <p class="note" style="margin:0" id="updInfo"></p>
       <div class="actions">
-        <button class="btn" id="updBtn">Install update from file</button>
+        <button class="btn" id="updCheck">Check for updates</button>
+        <button class="btn ghost" id="updBtn">Install update from file</button>
         <input type="file" id="updFile" accept=".html,text/html" hidden>
         <button class="btn ghost" id="updRevert" hidden>Use the built-in version</button>
       </div>
@@ -711,7 +712,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <p class="note" style="margin:0">Quiz types: Anagrams, Anagrams + hooks, Hooks, Build, Blanks (letters plus one blank), Extensions (longer words containing the word) and Definitions each keep their own cardbox. Valid or Phony? is practice and doesn't change your schedule; it mixes words from the deck with made-up words, real words with endings they don't take, and Collins-only words. Probability ranks use two-blank probability. Hooks appear either side of each word. A red <span class="ih">·</span> before or after a word marks an inner hook: it's still a word without that first or last letter, so <span class="ih">·</span>LOBELIAS<span class="ih">·</span> means OBELIAS and LOBELIA are words. A red <sup class="nw">+</sup> marks words and hooks new in NWL23. In Look up, <kbd>?</kbd> is a blank.</p>
       <details class="gloss"><summary>Glossary</summary><dl><dt>Alphagram</dt><dd>A word's letters in alphabetical order. RETAINS, NASTIER and STAINER share the alphagram AEINRST, so they're one Anagrams card.</dd><dt>Probability</dt><dd>How likely you are to draw a rack's tiles from a full bag. The app uses two-blank probability, which also counts racks you could make with one or both blanks. <b>Probability rank</b> is the position among alphagrams of the same length, with 1 the most likely.</dd><dt>Playability</dt><dd>How often a word was actually played across a large set of simulated games. The <b>score</b> is the raw count; the <b>rank</b> (the Play. column) is its position among words of the same length, with 1 the most played. A score of 0 means it never came up.</dd><dt>Hooks</dt><dd>Letters that can go in front of a word (front hooks) or after it (back hooks) to make another word: CARES takes S in front for SCARES and S behind for CARESS.</dd><dt>Inner hooks</dt><dd>A red dot before or after a word means it's still a word without that first or last letter: ·LOBELIAS· means OBELIAS and LOBELIA are words.</dd><dt>Extensions</dt><dd>Longer words that contain the word at the start or end: AUDIO to AUDIOBOOK.</dd><dt>Stem</dt><dd>A set of letters that combines with many single tiles to make bingos, written like AEINST + ?.</dd><dt>Cousins</dt><dd>Words one letter different in the same position, like MUNITION, MONITION and PUNITION.</dd><dt>Phony</dt><dd>A play that isn't in the lexicon. In Valid or Phony? phonies are made-up words, real words with endings they don't take, or Collins-only words.</dd><dt>NWL23 and Collins</dt><dd>NWL2023 is the North American word list used here. Collins Scrabble Words (CSW24) is the international list; words only in Collins count as phonies.</dd><dt>Card states</dt><dd><b>New</b>: added but not studied yet. <b>Learning</b>: being seen a few times in short steps. <b>Review</b>: learned and scheduled days or months ahead. <b>Relearning</b>: forgotten in review and back in short steps.</dd><dt>Grades</dt><dd><b>Again</b> (0): didn't know it. <b>Hard</b> (1): got it with real effort or slowly. <b>Good</b> (2): got it. <b>Easy</b> (3): instant. The schedule is built from these, so honest grades matter more than high ones.</dd><dt>Recall</dt><dd>The estimated chance you'd get a card right if it came up now. It falls between reviews and jumps back up after each one.</dd><dt>Stability</dt><dd>How long a memory lasts: the number of days until your recall chance drops to 90%. It grows each time you remember a card, more when the gap was long, and shrinks when you forget it.</dd><dt>Difficulty</dt><dd>How hard a card is for you, from 1 (easy) to 10 (hard). It rises with Again and Hard and falls with Easy. Harder cards gain stability more slowly, so they come back more often.</dd><dt>Target retention</dt><dd>The recall chance you want a card to have when it comes due (Settings, default 90%). Higher means more reviews and fewer misses; lower means fewer reviews and more misses.</dd><dt>Due and interval</dt><dd>A card is due when its review date arrives. The interval is the gap until the next review, shown on each grade button.</dd><dt>Lapse</dt><dd>Forgetting a card that was in review (grading it Again).</dd><dt>Leech</dt><dd>A card with many lapses (6 by default, set in Settings). Leeches get a badge, their own deck, and a rescue screen asking for a memory hook.</dd><dt>Mature</dt><dd>A card with a stability of 21 days or more.</dd><dt>Suspended</dt><dd>Set aside: never shown, but keeps its history. Unsuspend it from the Suspended deck.</dd><dt>Buried</dt><dd>Held until tomorrow because you already answered the same letters in another quiz type today (sibling burying, in Settings).</dd><dt>Look-alike</dt><dd>A rack you've mixed up with this one, linked when a wrong answer belonged to the other rack. Look-alikes come back close together until you sort them out.</dd><dt>Interval fuzz</dt><dd>A small random spread on review intervals so cards added together don't keep coming due together.</dd></dl></details>
       <p class="note" style="margin:0">Lexicon: <span id="lexInfo">NWL23</span>.</p>
-      <p class="note" style="margin:0">Updating: on Windows, save a newer rack-and-recall.html next to RackAndRecall.exe and restart. On Android, use App updates above.</p>
+      <p class="note" style="margin:0">Updating: the newest version is always at <a href="https://github.com/jawnhealy/Rack-Recall/raw/main/web/index.html" target="_blank" rel="noopener">github.com/jawnhealy/Rack-Recall/raw/main/web/index.html</a>. On Windows, save it as rack-and-recall.html next to RackAndRecall.exe and restart. On Android, use Check for updates above.</p>
     </footer>
   </section>
 </div>
@@ -2701,15 +2702,31 @@ function renderUpdates(){
   const u=readUpd();
   $("updInfo").textContent=runningUpdate()
     ?`Running an installed update, build ${ownBuild()}. Install a newer file the same way; installing a new APK replaces it.`
-    :`Running the built-in version, build ${ownBuild()}.${u&&u.failed?` An installed update (build ${u.build}) didn't start, so the app went back to this one.`:""} To update without a new APK, download a newer rack-and-recall.html and install it here.`;
+    :`Running the built-in version, build ${ownBuild()}.${u&&u.failed?` An installed update (build ${u.build}) didn't start, so the app went back to this one.`:""} Check for updates downloads and installs the newest version; you can also install a downloaded file.`;
   $("updRevert").hidden=!runningUpdate()&&!(u&&u.failed);
 }
-async function installUpdate(file){
-  const C=window.Capacitor,FS=C&&C.Plugins&&C.Plugins.Filesystem;
-  if(!FS){note("updNote","This app can't save files. Install the latest APK first.");return}
-  note("updNote","Checking the file…");
+// the newest single-file build lives in the public repo; raw.githubusercontent.com allows the app to fetch it
+const UPDATE_URL="https://raw.githubusercontent.com/jawnhealy/Rack-Recall/main/web/index.html";
+async function checkForUpdate(){
+  const btn=$("updCheck");if(btn)btn.disabled=true;
+  note("updNote","Checking for a newer version…");
   try{
-    const text=await file.text(),m=text.slice(0,8192).match(/<meta name="rr-build" content="(\d+)"/);
+    const r=await fetch(UPDATE_URL+"?t="+Date.now(),{cache:"no-store"});
+    if(!r.ok)throw new Error(`Couldn't reach the update (error ${r.status}). Try again later.`);
+    const text=await r.text(),m=text.slice(0,8192).match(/<meta name="rr-build" content="(\d+)"/);
+    if(!m)throw new Error("The download wasn't a Rack & Recall page. Try again later.");
+    if(+m[1]<=ownBuild()){note("updNote",`You're up to date (build ${ownBuild()}).`);return}
+    note("updNote",`Build ${m[1]} is available. Installing…`);
+    await installUpdateText(text);
+  }catch(e){note("updNote",e.name==="TypeError"?"Couldn't connect. Check your internet connection and try again.":(e.message||String(e)))}
+  finally{if(btn)btn.disabled=false}
+}
+async function installUpdate(file){note("updNote","Checking the file…");try{await installUpdateText(await file.text())}catch(e){note("updNote",e.message||String(e))}}
+async function installUpdateText(text){
+  const C=window.Capacitor,FS=C&&C.Plugins&&C.Plugins.Filesystem;
+  if(!FS)throw new Error("This app can't save files. Install the latest APK first.");
+  {
+    const m=text.slice(0,8192).match(/<meta name="rr-build" content="(\d+)"/);
     if(!m||!text.includes('id="lexdata"'))throw new Error("That file isn't a Rack & Recall page.");
     const build=+m[1];
     if(build<=ownBuild())throw new Error(`That file is build ${build}, and the app is already on build ${ownBuild()}.`);
@@ -2721,7 +2738,7 @@ async function installUpdate(file){
     save();saveLog();
     localStorage.setItem(UPD_KEY,JSON.stringify({build,url:C.convertFileSrc(uri),tries:1}));
     flushSave();location.replace(C.convertFileSrc(uri));
-  }catch(e){note("updNote",e.message||String(e))}
+  }
 }
 function revertUpdate(){flushSave();try{localStorage.removeItem(UPD_KEY)}catch(e){}location.replace("https://localhost/")}
 function updateStarted(){ // the installed page loaded: reset its failure counter
@@ -3082,6 +3099,7 @@ document.addEventListener("click",e=>{
       saveBackup();break}
     case "importBtn":$("importFile").click();break;
     case "updBtn":$("updFile").click();break;
+    case "updCheck":checkForUpdate();break;
     case "updRevert":revertUpdate();break;
     case "zyzBtn":$("zyzFile").click();break;
     case "zyzGo":if(zyz)doZyzImport();break;
