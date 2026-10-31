@@ -1,7 +1,7 @@
 {
   "name": "rack-and-recall",
   "productName": "Rack & Recall",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "NWL2023 word study with an FSRS cardbox",
   "main": "electron/main.js",
   "private": true,
