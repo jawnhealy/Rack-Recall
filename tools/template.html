@@ -294,6 +294,14 @@ form.lookup input::placeholder{text-transform:none;font-family:var(--f-body)}
 .deckrow .ct b.due{color:var(--tw)}
 .deckrow .dact{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .deckrow .more{grid-column:1/-1;display:flex;flex-direction:column;gap:14px;border-top:1px solid var(--line);padding-top:12px}
+@media (max-width:600px){
+  .addctl{gap:6px}
+  .addctl input[type=number]{width:58px}
+  .addctl.onerow{flex-wrap:nowrap}
+  .addctl.onerow select{flex:1 1 auto;min-width:0;max-width:46%;text-overflow:ellipsis}
+  .addctl.onerow .btn{flex:none;padding-inline:12px}
+  .addctl.onerow>.note:last-child{display:none}
+}
 .nobr{white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
 .msec{display:flex;flex-direction:column;gap:8px}
 .msec+.msec{border-top:1px dashed var(--line);padding-top:12px}
@@ -354,7 +362,14 @@ html.reviewing,html.reviewing body{overflow:hidden}
 .cond .params input.plain{text-transform:none;font-family:var(--f-body)}
 .cond label.neg{font-size:13px;display:flex;gap:4px;align-items:center;color:var(--muted)}
 .cond .x{font:inherit;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:6px;width:30px;height:30px;cursor:pointer}
-@media (max-width:600px){.cond{grid-template-columns:1fr auto auto}.cond .params{grid-column:1/-1;grid-row:2}}
+@media (max-width:600px){
+  .cond{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr) auto auto;gap:6px 5px}
+  .cond>select{grid-column:1;grid-row:1;padding-inline:8px}.cond .params{grid-column:2;grid-row:1}.cond label.neg{grid-column:3;grid-row:1;font-size:11px;flex-direction:column;gap:0}.cond .x{grid-column:4;grid-row:1}
+  .cond .params input[type=text]{min-width:0;width:100%}
+  .cond .params input[type=number]{width:calc(50% - 14px);min-width:0}
+  .cond .chint{display:none}
+}
+.note.err{color:var(--bad)}
 .chint{font-size:12px;color:var(--muted)}
 .results{overflow-x:auto}
 .vwrap{overflow:auto;border:1px solid var(--line);border-radius:8px;overscroll-behavior:contain}
@@ -623,6 +638,8 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div><input type="number" id="newLimit" min="0" max="1000" step="1"> <span class="note">how many of the cards you've added are introduced each day, per deck and quiz type</span></div>
         <label for="revLimit">Reviews per day</label>
         <div><input type="number" id="revLimit" min="0" max="10000" step="1"> <span class="note">per deck and quiz type; 0 means no limit. When more are due, the cards you're most likely to have forgotten come first.</span></div>
+        <label for="introBatch">Face-up batch size</label>
+        <div><input type="number" id="introBatch" min="3" max="15" step="1"> <span class="note">for decks that show new cards face up first: how many you see before they come back as tests, shuffled</span></div>
         <label for="newOrder">Order of added cards</label>
         <div><select id="newOrder"><option value="prob">Order added (most probable first)</option><option value="play">Most playable first</option><option value="random">Random</option></select></div>
         <label for="buryOn">Bury siblings</label>
@@ -992,7 +1009,7 @@ const COND={
 };
 function parseLens(str){const set=new Set();for(const part of String(str||"").split(/[,\s]+/)){const m=part.match(/^(\d+)(?:-(\d+))?$/);if(!m)continue;const a=+m[1],b=m[2]?+m[2]:a;for(let L=Math.min(a,b);L<=Math.max(a,b);L++)if(L>=2&&L<=15)set.add(L)}return set}
 function letterCounts(s){const c={};let blanks=0;for(const ch of s){if(ch==="?")blanks++;else if(ch>="A"&&ch<="Z")c[ch]=(c[ch]||0)+1}return {c,blanks}}
-function compileCond(cd){
+function compileCond(cd,ctx){
   const t=cd.t,neg=!!cd.neg,A=(cd.a??"").toString().trim(),B=(cd.b??"").toString().trim();
   const lo=A===""?-Infinity:+A,hi=B===""?Infinity:+B,txt=A.toUpperCase().replace(/\s+/g,"");
   const inR=v=>v>=lo&&v<=hi;
@@ -1006,7 +1023,10 @@ function compileCond(cd){
     case "anagram":case "subanagram":{
       const {c,blanks}=letterCounts(txt),len=txt.replace(/[^A-Z?]/g,"").length;
       if(!len)return null;
-      f=w=>{if(t==="anagram"?w.length!==len:w.length>len)return false;const u={};let over=0;for(const l of w){u[l]=(u[l]||0)+1;if(u[l]>(c[l]||0))over++}return over<=blanks};break}
+      const fixed=len-blanks,loose=t==="anagram"&&blanks>0&&ctx&&ctx.lens&&ctx.lens.size;
+      // with a Length condition, spare blanks may go unused: RETAIN?? at length 7 finds RETAIN plus one letter
+      if(loose)f=w=>{if(w.length<fixed||w.length>len)return false;const u={};let over=0,used=0;for(const l of w){u[l]=(u[l]||0)+1;if(u[l]>(c[l]||0))over++;else used++}return over<=blanks&&used===fixed};
+      else f=w=>{if(t==="anagram"?w.length!==len:w.length>len)return false;const u={};let over=0;for(const l of w){u[l]=(u[l]||0)+1;if(u[l]>(c[l]||0))over++}return over<=blanks};break}
     case "pattern":{
       if(!txt)return null;
       const src="^"+txt.replace(/[^A-Z?*\[\]^]/g,"").replace(/\?/g,".").replace(/\*/g,".*")+"$";
@@ -1040,7 +1060,8 @@ function runSearch(conds,order){
   order=order||"prob";
   const sig=JSON.stringify(conds)+order+(conds.some(c=>c.t==="inbox")?"|"+store.qtype+Date.now():"");
   if(searchCache.has(sig))return searchCache.get(sig);
-  const fs=conds.map(compileCond).filter(Boolean);
+  const lc0=conds.find(c=>c.t==="lengths"&&!c.neg),ctx={lens:lc0?parseLens(lc0.a):null};
+  const fs=conds.map(c=>compileCond(c,ctx)).filter(Boolean);
   // cheap length filter first
   let lens=LENGTHS;const lc=conds.find(c=>c.t==="length"&&!c.neg),ls=conds.find(c=>c.t==="lengths"&&!c.neg);
   if(lc){const lo=lc.a===""?2:+lc.a,hi=lc.b===""?15:+lc.b;lens=lens.filter(L=>L>=lo&&L<=hi)}
@@ -1167,7 +1188,7 @@ const KEY="rack-recall-nwl23-v2",LOGKEY="rack-recall-log-v1";
 const SEED_DECKS=[{id:"s:sev8",name:"Bingos",conds:[{t:"lengths",a:"7,8"}],order:"prob"}];
 const DEFAULTS={cards:{},custom:"",deck:"s:sev8",migr:{bingo:1,ext:1},mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"lengths",a:"7"},{t:"prob",a:1,b:100}],
   notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},autoAdd:{},autoDay:{},hist:{},faceUp:{},conf:{},confPh:{},frontNote:{},fooled:{},doubted:{},typos:{},deckRet:{},speedBest:{},
-  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"learning",retCurve:"off",smoothLoad:"on",tapGrade:"on",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",alphaStyle:"abc",mixMistakes:"on",speedSecs:60,speedPool:1000,tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,affix:true,collins:true,typo:true,misspell:true},w:null,fit:null}};
+  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"learning",retCurve:"off",smoothLoad:"on",tapGrade:"on",introBatch:8,buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",alphaStyle:"abc",mixMistakes:"on",speedSecs:60,speedPool:1000,tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,affix:true,collins:true,typo:true,misspell:true},w:null,fit:null}};
 let store=structuredClone(DEFAULTS),LOG="";
 function mergeStore(s){
   store={...structuredClone(DEFAULTS),...s,settings:{...DEFAULTS.settings,...(s.settings||{})}};
@@ -1435,10 +1456,15 @@ function next(){
     // new cards shown face up first come back as a real test a few cards later
     const pend=session.intro||(session.intro=[]);session.shown=(session.shown||0);
     let k=null,test=false;
+    const batch=session.batch||(session.batch=[]),tests=session.tests||(session.tests=[]);
     const due=pend.find(x=>x.at<=session.shown);
     let contrast=null;
-    if(due){k=due.k;test=true;contrast=due.c||null;pend.splice(pend.indexOf(due),1)}
-    else{k=pickNext(store.deck,Date.now(),lastK,new Set(pend.map(x=>x.k)));
+    if(tests.length){k=tests.shift();test=true}
+    else if(due){k=due.k;test=true;contrast=due.c||null;pend.splice(pend.indexOf(due),1)}
+    else{k=pickNext(store.deck,Date.now(),lastK,new Set([...pend.map(x=>x.k),...batch]));
+      // a face-up batch ends when it's full or the next card isn't new: test the batch first, shuffled
+      const isNewFU=k&&store.faceUp[store.deck]&&store.cards[ckey(k)]?.[0]===0;
+      if(batch.length&&!isNewFU){flushBatch();if(tests.length){k=tests.shift();test=true}}
       // nothing else is due but the card just answered: take a waiting card instead
       if((!k||(k===lastK&&pend.length))&&pend.length){const x=pend.shift();k=x.k;test=true;contrast=x.c||null}}
     cur=k?{key:k,ans:answersFor(k)}:null;
@@ -1584,8 +1610,18 @@ function renderRescue(card,gr){
 }
 function introContinue(){
   if(!cur||!cur.intro)return;
-  session.intro=session.intro||[];session.intro.push({k:cur.key,at:(session.shown||0)+3});
+  const b=session.batch||(session.batch=[]);b.push(cur.key);
+  if(b.length>=(store.settings.introBatch||8))flushBatch();
   lastK=cur.key;next();
+}
+// the batch just shown face up comes back as tests in a new order, never starting with the card you just saw
+function flushBatch(){
+  const b=session.batch||[];if(!b.length)return;const t=b.slice();
+  for(let i=t.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[t[i],t[j]]=[t[j],t[i]]}
+  if(t.length>1&&t[0]===b[b.length-1])t.push(t.shift());
+  // avoid the same relative order as the introductions when the batch is big enough to shuffle
+  if(t.length>2&&t.every((x,i)=>x===b[i]))t.reverse();
+  session.tests=(session.tests||[]).concat(t);session.batch=[];
 }
 function undoGrade(){
   // take back the last grade: the card, the log line and today's counters return to how they were
@@ -1692,9 +1728,9 @@ function renderDecks(){
         const opt=(v,l)=>`<option value="${v}" ${op===v?"selected":""}>${l}</option>`;
         const dr=store.deckRet[id],cramList=cramKeys(id,cramCut),cn=cramList.length;
         const retRow=`<div class="addctl"><label for="deckRet">Target retention</label><span class="nobr"><input type="number" id="deckRet" min="70" max="99" step="1" value="${dr?Math.round(dr*100):""}" placeholder="${Math.round(store.settings.retention*100)}" aria-label="Target retention for this deck, percent"> <span class="note">%</span></span><span class="note">${dr?"for this deck":store.settings.retCurve!=="off"?"blank uses retention by probability":`blank uses your default (${Math.round(store.settings.retention*100)}%)`}</span>${ib("ret","deck retention")}</div>${info("ret","The recall chance you want this deck's cards to have when they come due. It sets the intervals while you study this deck: higher means more reviews and fewer misses. For example 92% for bingos you'll draw, 85% for rare 8s.")}`;
-        const cramRow=`<div class="addctl"><label for="cramCut">Cram cards below</label><span class="nobr"><input type="number" id="cramCut" min="50" max="99" step="1" value="${cramCut}" aria-label="Recall cutoff, percent"> <span class="note">% recall</span></span><button class="btn ghost" id="cramBtn" ${cn?"":"disabled"}>${cn?`Cram ${fmtN(cn)}`:"Cram"}</button>${ib("cram","cram mode")}${cn?"":`<span class="note">Nothing below ${cramCut}% right now.</span>`}</div>${info("cram","Quizzes every studied card whose recall has slipped below the cutoff, due or not, weakest first, like a last pass before a tournament. It doesn't change your schedule.")}`;
+        const cramRow=`<div class="addctl onerow"><label for="cramCut">Cram below</label><span class="nobr"><input type="number" id="cramCut" min="50" max="99" step="1" value="${cramCut}" aria-label="Recall cutoff, percent"> <span class="note">%</span></span><button class="btn ghost" id="cramBtn" ${cn?"":"disabled"}>${cn?`Cram ${fmtN(cn)}`:"Cram"}</button>${ib("cram","cram mode")}${cn?"":`<span class="note">Nothing below ${cramCut}% right now.</span>`}</div>${info("cram","Quizzes every studied card whose recall has slipped below the cutoff, due or not, weakest first, like a last pass before a tournament. It doesn't change your schedule.")}`;
         cramHTML=cramRow;sched=`<div class="msec"><div class="label">Schedule</div>${retRow}
-          <div class="addctl"><select id="schedOp" aria-label="Schedule action">${opt("spread","Spread the backlog over")}${opt("postN","Postpone due reviews")}${opt("ahead","Bring forward reviews due in")}${opt("nextN","Bring forward the next")}</select>
+          <div class="addctl onerow"><select id="schedOp" aria-label="Schedule action">${opt("spread","Spread the backlog over")}${opt("postN","Postpone due reviews")}${opt("ahead","Bring forward reviews due in")}${opt("nextN","Bring forward the next")}</select>
           ${ctl}${btn}${ib("sched","scheduling tools")}
           ${ok?"":`<span class="note">${empty}</span>`}</div>
           ${info("sched",help)}</div>`;
@@ -1707,7 +1743,7 @@ function renderDecks(){
         <div class="addctl"><label class="switch"><input type="checkbox" id="autoOn" ${keepN?"checked":""}> <span id="keepLbl">Keep ${fmtN(keepN||addNVal)} ready daily</span></label>${ib("keep","Keep ready daily")}
           <label class="switch"><input type="checkbox" id="faceUpOn" ${store.faceUp[id]?"checked":""}> <span>Show new cards face up first</span></label>${ib("face","face up first")}</div>
         ${info("keep",`Once a day, tops this deck up so ${fmtN(keepN||addNVal)} unstudied cards are waiting in your ${esc(cn)} cardbox, taking the next ones in deck order. It never piles up. Turning it on uses the number in Next; to change it, set Next and switch it off and on again. Your daily new-card limit in Settings still decides how many you see each day.`)}
-        ${info("face","Each new card is first shown with its answers and a Got it button. That first look isn't graded or logged. The card then comes back as a normal test a few cards later.")}</div>`}
+        ${info("face",`New cards are shown with their answers in batches of up to ${store.settings.introBatch||8} (change it in Settings). Those first looks aren't graded or logged. Then the batch comes back as normal tests, shuffled.`)}</div>`}
         ${sched}
         <div class="msec"><div class="label">Deck</div>${cramHTML}<div class="actions">${leech?"":`<button class="btn ghost sm" id="quizDeck" title="Every card in this deck, shuffled; nothing changes in your cardbox">Quiz without cardbox</button>`}${exportMenu}${id.startsWith("s:")?`<button class="btn ghost sm" id="editDeck">Edit deck</button>`:""}<button class="btn ghost sm danger" id="resetDeck">Remove from ${esc(cn)} cardbox</button></div></div>
         <span class="note" id="rowNote"></span></div>`;
@@ -2110,7 +2146,7 @@ function render(){
       html+=`<div class="meta">${cur.secs!=null?`${cur.secs.toFixed(1)} s · `:""}${nt||noteEditing?"":'<button class="linkbtn" id="noteEdit">Add note</button> · '}${drill?(store.cards[ckey(k)]?"In your cardbox":`<button class="linkbtn" id="drillAdd">Add to cardbox</button>`):st.state==="new"?"First time seen":`Stability ${st.s.toFixed(1)}d · difficulty ${st.d.toFixed(1)} · ${st.lapses} lapse${st.lapses===1?"":"s"} · target ${Math.round(retFor(ckey(k))*1000)/10}%`}${drill?"":` · <button class="linkbtn" id="suspendCur">Suspend</button> · <button class="linkbtn" id="removeCur">Remove from cardbox</button>`}</div>`;
       if(cur.intro){
         card.innerHTML=html.replace('<div class="corner"><span class="badge new">new</span>','<div class="corner"><span class="badge new">new · study it</span>');
-        gr.className="grade two";gr.innerHTML=`<button class="good full" id="introNext">Got it<small>you'll be tested on it in a few cards · Return, Space or 0–3</small></button>`;
+        gr.className="grade two";gr.innerHTML=`<button class="good full" id="introNext">Got it<small>${(session.batch||[]).length+1} of up to ${store.settings.introBatch||8}, then a shuffled test · Return, Space or 0–3</small></button>`;
         return;
       }
       if(drill){const pl=drill.opt.place;gr.className="grade two";gr.innerHTML=(touchUI()&&store.settings.tapGrade!=="off"?`<div class="taphint"><span>◀ tap card: ${pl?"Didn't know":"Missed"}</span><span>tap card: ${pl?"Knew it":"Got it"} ▶</span></div>`:"")+`<button class="again ${suggest&&suggest<GOOD?"suggest":""}" data-g="1">${pl?"Didn't know it":"Missed"}<small>${pl?"added as a new card":"comes back next round"} · 0</small></button><button class="good ${!suggest||suggest>=GOOD?"suggest":""}" data-g="3">${pl?"Knew it":"Got it"}<small>${pl?"first review in about a month":"Space"} · 2</small></button>`;card.innerHTML=html;return}
@@ -2168,7 +2204,7 @@ function renderSearch(){
   $("conds").innerHTML=store.draft.length?store.draft.map((c,i)=>{
     const d=COND[c.t];let p="";
     if(d.kind==="range")p=`<input type="number" data-i="${i}" data-f="a" value="${esc(c.a??"")}" placeholder="min" aria-label="${d.label} minimum"> to <input type="number" data-i="${i}" data-f="b" value="${esc(c.b??"")}" placeholder="max" aria-label="${d.label} maximum">`;
-    else if(d.kind==="letters")p=`<input type="text" data-i="${i}" data-f="a" value="${esc(c.a??"")}" aria-label="${d.label}" spellcheck="false" autocomplete="off">`;
+    else if(d.kind==="letters")p=`<input type="text" data-i="${i}" data-f="a" value="${esc(c.a??"")}" aria-label="${d.label}" placeholder="${esc(d.hint||"")}" spellcheck="false" autocomplete="off">`;
     else if(d.kind==="text")p=`<input type="text" class="plain" data-i="${i}" data-f="a" value="${esc(c.a??"")}" aria-label="${d.label}" autocomplete="off">`;
     if(d.hint)p+=`<span class="chint">${d.hint}</span>`;
     return `<div class="cond"><select data-i="${i}" data-f="t" aria-label="Condition type">${Object.entries(COND).filter(([k,dd])=>!dd.gone||k===c.t).map(([k,dd])=>`<option value="${k}" ${k===c.t?"selected":""}>${dd.label}</option>`).join("")}</select><div class="params">${p}</div><label class="neg"><input type="checkbox" data-i="${i}" data-f="neg" ${c.neg?"checked":""}> Not</label><button class="x" data-rm="${i}" aria-label="Remove condition">×</button></div>`;
@@ -2221,7 +2257,21 @@ function drawRows(force){
 }
 addEventListener("resize",()=>{if(vt&&$("vwrap")){$("vwrap").style.height=Math.min(Math.round(innerHeight*.7),Math.max(160,vt.words.length*vt.rowH+40))+"px";drawRows(true)}});
 let editingId=null;
+// an Anagram of that can't fit the chosen Length gets a clear message instead of an empty list
+function searchConflict(conds){
+  const lc=conds.find(c=>c.t==="lengths"&&!c.neg);if(!lc)return null;const lens=[...parseLens(lc.a)];if(!lens.length)return null;
+  for(const c of conds){if(c.neg||(c.t!=="anagram"&&c.t!=="subanagram"))continue;
+    const txt=String(c.a||"").toUpperCase().replace(/[^A-Z?]/g,""),{blanks}=letterCounts(txt),n=txt.length-blanks,tot=txt.length;if(!tot)continue;
+    const lo=c.t==="anagram"?(blanks?n:tot):1,hi=tot;
+    if(!lens.some(L=>L>=lo&&L<=hi)){const L=lens.length===1?lens[0]:lens.join(", ");
+      return c.t==="subanagram"?`${txt} has only ${tot} tiles, so no word can be ${L} letters long. Add tiles or change Length.`
+        :n>Math.max(...lens)?`${txt} has ${n} letters${blanks?` plus ${blanks} blank${blanks>1?"s":""}`:""}, which is more than Length ${L}. Remove letters or change Length.`
+        :`${txt} makes words of ${lo===hi?lo:`${lo}–${hi}`} letters, not ${L}. ${blanks?"":"Add a blank (?) or "}${blanks?"Add blanks or change":"change"} Length.`}}
+  return null;
+}
 function doSearch(){
+  const cf=searchConflict(store.draft);if(cf){lastResult=null;note("searchNote",cf);renderResults();$("searchNote").classList.add("err");return}
+  $("searchNote").classList.remove("err");
   try{const t=performance.now();resDesc=false;lastResult=runSearch(store.draft,$("saveOrder").value);note("searchNote",`Searched in ${Math.round(performance.now()-t)} ms.`)}
   catch(e){lastResult=null;note("searchNote",e.message)}
   const ed=editingId&&store.searches.find(s=>s.id===editingId);
@@ -3209,8 +3259,8 @@ $("importFile").addEventListener("change",e=>{
   }catch(err){note("settingsNote","That file isn't a Rack & Recall backup.")}};
   rd.readAsText(f);e.target.value="";
 });
-const NUMS={retention:[.7,.99,.9],newLimit:[0,1000,20],revLimit:[0,10000,0],slowSecs:[0,300,20],timeLimit:[0,600,0],buildMin:[2,15,4],leech:[2,50,6],extMin:[1,13,2],extMax:[1,13,7]};
-function syncInputs(){for(const id of ["retention","newLimit","revLimit","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn","showRank","retCurve","smoothLoad","tapGrade","theme","tileOrder","alphaStyle","tileStyle","tilePoints","slowSecs","timeLimit"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
+const NUMS={introBatch:[3,15,8],retention:[.7,.99,.9],newLimit:[0,1000,20],revLimit:[0,10000,0],slowSecs:[0,300,20],timeLimit:[0,600,0],buildMin:[2,15,4],leech:[2,50,6],extMin:[1,13,2],extMax:[1,13,7]};
+function syncInputs(){for(const id of ["retention","newLimit","revLimit","introBatch","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn","showRank","retCurve","smoothLoad","tapGrade","theme","tileOrder","alphaStyle","tileStyle","tilePoints","slowSecs","timeLimit"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
 for(const id in NUMS)$(id).addEventListener("change",e=>{const [lo,hi,def]=NUMS[id];let v=+e.target.value;if(isNaN(v)||e.target.value==="")v=def;v=Math.min(hi,Math.max(lo,v));if(id!=="retention")v=Math.round(v);store.settings[id]=v;e.target.value=v;save();
   if(id==="leech")clearCache("leech");
   if(id==="extMin"&&store.settings.extMax<v){store.settings.extMax=v;$("extMax").value=v}
