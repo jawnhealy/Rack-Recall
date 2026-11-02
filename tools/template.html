@@ -79,7 +79,7 @@ button:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-vis
 .boxbar{height:6px;border-radius:3px;background:var(--line);margin-top:5px;overflow:hidden;max-width:260px}
 .boxbar i{display:block;height:100%;background:var(--tl)}
 .addctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13.5px}
-input[type=number],input[type=text],select{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);min-width:0}
+input[type=number],input[type=text],input[type=password],input[type=email],select{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);min-width:0}
 .addctl input[type=number]{width:76px}
 .linkbtn{font:inherit;font-size:12px;border:0;background:none;color:var(--muted);text-decoration:underline;cursor:pointer;padding:2px 4px}
 
@@ -218,6 +218,8 @@ details.gloss summary{font-weight:600;cursor:pointer}
 @media (max-width:560px){.gloss dl{grid-template-columns:1fr;gap:2px}.gloss dd{margin-bottom:8px}}
 #deckEditor.inline{border:0;padding:0;background:none;box-shadow:none;margin:0}
 #deckEditor.inline #deTitle{font-size:15px}
+footer.panel a{color:var(--tl)}
+ul.keys{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:13.5px;color:var(--muted)}ul.keys b{color:var(--ink);font-weight:600}
 .ih.off{visibility:hidden;cursor:default}
 .ih:focus-visible{outline:2px solid var(--tw);outline-offset:1px;border-radius:3px}
 #ihTip{position:fixed;z-index:100;max-width:300px;padding:7px 10px;border-radius:8px;background:var(--ink);color:var(--surface);font:13px/1.4 var(--f-body);box-shadow:0 6px 20px rgba(0,0,0,.2);pointer-events:none}
@@ -405,6 +407,7 @@ textarea{width:100%;min-height:140px;font-family:var(--f-mono);font-size:13px;bo
 .progress i{display:block;height:100%;width:0;background:var(--tl)}
 .wl{overflow-x:auto;margin-top:8px}
 .st-sec{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.st-sec>p{margin:0;font-size:13.5px;color:var(--muted);line-height:1.5}.st-sec>p b{color:var(--ink)}
 .curvebox{margin-top:6px}.curvebox summary{cursor:pointer}
 table.curve{width:auto;margin-top:6px}table.curve td{padding:2px 10px 2px 0;border:0;font-size:13px;white-space:normal}
 /* nothing on the Settings page may be wider than the screen (a too-wide item makes phones zoom the whole page out) */
@@ -544,7 +547,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <div class="game-head">
         <div>
           <h2 class="sec">Valid or Phony?</h2>
-          <p class="note" style="margin:0">A word appears; decide whether it would survive a challenge. Half are real words from the deck you pick, half are phonies. It's practice only and doesn't change your schedule. Valid: <kbd>V</kbd>, <kbd>Y</kbd> or <kbd>→</kbd>. Phony: <kbd>P</kbd>, <kbd>N</kbd> or <kbd>←</kbd>. On a touch screen, swipe the card right for valid and left for phony. <kbd>Space</kbd> or <kbd>Return</kbd> for the next word.</p>
+          <p class="note" style="margin:0">Would the word survive a challenge? Half are real words from the deck you pick, half are phonies. Valid: <kbd>V</kbd> or <kbd>→</kbd>, or swipe right. Phony: <kbd>P</kbd> or <kbd>←</kbd>, or swipe left. Practice only; for a scheduled version, pick the Valid or Phony? quiz type on Decks.</p>
         </div>
         <div class="tiles demo" aria-hidden="true" style="--n:6"><div class="tile">P<sub>3</sub></div><div class="tile">H<sub>4</sub></div><div class="tile">O<sub>1</sub></div><div class="tile">N<sub>1</sub></div><div class="tile">E<sub>1</sub></div><div class="tile">Y<sub>4</sub></div></div>
       </div>
@@ -590,8 +593,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <select id="resQt"></select>
         <button class="btn ghost" id="addResults">Add to cardbox</button>
         <button class="btn ghost" id="quizResults" title="Quiz these as the selected quiz type without adding them to your cardbox">Quiz without adding</button>
-        <button class="btn ghost sm" data-resexport="txt">Export word list</button>
-        <button class="btn ghost sm" data-resexport="csv">Export spreadsheet</button>
+        <details class="dropdown"><summary class="btn ghost">Export ▾</summary><div class="menu"><button data-resexport="txt">Word list (.txt)</button><button data-resexport="csv">Spreadsheet (.csv)</button></div></details>
         <span class="note" id="resNote"></span>
       </div>
       <div class="results" id="results"></div>
@@ -631,7 +633,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <h2 class="sec">Schedule</h2>
       <div class="settings">
         <label for="retention">Target retention</label>
-        <div><input type="number" id="retention" min="0.7" max="0.99" step="0.01"> <span class="note">0.90 is the FSRS default. Higher means more reviews.</span></div>
+        <div><input type="number" id="retention" min="70" max="99" step="1"> <span class="note">% · 90 is the FSRS default; higher means more reviews</span></div>
         <label for="retCurve">Retention by probability</label>
         <div><select id="retCurve"><option value="off">Off</option><option value="on">On: higher targets for likelier words</option><option value="bingos">Bingos only (7s and 8s)</option></select> <span class="note">Off uses the target above for every card. Bingos only uses the curve for 7s and 8s and the target above for the rest.</span>
           <details class="curvebox"><summary class="note">What it uses</summary><table class="curve"><tbody>
@@ -649,7 +651,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <label for="newOrder">Order of added cards</label>
         <div><select id="newOrder"><option value="prob">Order added (most probable first)</option><option value="play">Most playable first</option><option value="random">Random</option></select></div>
         <label for="buryOn">Bury siblings</label>
-        <div><select id="buryOn"><option value="on">On: one quiz type per set of letters per day</option><option value="off">Off</option></select> <span class="note">stops an Anagrams card from priming its Build or Hooks sibling the same day</span></div>
+        <div><select id="buryOn"><option value="on">On</option><option value="off">Off</option></select> <span class="note">shows each set of letters in only one quiz type per day, so an Anagrams card doesn't give away its Build or Hooks card</span></div>
         <label for="leech">Leech after</label>
         <div><input type="number" id="leech" min="2" max="50" step="1"> <span class="note">lapses (forgetting a card you had learned)</span></div>
       </div>
@@ -667,13 +669,13 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <label for="alphaStyle">Alphagram order</label>
         <div><select id="alphaStyle"><option value="abc">Alphabetical (AEINRST)</option><option value="cv">Consonants, then vowels (NRSTAEI)</option></select> <span class="note">how alphagrams are written on tiles and in lists; Y counts as a consonant</span></div>
         <label for="tileOrder">Tile order</label>
-        <div><select id="tileOrder"><option value="alpha">Alphabetical (alphagram)</option><option value="shuffle">Shuffled, like a real rack</option></select> <span class="note">for Anagrams, Anagrams + hooks, Build and Blanks; press <kbd>5</kbd> or Shuffle to reshuffle</span></div>
+        <div><select id="tileOrder"><option value="alpha">Alphabetical (alphagram)</option><option value="shuffle">Shuffled, like a real rack</option></select> <span class="note">for Anagrams, Anagrams + hooks, Build and Blanks; press <kbd>5</kbd> or tap the tiles to reshuffle</span></div>
         <label for="showRank">Show probability rank on cards</label>
         <div><select id="showRank"><option value="on">On</option><option value="off">Off</option></select> <span class="note">the “#1 of 21,223” in the card's corner</span></div>
         <label for="showCount">Show answer count</label>
         <div><select id="showCount"><option value="learning">While learning (new and relearning cards)</option><option value="on">Always</option><option value="off">Never</option></select></div>
         <label for="tapGrade">Tap to grade</label>
-        <div><select id="tapGrade"><option value="on">On: on touch screens, tap the left of the card for Again, the right for Good</option><option value="off">Off</option></select></div>
+        <div><select id="tapGrade"><option value="on">On</option><option value="off">Off</option></select> <span class="note">touch screens: after the answer shows, tap the left half of the card for Again, the right half for Good</span></div>
         <label for="typing">Answer mode</label>
         <div><select id="typing"><option value="on">Type the answers, then check</option><option value="off">Flashcard mode: flip, then grade with 0–3</option></select></div>
       </div>
@@ -749,8 +751,16 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 
     <footer class="panel">
       <h2 class="sec">Keys and notes</h2>
-      <p class="note" style="margin:0">While studying: <kbd>Return</kbd> checks typed answers or flips the card, as do <kbd>Space</kbd> and <kbd>0</kbd>–<kbd>3</kbd> in flashcard mode. On the back, <kbd>0</kbd> Again · <kbd>1</kbd> Hard · <kbd>2</kbd> Good · <kbd>3</kbd> Easy (<kbd>Space</kbd> also means Good). In Games › Valid or Phony?, <kbd>V</kbd>/<kbd>Y</kbd>/<kbd>→</kbd> or a swipe right for valid, <kbd>P</kbd>/<kbd>N</kbd>/<kbd>←</kbd> or a swipe left for phony. <kbd>5</kbd> shuffles the tiles, <kbd>F6</kbd> opens Look up over the quiz (the clock pauses; <kbd>Esc</kbd> returns), <kbd>F</kbd> toggles fullscreen and <kbd>Esc</kbd> leaves the study screen. Anywhere else, <kbd>/</kbd> jumps to Look up and <kbd>Esc</kbd> closes it.</p>
-      <p class="note" style="margin:0">Quiz types: Anagrams, Anagrams + hooks, Hooks, Build, Blanks (letters plus one blank), Extensions (longer words containing the word) and Definitions each keep their own cardbox. Valid or Phony? is practice and doesn't change your schedule; it mixes words from the deck with made-up words, real words with endings they don't take, and Collins-only words. Probability ranks use two-blank probability. Hooks appear either side of each word. A red <span class="ih">·</span> before or after a word marks an inner hook: it's still a word without that first or last letter, so <span class="ih">·</span>LOBELIAS<span class="ih">·</span> means OBELIAS and LOBELIA are words. A red <sup class="nw">+</sup> marks words and hooks new in NWL23. In Look up, <kbd>?</kbd> is a blank.</p>
+      <ul class="keys">
+        <li><b>Show the answer:</b> <kbd>Return</kbd> (checks typed answers), or <kbd>Space</kbd> / <kbd>0</kbd>–<kbd>3</kbd> in flashcard mode. On a phone, tap the card.</li>
+        <li><b>Grade:</b> <kbd>0</kbd> Again · <kbd>1</kbd> Hard · <kbd>2</kbd> Good · <kbd>3</kbd> Easy; <kbd>Space</kbd> is Good. On a phone, tap the left or right half of the card.</li>
+        <li><b>Undo:</b> <kbd>Ctrl</kbd>+<kbd>Z</kbd>, the Undo button, or swipe the card left.</li>
+        <li><b>Shuffle tiles:</b> <kbd>5</kbd> or tap the tiles.</li>
+        <li><b>Look up:</b> <kbd>/</kbd> anywhere (or <kbd>F6</kbd>). During a quiz it opens on top and the clock pauses; <kbd>Esc</kbd> closes it.</li>
+        <li><b>Valid or Phony?:</b> <kbd>V</kbd> / <kbd>→</kbd> / swipe right for valid, <kbd>P</kbd> / <kbd>←</kbd> / swipe left for phony.</li>
+        <li><b>Leave the study screen:</b> <kbd>Esc</kbd>. <kbd>F</kbd> toggles fullscreen on a computer.</li>
+      </ul>
+      <p class="note" style="margin:0">Each quiz type keeps its own cardbox. On cards and lists, letters either side of a word are its hooks; a red <span class="ih">·</span> marks an inner hook (·LOBELIAS· means OBELIAS and LOBELIA are words) and a red <sup class="nw">+</sup> marks something new in NWL23. In Look up and Search, <kbd>?</kbd> is a blank. More in the glossary.</p>
       <details class="gloss"><summary>Glossary</summary><dl><dt>Alphagram</dt><dd>A word's letters in alphabetical order. RETAINS, NASTIER and STAINER share the alphagram AEINRST, so they're one Anagrams card.</dd><dt>Probability</dt><dd>How likely you are to draw a rack's tiles from a full bag. The app uses two-blank probability, which also counts racks you could make with one or both blanks. <b>Probability rank</b> is the position among alphagrams of the same length, with 1 the most likely.</dd><dt>Playability</dt><dd>How often a word was actually played across a large set of simulated games. The <b>score</b> is the raw count; the <b>rank</b> (the Play. column) is its position among words of the same length, with 1 the most played. A score of 0 means it never came up.</dd><dt>Hooks</dt><dd>Letters that can go in front of a word (front hooks) or after it (back hooks) to make another word: CARES takes S in front for SCARES and S behind for CARESS.</dd><dt>Inner hooks</dt><dd>A red dot before or after a word means it's still a word without that first or last letter: ·LOBELIAS· means OBELIAS and LOBELIA are words.</dd><dt>Extensions</dt><dd>Longer words that contain the word at the start or end: AUDIO to AUDIOBOOK.</dd><dt>Stem</dt><dd>A set of letters that combines with many single tiles to make bingos, written like AEINST + ?.</dd><dt>Cousins</dt><dd>Words one letter different in the same position, like MUNITION, MONITION and PUNITION.</dd><dt>Phony</dt><dd>A play that isn't in the lexicon. In Valid or Phony? phonies are made-up words, real words with endings they don't take, or Collins-only words.</dd><dt>NWL23 and Collins</dt><dd>NWL2023 is the North American word list used here. Collins Scrabble Words (CSW24) is the international list; words only in Collins count as phonies.</dd><dt>Card states</dt><dd><b>New</b>: added but not studied yet. <b>Learning</b>: being seen a few times in short steps. <b>Review</b>: learned and scheduled days or months ahead. <b>Relearning</b>: forgotten in review and back in short steps.</dd><dt>Grades</dt><dd><b>Again</b> (0): didn't know it. <b>Hard</b> (1): got it with real effort or slowly. <b>Good</b> (2): got it. <b>Easy</b> (3): instant. The schedule is built from these, so honest grades matter more than high ones.</dd><dt>Recall</dt><dd>The estimated chance you'd get a card right if it came up now. It falls between reviews and jumps back up after each one.</dd><dt>Stability</dt><dd>How long a memory lasts: the number of days until your recall chance drops to 90%. It grows each time you remember a card, more when the gap was long, and shrinks when you forget it.</dd><dt>Difficulty</dt><dd>How hard a card is for you, from 1 (easy) to 10 (hard). It rises with Again and Hard and falls with Easy. Harder cards gain stability more slowly, so they come back more often.</dd><dt>Target retention</dt><dd>The recall chance you want a card to have when it comes due (Settings, default 90%). Higher means more reviews and fewer misses; lower means fewer reviews and more misses.</dd><dt>Due and interval</dt><dd>A card is due when its review date arrives. The interval is the gap until the next review, shown on each grade button.</dd><dt>Lapse</dt><dd>Forgetting a card that was in review (grading it Again).</dd><dt>Leech</dt><dd>A card with many lapses (6 by default, set in Settings). Leeches get a badge, their own deck, and a rescue screen asking for a memory hook.</dd><dt>Mature</dt><dd>A card with a stability of 21 days or more.</dd><dt>Suspended</dt><dd>Set aside: never shown, but keeps its history. Unsuspend it from the Suspended deck.</dd><dt>Buried</dt><dd>Held until tomorrow because you already answered the same letters in another quiz type today (sibling burying, in Settings).</dd><dt>Look-alike</dt><dd>A rack you've mixed up with this one, linked when a wrong answer belonged to the other rack. Look-alikes come back close together until you sort them out.</dd><dt>Interval fuzz</dt><dd>A small random spread on review intervals so cards added together don't keep coming due together.</dd></dl></details>
       <p class="note" style="margin:0">Lexicon: <span id="lexInfo">NWL23</span>.</p>
       <p class="note" style="margin:0">Updating: the newest version is always at <a href="https://github.com/jawnhealy/Rack-Recall/raw/main/web/index.html" target="_blank" rel="noopener">github.com/jawnhealy/Rack-Recall/raw/main/web/index.html</a>. On Windows, save it as rack-and-recall.html next to RackAndRecall.exe and restart. On Android, use Check for updates above.</p>
@@ -1877,7 +1887,7 @@ function renderSpeed(card,gr){
 
 function renderStatsPage(){
   if(!deckExists(store.deck))store.deck=firstDeck();
-  $("statsDecks").innerHTML=deckIds().map(id=>chip(id,deckName(id))).join("");
+  const ids=deckIds();$("statsDecks").innerHTML=ids.length>1?ids.map(id=>chip(id,deckName(id))).join(""):"";$("statsDecks").hidden=ids.length<2;
   $("statsTitle").textContent=deckName(store.deck);$("statsQt").textContent=`${qt().name} cardbox · change the quiz type on Decks`;
   snapshotProgress();$("progChart").innerHTML=progressChart(store.deck);
   renderStats();renderStatsPanel();
@@ -2189,7 +2199,7 @@ function renderStats(){
     `<div class="stat"><b>${fmtN(s.due.length)}</b><span>due now${s.held?` · ${fmtN(s.held)} held by daily limit`:""}${s.buried?` · ${fmtN(s.buried)} buried`:""}</span></div>`+
     `<div class="stat"><b>${s.newAvail}</b><span>new today, of ${fmtN(s.nw)} added</span></div>`+
     `<div class="stat"><b>${fmtN(s.mature)}</b><span>mature (21d+) of ${fmtN(s.seen)} studied${s.leeches?` · ${s.leeches} leech${s.leeches===1?"":"es"}`:""}</span></div>`+
-    `<div class="stat"><b>${acc}</b><span>right, last study session (${session.n})</span></div>`;
+    (session.n?`<div class="stat"><b>${acc}</b><span>right in your last session (${session.n} ${session.n===1?"card":"cards"})</span></div>`:`<div class="stat"><b>–</b><span>no study session yet since opening the app</span></div>`);
   const start=new Date();start.setHours(0,0,0,0);
   const bins=new Array(31).fill(0),rows=[],pre=store.qtype+":";
   for(const k of s.keys){const r=store.cards[pre+k];if(!r)continue;rows.push([k,r]);if(r[0]===0)continue;const i=Math.max(0,Math.floor((r[3]-start)/DAY));if(i<31)bins[i]++}
@@ -2472,7 +2482,7 @@ function renderStatsPanel(){
   const ok=new Array(30).fill(0),bad=new Array(30).fill(0);
   for(const e of L){if(e.t<day0)continue;const i=Math.floor((e.t-day0)/DAY);if(i<0||i>29)continue;(e.g>1?ok:bad)[i]++}
   const mx=Math.max(1,...ok.map((v,i)=>v+bad[i]));
-  html+=`<div class="st-sec"><div class="label">Reviews per day, last 30 days</div><div class="rpd">${ok.map((v,i)=>`<div title="${new Date(day0+i*DAY).toLocaleDateString()}: ${v} right, ${bad[i]} again"><i style="height:${v/mx*90}px"></i><i class="f" style="height:${bad[i]/mx*90}px"></i></div>`).join("")}</div><div class="fc-axis"><span>30 days ago</span><span>today</span></div><div class="legend"><span style="--c:var(--tl)">Hard, Good or Easy</span><span style="--c:var(--bad)">Again</span></div></div>`;
+  if(!ok.some((v,i)=>v+bad[i]))html+=`<div class="st-sec"><div class="label">Reviews per day, last 30 days</div><p>No reviews in the last 30 days yet.</p></div>`;else html+=`<div class="st-sec"><div class="label">Reviews per day, last 30 days</div><div class="rpd">${ok.map((v,i)=>`<div title="${new Date(day0+i*DAY).toLocaleDateString()}: ${v} right, ${bad[i]} again"><i style="height:${v/mx*90}px"></i><i class="f" style="height:${bad[i]/mx*90}px"></i></div>`).join("")}</div><div class="fc-axis"><span>30 days ago</span><span>today</span></div><div class="legend"><span style="--c:var(--tl)">Hard, Good or Easy</span><span style="--c:var(--bad)">Again</span></div></div>`;
   // calibration
   const bins=[[0,.7,"under 70%"],[.7,.8,"70–80%"],[.8,.9,"80–90%"],[.9,.95,"90–95%"],[.95,1.01,"95% and up"]].map(b=>({lo:b[0],hi:b[1],label:b[2],n:0,pred:0,act:0}));
   let nCal=0;for(const e of L){if(e.r==null)continue;const b=bins.find(b=>e.r>=b.lo&&e.r<b.hi);if(!b)continue;b.n++;b.pred+=e.r;b.act+=e.g>1?1:0;nCal++}
@@ -3089,6 +3099,7 @@ document.addEventListener("click",e=>{
   if(ds.typo&&typed){const [w,m]=ds.typo.split("|");typed.wrong=typed.wrong.filter(x=>x!==w);typed.missed=typed.missed.filter(x=>x!==m);typed.hit.add(m);render();return}
   if(ds.info){infoOpen=infoOpen===ds.info?null:ds.info;render();return}
   if(ds.export){const d=t.closest("details");if(d)d.open=false;exportWords(deckWords(store.deck),deckName(store.deck),ds.export,"rowNote",true);return}
+  if(ds.resexport){const d=t.closest("details");if(d)d.open=false}
   if(ds.resexport&&lastResult){exportWords(lastResult.words,$("saveName").value||"search",ds.resexport,"resNote",false);return}
   if(ds.remove){delCard(ds.remove);save();syncSoon();lookup();if(cur&&ckey(cur.key)===ds.remove)next();else render();return}
   if(ds.rm){store.draft.splice(+ds.rm,1);save();renderSearch();return}
@@ -3285,9 +3296,9 @@ $("importFile").addEventListener("change",e=>{
   }catch(err){note("settingsNote","That file isn't a Rack & Recall backup.")}};
   rd.readAsText(f);e.target.value="";
 });
-const NUMS={introBatch:[3,15,8],retention:[.7,.99,.9],newLimit:[0,1000,20],revLimit:[0,10000,0],slowSecs:[0,300,20],timeLimit:[0,600,0],buildMin:[2,15,4],leech:[2,50,6],extMin:[1,13,2],extMax:[1,13,7]};
-function syncInputs(){for(const id of ["retention","newLimit","revLimit","introBatch","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn","showRank","retCurve","smoothLoad","tapGrade","theme","tileOrder","alphaStyle","tileStyle","tilePoints","slowSecs","timeLimit"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
-for(const id in NUMS)$(id).addEventListener("change",e=>{const [lo,hi,def]=NUMS[id];let v=+e.target.value;if(isNaN(v)||e.target.value==="")v=def;v=Math.min(hi,Math.max(lo,v));if(id!=="retention")v=Math.round(v);store.settings[id]=v;e.target.value=v;save();
+const NUMS={introBatch:[3,15,8],retention:[70,99,90],newLimit:[0,1000,20],revLimit:[0,10000,0],slowSecs:[0,300,20],timeLimit:[0,600,0],buildMin:[2,15,4],leech:[2,50,6],extMin:[1,13,2],extMax:[1,13,7]};
+function syncInputs(){setTimeout(()=>{$("retention").value=Math.round(store.settings.retention*100)});for(const id of ["retention","newLimit","revLimit","introBatch","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn","showRank","retCurve","smoothLoad","tapGrade","theme","tileOrder","alphaStyle","tileStyle","tilePoints","slowSecs","timeLimit"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
+for(const id in NUMS)$(id).addEventListener("change",e=>{const [lo,hi,def]=NUMS[id];let v=+e.target.value;if(isNaN(v)||e.target.value==="")v=def;v=Math.round(Math.min(hi,Math.max(lo,v)));store.settings[id]=id==="retention"?v/100:v;e.target.value=v;save();
   if(id==="leech")clearCache("leech");
   if(id==="extMin"&&store.settings.extMax<v){store.settings.extMax=v;$("extMax").value=v}
   if(id==="extMax"&&store.settings.extMin>v){store.settings.extMin=v;$("extMin").value=v}
@@ -3314,6 +3325,7 @@ for(const id of ["speedSecs","speedPool"])$(id).addEventListener("change",e=>{st
 document.addEventListener("keydown",e=>{
   if(!ready)return;
   if(e.key==="F6"){e.preventDefault();if(lkm)closeLookupModal();else if(reviewing)openLookupModal();else openLookup();return}
+  if(e.key==="/"&&reviewing&&!lkm&&e.target.tagName!=="TEXTAREA"&&!e.metaKey&&!e.ctrlKey&&!e.altKey){e.preventDefault();openLookupModal();return}
   if(lkm){if(e.key==="Escape"){e.preventDefault();closeLookupModal()}return} // the quiz ignores keys while Look up is open
   if(e.key==="Escape"&&reviewing&&e.target.tagName!=="TEXTAREA"){e.preventDefault();exitReview();return}
   if(reviewing&&cur&&cur.rescue){if(e.key==="Enter"&&(e.ctrlKey||e.metaKey)){e.preventDefault();rescueDone("save")}else if(e.key==="Enter"&&e.target.tagName!=="TEXTAREA"&&e.target.tagName!=="BUTTON"){e.preventDefault();rescueDone("save")}return}
