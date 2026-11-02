@@ -326,6 +326,22 @@ html.reviewing,html.reviewing body{overflow:hidden}
 .rv-phony{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;padding-block:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line)}
 .rv-body{flex:1 0 auto;display:flex;flex-direction:column;gap:14px;width:100%;max-width:900px;margin:0 auto;padding-block:16px max(16px,env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .rv-body .card{flex:1 0 auto;min-height:min(60vh,520px);transition:transform .15s}
+/* the card scrolls on its own so long answers never push the buttons off screen */
+#review{overflow:hidden}
+.rv-body{flex:1 1 auto;min-height:0}
+.rv-body .card{flex:1 1 auto;min-height:0;overflow-y:auto;justify-content:safe center}
+.rv-body .grade{flex:none}
+.card .ans .def{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden}
+.card.sheet .ans .def{display:block;-webkit-line-clamp:unset;overflow:visible}
+.grade .taphint{grid-column:1/-1;display:flex;justify-content:space-between;font:500 11px var(--f-mono);color:var(--muted);padding:0 4px}
+@media (max-width:560px){.card .ans .def{-webkit-line-clamp:1;line-clamp:1}.card .ans{padding:6px 4px}}
+@media (max-width:560px){.rv-body .card{padding-top:68px}}
+@media (pointer:coarse){
+  #rvFull{display:none!important}
+  .grade button{padding:14px 6px;font-size:16px}
+  .grade .full{min-height:88px;font-size:19px}
+  .grade .full small{font-size:12px}
+}
 @media (prefers-reduced-motion:reduce){.rv-body .card{transition:none}}
 .game-head{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
 .game-head>div:first-child{flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:6px}
@@ -633,6 +649,8 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div><select id="showRank"><option value="on">On</option><option value="off">Off</option></select> <span class="note">the “#1 of 21,223” in the card's corner</span></div>
         <label for="showCount">Show answer count</label>
         <div><select id="showCount"><option value="learning">While learning (new and relearning cards)</option><option value="on">Always</option><option value="off">Never</option></select></div>
+        <label for="tapGrade">Tap to grade</label>
+        <div><select id="tapGrade"><option value="on">On: on touch screens, tap the left of the card for Again, the right for Good</option><option value="off">Off</option></select></div>
         <label for="typing">Answer mode</label>
         <div><select id="typing"><option value="on">Type the answers, then check</option><option value="off">Flashcard mode: flip, then grade with 0–3</option></select></div>
       </div>
@@ -1149,7 +1167,7 @@ const KEY="rack-recall-nwl23-v2",LOGKEY="rack-recall-log-v1";
 const SEED_DECKS=[{id:"s:sev8",name:"Bingos",conds:[{t:"lengths",a:"7,8"}],order:"prob"}];
 const DEFAULTS={cards:{},custom:"",deck:"s:sev8",migr:{bingo:1,ext:1},mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"lengths",a:"7"},{t:"prob",a:1,b:100}],
   notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},autoAdd:{},autoDay:{},hist:{},faceUp:{},conf:{},confPh:{},frontNote:{},fooled:{},doubted:{},typos:{},deckRet:{},speedBest:{},
-  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"learning",retCurve:"off",smoothLoad:"on",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",alphaStyle:"abc",mixMistakes:"on",speedSecs:60,speedPool:1000,tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,affix:true,collins:true,typo:true,misspell:true},w:null,fit:null}};
+  settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"learning",retCurve:"off",smoothLoad:"on",tapGrade:"on",buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",alphaStyle:"abc",mixMistakes:"on",speedSecs:60,speedPool:1000,tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,affix:true,collins:true,typo:true,misspell:true},w:null,fit:null}};
 let store=structuredClone(DEFAULTS),LOG="";
 function mergeStore(s){
   store={...structuredClone(DEFAULTS),...s,settings:{...DEFAULTS.settings,...(s.settings||{})}};
@@ -1617,7 +1635,7 @@ function hooksHTML(w,side,found){
 function ansRows(words,o){
   o=o||{};
   return `<div class="answers">${words.map(w=>{const e=LEX.words.get(w),cls=o.found?(o.found.has(w)?"hit":"miss"):"";
-    return `<div class="ans"><span class="fh">${hooksHTML(w,"f",o.hookFound)}</span><span class="w">${wordHTML(w,cls,true)}</span><span class="bh">${hooksHTML(w,"b",o.hookFound)}</span><span class="def">${esc(e.def)}</span></div>`}).join("")}</div>`;
+    return `<div class="ans"><span class="fh">${hooksHTML(w,"f",o.hookFound)}</span><span class="w">${wordHTML(w,cls,true)}</span><span class="bh">${hooksHTML(w,"b",o.hookFound)}</span><span class="def" data-full="${esc(w)}">${esc(e.def)}</span></div>`}).join("")}</div>`;
 }
 function buildHTML(words,found){
   const by={};for(const w of words)(by[w.length]=by[w.length]||[]).push(w);
@@ -1663,7 +1681,7 @@ function renderDecks(){
       const info=(k,txt)=>infoOpen===k?`<p class="note infotext">${txt}</p>`:"";
       const ib=(k,label)=>`<button class="info" data-info="${k}" aria-expanded="${infoOpen===k}" aria-label="About ${label}" title="About ${label}">i</button>`;
       const exportMenu=`<details class="dropdown"><summary class="btn ghost sm">Export ▾</summary><div class="menu"><button data-export="txt">Word list (.txt)</button><button data-export="csv">Spreadsheet (.csv)</button></div></details>`;
-      let sched="";
+      let sched="",cramHTML="";
       if(!leech){
         const op=schedOp,num=(nid,v,min,max,lab)=>`<input type="number" id="${nid}" min="${min}" max="${max}" step="1" value="${v}" aria-label="${lab}">`;
         let n=0,ok=false,ctl="",btn="",empty="",help="";
@@ -1675,7 +1693,7 @@ function renderDecks(){
         const dr=store.deckRet[id],cramList=cramKeys(id,cramCut),cn=cramList.length;
         const retRow=`<div class="addctl"><label for="deckRet">Target retention</label><span class="nobr"><input type="number" id="deckRet" min="70" max="99" step="1" value="${dr?Math.round(dr*100):""}" placeholder="${Math.round(store.settings.retention*100)}" aria-label="Target retention for this deck, percent"> <span class="note">%</span></span><span class="note">${dr?"for this deck":store.settings.retCurve!=="off"?"blank uses retention by probability":`blank uses your default (${Math.round(store.settings.retention*100)}%)`}</span>${ib("ret","deck retention")}</div>${info("ret","The recall chance you want this deck's cards to have when they come due. It sets the intervals while you study this deck: higher means more reviews and fewer misses. For example 92% for bingos you'll draw, 85% for rare 8s.")}`;
         const cramRow=`<div class="addctl"><label for="cramCut">Cram cards below</label><span class="nobr"><input type="number" id="cramCut" min="50" max="99" step="1" value="${cramCut}" aria-label="Recall cutoff, percent"> <span class="note">% recall</span></span><button class="btn ghost" id="cramBtn" ${cn?"":"disabled"}>${cn?`Cram ${fmtN(cn)}`:"Cram"}</button>${ib("cram","cram mode")}${cn?"":`<span class="note">Nothing below ${cramCut}% right now.</span>`}</div>${info("cram","Quizzes every studied card whose recall has slipped below the cutoff, due or not, weakest first, like a last pass before a tournament. It doesn't change your schedule.")}`;
-        sched=`<div class="msec"><div class="label">Schedule</div>${retRow}${cramRow}
+        cramHTML=cramRow;sched=`<div class="msec"><div class="label">Schedule</div>${retRow}
           <div class="addctl"><select id="schedOp" aria-label="Schedule action">${opt("spread","Spread the backlog over")}${opt("postN","Postpone due reviews")}${opt("ahead","Bring forward reviews due in")}${opt("nextN","Bring forward the next")}</select>
           ${ctl}${btn}${ib("sched","scheduling tools")}
           ${ok?"":`<span class="note">${empty}</span>`}</div>
@@ -1691,7 +1709,7 @@ function renderDecks(){
         ${info("keep",`Once a day, tops this deck up so ${fmtN(keepN||addNVal)} unstudied cards are waiting in your ${esc(cn)} cardbox, taking the next ones in deck order. It never piles up. Turning it on uses the number in Next; to change it, set Next and switch it off and on again. Your daily new-card limit in Settings still decides how many you see each day.`)}
         ${info("face","Each new card is first shown with its answers and a Got it button. That first look isn't graded or logged. The card then comes back as a normal test a few cards later.")}</div>`}
         ${sched}
-        <div class="msec"><div class="label">Deck</div><div class="actions">${leech?"":`<button class="btn ghost sm" id="quizDeck" title="Every card in this deck, shuffled; nothing changes in your cardbox">Quiz without cardbox</button>`}${exportMenu}${id.startsWith("s:")?`<button class="btn ghost sm" id="editDeck">Edit deck</button>`:""}<button class="btn ghost sm danger" id="resetDeck">Remove from ${esc(cn)} cardbox</button></div></div>
+        <div class="msec"><div class="label">Deck</div>${cramHTML}<div class="actions">${leech?"":`<button class="btn ghost sm" id="quizDeck" title="Every card in this deck, shuffled; nothing changes in your cardbox">Quiz without cardbox</button>`}${exportMenu}${id.startsWith("s:")?`<button class="btn ghost sm" id="editDeck">Edit deck</button>`:""}<button class="btn ghost sm danger" id="resetDeck">Remove from ${esc(cn)} cardbox</button></div></div>
         <span class="note" id="rowNote"></span></div>`;
     }
     return row+`</div>`;
@@ -1962,13 +1980,30 @@ function toggleFullscreen(){
 }
 // swipes in Valid or Phony?: right = valid, left = phony
 let swipe=null;
-$("card").addEventListener("touchstart",e=>{if((store.mode==="phony"||(store.mode==="learn"&&store.qtype==="V"&&cur&&!flipped&&!cur.intro))&&e.touches.length===1)swipe={x:e.touches[0].clientX,y:e.touches[0].clientY,t:Date.now()};else swipe=null},{passive:true});
-$("card").addEventListener("touchmove",e=>{if(!swipe)return;const dx=e.touches[0].clientX-swipe.x;$("card").style.transform=`translateX(${Math.max(-60,Math.min(60,dx/3))}px)`},{passive:true});
+// in normal study a left swipe takes back the last grade; Valid or Phony? keeps its own swipes
+const swipeUndoMode=()=>store.mode==="learn"&&!(store.qtype==="V"&&cur&&!flipped&&!cur.intro);
+let lastSwipeAt=0;
+const touchUI=()=>matchMedia("(pointer:coarse)").matches;
+// tap grading on touch screens: left half of the card back = Again, right half = Good (the two most used grades)
+$("card").addEventListener("click",e=>{
+  if(!reviewing||store.mode!=="learn"||!cur||cur.rescue||!touchUI()||store.settings.tapGrade==="off")return;
+  if(Date.now()-lastSwipeAt<500)return;
+  const t=e.target;if(t.closest("button,a,input,textarea,select,label,form,#tiles,.ih,.notebox,.confbox .linkbtn"))return;
+  const d=t.closest(".ans .def");if(d&&(d.scrollHeight>d.clientHeight+1))return; // a cut-off definition shows in full instead
+  if(!flipped){if(store.qtype!=="V"&&store.settings.typing!=="on")reveal(false);return}
+  if(cur.intro){introContinue();return}
+  if(store.qtype==="V"&&cur.said===undefined)return;
+  const r=$("card").getBoundingClientRect(),left=e.clientX<r.left+r.width/2;
+  grade(drill?(left?1:3):(left?AGAIN:GOOD));
+});
+$("card").addEventListener("touchstart",e=>{if((store.mode==="phony"||store.mode==="learn")&&e.touches.length===1)swipe={x:e.touches[0].clientX,y:e.touches[0].clientY,t:Date.now(),undo:swipeUndoMode()};else swipe=null},{passive:true});
+$("card").addEventListener("touchmove",e=>{if(!swipe)return;const dx=e.touches[0].clientX-swipe.x,dy=e.touches[0].clientY-swipe.y;if(Math.abs(dy)>Math.abs(dx))return;if(swipe.undo&&(dx>0||!undoStack.length))return;$("card").style.transform=`translateX(${Math.max(-60,Math.min(60,dx/3))}px)`},{passive:true});
 $("card").addEventListener("touchend",e=>{
   $("card").style.transform="";if(!swipe)return;
-  const t=e.changedTouches[0],dx=t.clientX-swipe.x,dy=t.clientY-swipe.y;swipe=null;
+  const t=e.changedTouches[0],dx=t.clientX-swipe.x,dy=t.clientY-swipe.y,sw0=swipe;swipe=null;
   if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.5)return;
-  if(store.mode==="learn"){answerVP(dx<0);return}
+  lastSwipeAt=Date.now();
+  if(store.mode==="learn"){if(sw0.undo){if(dx<0)undoGrade();return}answerVP(dx<0);return}
   if(phonyAns===null)answerPhony(dx<0);else next();
 });
 document.addEventListener("fullscreenchange",()=>{if(reviewing)renderReviewBar()});
@@ -2034,7 +2069,7 @@ function render(){
       if(qt().typed&&store.settings.typing==="on"){
         html+=`<form class="typebox" id="ansForm" autocomplete="off"><input id="ansIn" aria-label="Your answers" placeholder="${store.qtype==="R"?"Type the word":"Type the words, space between"}" spellcheck="false" autocapitalize="characters"><button class="btn" type="submit">Check</button></form>`;
       }
-      gr.className="grade";gr.innerHTML=`<button class="full" id="g-show">Show answer<small>${qt().typed&&store.settings.typing==="on"?"Return":"Return, Space or 0–3"}</small></button>`;
+      gr.className="grade";gr.innerHTML=`<button class="full" id="g-show">Show answer<small>${touchUI()?(store.settings.typing==="on"&&qt().typed?"or check your typed answers":"or tap the card"):qt().typed&&store.settings.typing==="on"?"Return":"Return, Space or 0–3"}</small></button>`;
       if(store.qtype==="V"&&!cur.intro){html+=`<div class="hint">Would this play stand up to a challenge?</div>`;gr.className="grade two";gr.innerHTML=`<button class="again" id="vpPhony">Phony<small>P · N · ← · swipe left</small></button><button class="good" id="vpValid">Valid<small>V · Y · → · swipe right</small></button>`}
     }else{
       let suggest=null;const found=typed?typed.hit:null;
@@ -2078,10 +2113,11 @@ function render(){
         gr.className="grade two";gr.innerHTML=`<button class="good full" id="introNext">Got it<small>you'll be tested on it in a few cards · Return, Space or 0–3</small></button>`;
         return;
       }
-      if(drill){const pl=drill.opt.place;gr.className="grade two";gr.innerHTML=`<button class="again ${suggest&&suggest<GOOD?"suggest":""}" data-g="1">${pl?"Didn't know it":"Missed"}<small>${pl?"added as a new card":"comes back next round"} · 0</small></button><button class="good ${!suggest||suggest>=GOOD?"suggest":""}" data-g="3">${pl?"Knew it":"Got it"}<small>${pl?"first review in about a month":"Space"} · 2</small></button>`;card.innerHTML=html;return}
+      if(drill){const pl=drill.opt.place;gr.className="grade two";gr.innerHTML=(touchUI()&&store.settings.tapGrade!=="off"?`<div class="taphint"><span>◀ tap card: ${pl?"Didn't know":"Missed"}</span><span>tap card: ${pl?"Knew it":"Got it"} ▶</span></div>`:"")+`<button class="again ${suggest&&suggest<GOOD?"suggest":""}" data-g="1">${pl?"Didn't know it":"Missed"}<small>${pl?"added as a new card":"comes back next round"} · 0</small></button><button class="good ${!suggest||suggest>=GOOD?"suggest":""}" data-g="3">${pl?"Knew it":"Got it"}<small>${pl?"first review in about a month":"Space"} · 2</small></button>`;card.innerHTML=html;return}
+      const tapHint=touchUI()&&store.settings.tapGrade!=="off"?`<div class="taphint"><span>◀ tap card: Again</span><span>swipe ◀ to undo</span><span>tap card: Good ▶</span></div>`:"";
       const L=g=>fmtIvl(preview[g].due-now),cls={1:"again",2:"",3:"good",4:"easy"},nm={1:"Again",2:"Hard",3:"Good",4:"Easy"};
       gr.className="grade";
-      gr.innerHTML=[1,2,3,4].map(g=>`<button class="${cls[g]} ${suggest===g?"suggest":""}" data-g="${g}">${nm[g]}<small>${L(g)} · ${g-1}</small></button>`).join("");
+      gr.innerHTML=tapHint+[1,2,3,4].map(g=>`<button class="${cls[g]} ${suggest===g?"suggest":""}" data-g="${g}">${nm[g]}<small>${L(g)} · ${g-1}</small></button>`).join("");
     }
   }else{
     html=`<div class="corner"><span class="badge">practice</span></div><div class="corner r">${score(k)} pts</div>${tiles(k)}`;
@@ -2967,7 +3003,7 @@ function setDeck(id){store.deck=id;save();lastK=null;render()}
 document.addEventListener("submit",e=>{if(e.target.id==="ansForm"){e.preventDefault();reveal(true)}if(e.target.id==="spForm"){e.preventDefault();speedSubmit()}});
 document.addEventListener("click",e=>{
   if(!ready)return;
-  if(e.target.closest("#tiles")){if(store.mode==="learn"&&store.qtype==="V")return;if(store.mode==="learn")reveal(false);else if(phonyAns!==null)next();return}
+  if(e.target.closest("#tiles")){if(store.mode==="learn"&&store.qtype==="V")return;if(store.mode==="learn"){if(unit()==="alpha"&&!cur?.intro)reshuffle();else if(!flipped)reveal(false)}else if(phonyAns!==null)next();return}
   const t=e.target.closest("button");if(!t)return;
   if(e.detail>0)setTimeout(()=>{if(document.activeElement===t)t.blur()},0);
   const ds=t.dataset;
@@ -3135,17 +3171,19 @@ $("deckList").addEventListener("input",e=>{
 $("lookupOut").addEventListener("change",e=>{if(e.target.id==="lkQt"){lkQt=e.target.value;lookup()}});
 document.addEventListener("click",e=>{for(const d of document.querySelectorAll("details.dropdown[open]"))if(!d.contains(e.target))d.open=false});
 // inner-hook dots: hover, focus or tap shows the shorter word and a brief definition
-{let tip=null,owner=null;
-const SEL=".ih[data-tip],td.d[data-full]";
+{let tip=null,owner=null,shownAt=0,touchAt=0;
+document.addEventListener("touchstart",()=>{touchAt=Date.now()},{passive:true,capture:true});
+const SEL=".ih[data-tip],td.d[data-full],.card .ans .def[data-full]";
 const show=(el,tap)=>{const full=el.dataset.full,w=full||el.dataset.tip,e=LEX.words.get(w);if(!e)return;
-  if(full&&!tap&&el.scrollWidth<=el.clientWidth+1){hide();return} // definition fits: no need
+  if(full&&el.scrollWidth<=el.clientWidth+1&&el.scrollHeight<=el.clientHeight+1){hide();return} // shown in full already // definition fits: no need
   if(!tip){tip=document.createElement("div");tip.id="ihTip";tip.setAttribute("role","tooltip");document.body.appendChild(tip)}
-  tip.classList.toggle("wide",!!full);tip.innerHTML=`<b>${esc(w)}</b>${esc(full?e.def:shortDef(e.def))}`;tip.hidden=false;owner=el;
+  tip.classList.toggle("wide",!!full);tip.innerHTML=`<b>${esc(w)}</b>${esc(full?e.def:shortDef(e.def))}`;tip.hidden=false;owner=el;shownAt=Date.now();
   const r=el.getBoundingClientRect(),tw=tip.offsetWidth,th=tip.offsetHeight;let x=Math.min(window.innerWidth-tw-8,Math.max(8,r.left+r.width/2-tw/2)),y=r.top-th-8;if(y<8)y=r.bottom+8;tip.style.left=x+"px";tip.style.top=y+"px"};
 const hide=()=>{if(tip)tip.hidden=true;owner=null};
-document.addEventListener("mouseover",e=>{const el=e.target.closest&&e.target.closest(SEL);if(el){if(el!==owner)show(el)}else if(owner)hide()});
+document.addEventListener("mouseover",e=>{if(Date.now()-touchAt<1000)return; // touch screens fake a mouseover after a tap
+  const el=e.target.closest&&e.target.closest(SEL);if(el){if(el!==owner)show(el)}else if(owner)hide()});
 document.addEventListener("focusin",e=>{const el=e.target.closest&&e.target.closest(".ih[data-tip]");if(el)show(el);else hide()});
-document.addEventListener("click",e=>{const el=e.target.closest&&e.target.closest(SEL);if(el){if(el.classList.contains("ih"))e.stopPropagation();if(owner===el&&matchMedia("(hover:none)").matches)hide();else show(el,true)}else hide()},true);
+document.addEventListener("click",e=>{const el=e.target.closest&&e.target.closest(SEL);if(el){if(el.classList.contains("ih"))e.stopPropagation();if(owner===el&&matchMedia("(hover:none)").matches&&Date.now()-shownAt>500)hide();else show(el,true)}else hide()},true);
 addEventListener("scroll",hide,true);}
 // swipe the Look up panel sideways to close it
 {const P=$("lookupPanel");let sw=null;
@@ -3172,7 +3210,7 @@ $("importFile").addEventListener("change",e=>{
   rd.readAsText(f);e.target.value="";
 });
 const NUMS={retention:[.7,.99,.9],newLimit:[0,1000,20],revLimit:[0,10000,0],slowSecs:[0,300,20],timeLimit:[0,600,0],buildMin:[2,15,4],leech:[2,50,6],extMin:[1,13,2],extMax:[1,13,7]};
-function syncInputs(){for(const id of ["retention","newLimit","revLimit","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn","showRank","retCurve","smoothLoad","theme","tileOrder","alphaStyle","tileStyle","tilePoints","slowSecs","timeLimit"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
+function syncInputs(){for(const id of ["retention","newLimit","revLimit","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn","showRank","retCurve","smoothLoad","tapGrade","theme","tileOrder","alphaStyle","tileStyle","tilePoints","slowSecs","timeLimit"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
 for(const id in NUMS)$(id).addEventListener("change",e=>{const [lo,hi,def]=NUMS[id];let v=+e.target.value;if(isNaN(v)||e.target.value==="")v=def;v=Math.min(hi,Math.max(lo,v));if(id!=="retention")v=Math.round(v);store.settings[id]=v;e.target.value=v;save();
   if(id==="leech")clearCache("leech");
   if(id==="extMin"&&store.settings.extMax<v){store.settings.extMax=v;$("extMax").value=v}
@@ -3180,7 +3218,7 @@ for(const id in NUMS)$(id).addEventListener("change",e=>{const [lo,hi,def]=NUMS[
   if(cur&&store.mode==="learn"){cur.ans=answersFor(cur.key);if(flipped)preview=schedule(cardState(cur.key),Date.now(),ckey(cur.key))}
   if(!cur&&store.mode==="learn")next();else render()});
 $("retCurve").addEventListener("change",e=>{store.settings.retCurve=e.target.value;save();if(flipped&&cur){preview=schedule(cardState(cur.key),Date.now(),ckey(cur.key))}render()});
-for(const id of ["newOrder","typing","showCount","buryOn","showRank","tileOrder","alphaStyle","smoothLoad"])$(id).addEventListener("change",e=>{store.settings[id]=e.target.value;save();if(!flipped)next();else render()});
+for(const id of ["newOrder","typing","showCount","buryOn","showRank","tileOrder","alphaStyle","smoothLoad","tapGrade"])$(id).addEventListener("change",e=>{store.settings[id]=e.target.value;save();if(!flipped)next();else render()});
 $("extDir").addEventListener("change",e=>{store.settings.extDir=e.target.value;save();if(cur&&store.mode==="learn")cur.ans=answersFor(cur.key);render()});
 function applyTheme(){
   const t=store.settings.theme,el=document.documentElement;
