@@ -65,6 +65,7 @@ h2.sec{font-family:var(--f-display);font-size:18px;margin:0}
 .chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .card:focus{outline:none}
 button:focus-visible,textarea:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--tw);outline-offset:2px}
+.qtsel{font:inherit;font-size:15px;font-weight:600;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);min-width:220px;max-width:100%}
 .seg{display:flex;flex-wrap:wrap;border:1px solid var(--line);border-radius:8px;overflow:hidden;max-width:100%;background:var(--surface)}
 .seg button{font:inherit;font-size:13px;font-weight:600;border:0;background:transparent;color:var(--muted);padding:7px 12px;cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--dl);color:var(--ink)}
@@ -220,7 +221,8 @@ details.gloss summary{font-weight:600;cursor:pointer}
 .ih.off{visibility:hidden;cursor:default}
 .ih:focus-visible{outline:2px solid var(--tw);outline-offset:1px;border-radius:3px}
 #ihTip{position:fixed;z-index:100;max-width:300px;padding:7px 10px;border-radius:8px;background:var(--ink);color:var(--surface);font:13px/1.4 var(--f-body);box-shadow:0 6px 20px rgba(0,0,0,.2);pointer-events:none}
-#ihTip.wide{max-width:420px}
+#ihTip{max-width:min(300px,calc(100vw - 16px))!important;box-sizing:border-box}
+#ihTip.wide{max-width:min(420px,calc(100vw - 16px))!important}
 #ihTip b{font-family:var(--f-mono);letter-spacing:.04em;margin-right:6px}
 .cousins .chg{color:var(--tw);font-weight:700}
 .bwords .bl{color:var(--tw);font-weight:600}
@@ -346,6 +348,7 @@ html.reviewing,html.reviewing body{overflow:hidden}
 @media (max-width:560px){.rv-body .card{padding-top:68px}}
 @media (pointer:coarse){
   #rvFull{display:none!important}
+  .shuf{display:none!important}
   .grade button{padding:14px 6px;font-size:16px}
   .grade .full{min-height:88px;font-size:19px}
   .grade .full small{font-size:12px}
@@ -403,7 +406,9 @@ textarea{width:100%;min-height:140px;font-family:var(--f-mono);font-size:13px;bo
 .wl{overflow-x:auto;margin-top:8px}
 .st-sec{display:flex;flex-direction:column;gap:8px;margin-top:14px}
 .curvebox{margin-top:6px}.curvebox summary{cursor:pointer}
-table.curve{width:auto;margin-top:6px}table.curve td{padding:2px 10px 2px 0;border:0;font-size:13px}table.curve td:last-child{font-weight:600}
+table.curve{width:auto;margin-top:6px}table.curve td{padding:2px 10px 2px 0;border:0;font-size:13px;white-space:normal}
+/* nothing on the Settings page may be wider than the screen (a too-wide item makes phones zoom the whole page out) */
+.settings>*{min-width:0}.settings select,.settings input[type=text]{max-width:100%}table.curve td:last-child{font-weight:600}
 .lenacc{display:grid;grid-template-columns:max-content minmax(80px,1fr) max-content max-content;gap:6px 10px;align-items:center;font-size:13px;margin-top:8px}
 .lenacc .bar{height:10px;background:var(--line);border-radius:5px;overflow:hidden}
 .lenacc .bar i{display:block;height:100%;background:var(--good)}
@@ -473,7 +478,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
     <div class="toolbar">
       <div class="group" style="gap:6px">
         <div class="label">Quiz type</div>
-        <div class="seg" role="group" aria-label="Quiz type" id="qtypes"></div>
+        <select id="qtypes" aria-label="Quiz type" class="qtsel"></select>
       </div>
     </div>
 
@@ -487,12 +492,12 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div><input type="text" id="deName" placeholder="Sevens & Eights" style="width:min(320px,100%)"></div>
         <span>Word lengths</span>
         <div class="lens" id="deLens"></div>
-        <label for="deProbA">Probability rank</label>
-        <div class="actions"><input type="number" id="deProbA" placeholder="min" aria-label="Probability rank minimum"> to <input type="number" id="deProbB" placeholder="max" aria-label="Probability rank maximum"> <span class="note">blank for all; two-blank probability, ranked within each length</span></div>
+        <label for="deProbA" title="Two-blank probability rank within each length; 1 is the most likely. Leave blank for all.">Probability rank</label>
+        <div class="actions"><input type="number" id="deProbA" placeholder="min" aria-label="Probability rank minimum"> to <input type="number" id="deProbB" placeholder="max" aria-label="Probability rank maximum"></div>
         <label for="dePlayA">Playability rank</label>
         <div class="actions"><input type="number" id="dePlayA" placeholder="min" aria-label="Playability rank minimum"> to <input type="number" id="dePlayB" placeholder="max" aria-label="Playability rank maximum"></div>
         <label for="deOrder">Card order</label>
-        <div><select id="deOrder"><option value="prob">Probability, two blanks (lengths interleaved by rank)</option><option value="play">Playability</option><option value="len">Length, then probability</option><option value="alpha">Alphabetical</option><option value="alphagram">Alphagram (A–Z)</option></select></div>
+        <div><select id="deOrder"><option value="prob">Probability</option><option value="play">Playability</option><option value="len">Length, then probability</option><option value="alpha">Alphabetical</option><option value="alphagram">Alphagram (A–Z)</option></select></div>
       </div>
       <div class="note" id="deExtra"></div>
       <div class="actions">
@@ -636,7 +641,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div><select id="smoothLoad"><option value="on">On: put each card on the quietest nearby day</option><option value="off">Off: random spread only</option></select> <span class="note">Each interval can move a little (about ±5–15%); with this on it lands on the day with the fewest reviews already due, so upcoming days even out.</span></div>
         <label for="newLimit">New cards per day</label>
         <div><input type="number" id="newLimit" min="0" max="1000" step="1"> <span class="note">how many of the cards you've added are introduced each day, per deck and quiz type</span></div>
-        <label for="revLimit">Reviews per day</label>
+        <label for="revLimit">Daily review limit</label>
         <div><input type="number" id="revLimit" min="0" max="10000" step="1"> <span class="note">per deck and quiz type; 0 means no limit. When more are due, the cards you're most likely to have forgotten come first.</span></div>
         <label for="introBatch">Face-up batch size</label>
         <div><input type="number" id="introBatch" min="3" max="15" step="1"> <span class="note">for decks that show new cards face up first: how many you see before they come back as tests, shuffled</span></div>
@@ -979,32 +984,32 @@ function leechKeys(){
 
 /* =================== search =================== */
 const COND={
-  lengths:{label:"Length",kind:"letters",hint:"e.g. 7,8 or 5 or 2-4"},
+  lengths:{label:"Length",kind:"letters",hint:"word lengths, e.g. 7,8 or 5 or 2-4"},
   length:{label:"Length range",kind:"range",def:[7,7],gone:1},
   prob:{label:"Probability rank",kind:"range",def:[1,100],hint:"two-blank probability rank of the alphagram within its length; 1 is most likely"},
   play:{label:"Playability rank",kind:"range",def:[1,100],hint:"rank among words of its length by how often it is played"},
   pscore:{label:"Playability score",kind:"range",def:[1,""],gone:1,hint:"0 means never recorded in play"},
-  anagram:{label:"Anagram of",kind:"letters",hint:"? is a blank"},
+  anagram:{label:"Anagram of",kind:"letters",hint:"words using exactly these tiles; ? is a blank, and with a Length condition spare blanks can go unused"},
   subanagram:{label:"Subanagram of",kind:"letters",hint:"uses only these tiles; ? is a blank"},
   pattern:{label:"Pattern",kind:"letters",hint:"? one letter, * any letters, [AEIOU] one of"},
   includes:{label:"Includes letters",kind:"letters",hint:"all of these, with repeats"},
-  excludes:{label:"Uses none of",kind:"letters",gone:1},
-  prefix:{label:"Starts with",kind:"letters"},
-  suffix:{label:"Ends with",kind:"letters"},
-  substring:{label:"Contains string",kind:"letters"},
-  anagrams:{label:"Number of anagrams",kind:"range",def:[2,""]},
-  vowels:{label:"Number of vowels",kind:"range",def:["",""]},
-  points:{label:"Point value",kind:"range",def:["",""]},
-  fhooks:{label:"Has front hooks",kind:"bool"},
-  bhooks:{label:"Has back hooks",kind:"bool"},
-  takesS:{label:"Takes an S hook",kind:"bool"},
+  excludes:{label:"Uses none of",kind:"letters",gone:1,hint:"words without any of these letters"},
+  prefix:{label:"Starts with",kind:"letters",hint:"words beginning with these letters"},
+  suffix:{label:"Ends with",kind:"letters",hint:"words ending with these letters"},
+  substring:{label:"Contains string",kind:"letters",hint:"these letters together, in this order, anywhere in the word"},
+  anagrams:{label:"Number of anagrams",kind:"range",def:[2,""],hint:"how many valid words the same letters make"},
+  vowels:{label:"Number of vowels",kind:"range",def:["",""],hint:"A, E, I, O and U"},
+  points:{label:"Point value",kind:"range",def:["",""],hint:"face value of the tiles, before premium squares"},
+  fhooks:{label:"Has front hooks",kind:"bool",hint:"a letter can go in front to make another word"},
+  bhooks:{label:"Has back hooks",kind:"bool",hint:"a letter can go on the end to make another word"},
+  takesS:{label:"Takes an S hook",kind:"bool",hint:"adding S at the end makes a word"},
   fext:{label:"Has front extensions",kind:"bool",hint:"a longer word ends with it"},
   bext:{label:"Has back extensions",kind:"bool",hint:"a longer word starts with it"},
   blankn:{label:"Words with one blank added",kind:"range",def:[10,""],hint:"how many words its letters plus a blank make"},
   extn:{label:"Number of extensions",kind:"range",def:[3,""],hint:"front or back, any length"},
-  isnew:{label:"New in NWL23",kind:"bool"},
-  defn:{label:"Definition contains",kind:"text"},
-  inbox:{label:"In my cardbox (current quiz type)",kind:"bool"},
+  isnew:{label:"New in NWL23",kind:"bool",hint:"added in the 2023 edition"},
+  defn:{label:"Definition contains",kind:"text",hint:"words whose definition includes this text"},
+  inbox:{label:"In my cardbox (current quiz type)",kind:"bool",hint:"already added for the quiz type chosen on Decks"},
   list:{label:"In this list",kind:"text",hint:"words or alphagrams, separated by spaces"},
 };
 function parseLens(str){const set=new Set();for(const part of String(str||"").split(/[,\s]+/)){const m=part.match(/^(\d+)(?:-(\d+))?$/);if(!m)continue;const a=+m[1],b=m[2]?+m[2]:a;for(let L=Math.min(a,b);L<=Math.max(a,b);L++)if(L>=2&&L<=15)set.add(L)}return set}
@@ -1696,7 +1701,7 @@ function setPage(pg){if(pg!==PAGE&&!$("lookupPanel").hidden)closeLookup();PAGE=p
 function renderChrome(){
   for(const pg of PAGES){$("n-"+pg).setAttribute("aria-pressed",PAGE===pg);$(pg+"View").hidden=PAGE!==pg}
   $("review").hidden=!reviewing;document.documentElement.classList.toggle("reviewing",reviewing);
-  $("qtypes").innerHTML=Object.entries(QT).map(([k,q])=>`<button data-qt="${k}" aria-pressed="${k===store.qtype}">${q.name}</button>`).join("");
+  $("qtypes").innerHTML=Object.entries(QT).map(([k,q])=>`<option value="${k}" ${k===store.qtype?"selected":""}>${q.name}</option>`).join("");
 }
 function deckIds(){const ids=store.searches.map(s=>s.id);if(store.custom&&deckKeys("custom").length)ids.push("custom");if(leechKeys().length)ids.push("leech");if(suspKeys().length)ids.push("susp");return ids}
 function renderDecks(){
@@ -2200,14 +2205,14 @@ function renderSeen(rows,now){
 let lastResult=null;
 function renderSearch(){
   $("presets").innerHTML=PRESETS.map((p,i)=>`<button class="chip" data-preset="${i}" title="${esc(describeConds(p.conds))}">${esc(p.name)}</button>`).join("");
-  $("addCond").innerHTML=`<option value="">Add a condition…</option>`+Object.entries(COND).filter(([,d])=>!d.gone).map(([k,d])=>`<option value="${k}">${d.label}</option>`).join("");
+  $("addCond").innerHTML=`<option value="">Add a condition…</option>`+Object.entries(COND).filter(([,d])=>!d.gone).map(([k,d])=>`<option value="${k}" ${d.hint?`title="${esc(d.hint)}"`:""}>${d.label}</option>`).join("");
   $("conds").innerHTML=store.draft.length?store.draft.map((c,i)=>{
     const d=COND[c.t];let p="";
     if(d.kind==="range")p=`<input type="number" data-i="${i}" data-f="a" value="${esc(c.a??"")}" placeholder="min" aria-label="${d.label} minimum"> to <input type="number" data-i="${i}" data-f="b" value="${esc(c.b??"")}" placeholder="max" aria-label="${d.label} maximum">`;
     else if(d.kind==="letters")p=`<input type="text" data-i="${i}" data-f="a" value="${esc(c.a??"")}" aria-label="${d.label}" placeholder="${esc(d.hint||"")}" spellcheck="false" autocomplete="off">`;
     else if(d.kind==="text")p=`<input type="text" class="plain" data-i="${i}" data-f="a" value="${esc(c.a??"")}" aria-label="${d.label}" autocomplete="off">`;
-    if(d.hint)p+=`<span class="chint">${d.hint}</span>`;
-    return `<div class="cond"><select data-i="${i}" data-f="t" aria-label="Condition type">${Object.entries(COND).filter(([k,dd])=>!dd.gone||k===c.t).map(([k,dd])=>`<option value="${k}" ${k===c.t?"selected":""}>${dd.label}</option>`).join("")}</select><div class="params">${p}</div><label class="neg"><input type="checkbox" data-i="${i}" data-f="neg" ${c.neg?"checked":""}> Not</label><button class="x" data-rm="${i}" aria-label="Remove condition">×</button></div>`;
+
+    return `<div class="cond"><select data-i="${i}" data-f="t" aria-label="Condition type" ${d.hint?`data-hint="${esc(d.label)}|${esc(d.hint)}"`:""}>${Object.entries(COND).filter(([k,dd])=>!dd.gone||k===c.t).map(([k,dd])=>`<option value="${k}" ${k===c.t?"selected":""} ${dd.hint?`title="${esc(dd.hint)}"`:""}>${dd.label}</option>`).join("")}</select><div class="params">${p}</div><label class="neg"><input type="checkbox" data-i="${i}" data-f="neg" ${c.neg?"checked":""}> Not</label><button class="x" data-rm="${i}" aria-label="Remove condition">×</button></div>`;
   }).join(""):`<p class="note">No conditions: a search now would return all ${fmtN(LEX.words.size)} words. Add a condition to narrow it.</p>`;
   $("resQt").innerHTML=Object.entries(QT).map(([k,q])=>`<option value="${k}" ${k===store.qtype?"selected":""}>${q.name}</option>`).join("");
   $("savedSearches").innerHTML=store.searches.length?store.searches.map(s=>`<div class="saved"><span class="nm">${esc(s.name)}</span><button class="btn sm" data-study="${s.id}">Study</button><button class="btn ghost sm" data-load="${s.id}">Edit</button><button class="btn ghost sm" data-del="${s.id}">${delPending===s.id?"Tap again to delete":"Delete"}</button><span class="ds">${esc(describeConds(s.conds))}</span></div>`).join(""):`<p class="note">Decks you save appear here and in Study under Your decks.</p>`;
@@ -3194,9 +3199,11 @@ document.addEventListener("click",e=>{
 });
 // search editor inputs
 $("conds").addEventListener("input",e=>{const el=e.target,i=+el.dataset.i,f=el.dataset.f;if(isNaN(i)||!f||f==="t")return;store.draft[i][f]=el.type==="checkbox"?el.checked:el.value;save()});
-$("conds").addEventListener("change",e=>{const el=e.target;if(el.dataset.f==="t"){const i=+el.dataset.i,d=COND[el.value];store.draft[i]={t:el.value,a:d.def?d.def[0]:"",b:d.def?d.def[1]:""};save();renderSearch()}});
+$("conds").addEventListener("change",e=>{const el=e.target;if(el.dataset.f==="t"){const i=+el.dataset.i,d=COND[el.value];store.draft[i]={t:el.value,a:d.def?d.def[0]:"",b:d.def?d.def[1]:""};save();renderSearch();hintAfterPick(i)}});
+function hintAfterPick(i){if(!touchUI())return;const sel=document.querySelector(`#conds select[data-i="${i}"]`);if(sel&&sel.dataset.hint)setTimeout(()=>{window.showHintFor(sel);setTimeout(()=>{const t=$("ihTip");if(t)t.hidden=true},5000)},60)}
 $("conds").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.tagName==="INPUT"){e.preventDefault();doSearch()}});
-$("addCond").addEventListener("change",e=>{const t=e.target.value;if(!t)return;const d=COND[t];store.draft.push({t,a:d.def?d.def[0]:"",b:d.def?d.def[1]:""});save();renderSearch()});
+$("qtypes").addEventListener("change",e=>{store.qtype=e.target.value;save();lastK=null;clearCache("leech");next()});
+$("addCond").addEventListener("change",e=>{const t=e.target.value;if(!t)return;const d=COND[t];store.draft.push({t,a:d.def?d.def[0]:"",b:d.def?d.def[1]:""});save();renderSearch();hintAfterPick(store.draft.length-1)});
 $("seenBox").addEventListener("toggle",()=>{if($("seenBox").open&&ready)renderSeen()});
 $("deckList").addEventListener("change",e=>{
   const id=e.target.id;
@@ -3223,8 +3230,10 @@ document.addEventListener("click",e=>{for(const d of document.querySelectorAll("
 // inner-hook dots: hover, focus or tap shows the shorter word and a brief definition
 {let tip=null,owner=null,shownAt=0,touchAt=0;
 document.addEventListener("touchstart",()=>{touchAt=Date.now()},{passive:true,capture:true});
-const SEL=".ih[data-tip],td.d[data-full],.card .ans .def[data-full]";
-const show=(el,tap)=>{const full=el.dataset.full,w=full||el.dataset.tip,e=LEX.words.get(w);if(!e)return;
+const SEL=".ih[data-tip],td.d[data-full],.card .ans .def[data-full],select[data-hint]";
+const show=(el,tap)=>{
+  if(el.dataset.hint){if(!tip){tip=document.createElement("div");tip.id="ihTip";tip.setAttribute("role","tooltip");document.body.appendChild(tip)}const [l,h]=el.dataset.hint.split("|");tip.classList.add("wide");tip.innerHTML=`<b style="font-family:var(--f-body)">${esc(l)}</b> ${esc(h)}`;tip.hidden=false;owner=el;shownAt=Date.now();const r=el.getBoundingClientRect(),tw=tip.offsetWidth,th=tip.offsetHeight;let x=Math.min(innerWidth-tw-8,Math.max(8,r.left)),y=r.top-th-8;if(y<8)y=r.bottom+8;tip.style.left=x+"px";tip.style.top=y+"px";return}
+  const full=el.dataset.full,w=full||el.dataset.tip,e=LEX.words.get(w);if(!e)return;
   if(full&&el.scrollWidth<=el.clientWidth+1&&el.scrollHeight<=el.clientHeight+1){hide();return} // shown in full already // definition fits: no need
   if(!tip){tip=document.createElement("div");tip.id="ihTip";tip.setAttribute("role","tooltip");document.body.appendChild(tip)}
   tip.classList.toggle("wide",!!full);tip.innerHTML=`<b>${esc(w)}</b>${esc(full?e.def:shortDef(e.def))}`;tip.hidden=false;owner=el;shownAt=Date.now();
@@ -3233,7 +3242,8 @@ const hide=()=>{if(tip)tip.hidden=true;owner=null};
 document.addEventListener("mouseover",e=>{if(Date.now()-touchAt<1000)return; // touch screens fake a mouseover after a tap
   const el=e.target.closest&&e.target.closest(SEL);if(el){if(el!==owner)show(el)}else if(owner)hide()});
 document.addEventListener("focusin",e=>{const el=e.target.closest&&e.target.closest(".ih[data-tip]");if(el)show(el);else hide()});
-document.addEventListener("click",e=>{const el=e.target.closest&&e.target.closest(SEL);if(el){if(el.classList.contains("ih"))e.stopPropagation();if(owner===el&&matchMedia("(hover:none)").matches&&Date.now()-shownAt>500)hide();else show(el,true)}else hide()},true);
+window.showHintFor=el=>show(el,true);
+document.addEventListener("click",e=>{const el=e.target.closest&&e.target.closest(SEL);if(el&&el.tagName==="SELECT"){return}if(el){if(el.classList.contains("ih"))e.stopPropagation();if(owner===el&&matchMedia("(hover:none)").matches&&Date.now()-shownAt>500)hide();else show(el,true)}else hide()},true);
 addEventListener("scroll",hide,true);}
 // swipe the Look up panel sideways to close it
 {const P=$("lookupPanel");let sw=null;
