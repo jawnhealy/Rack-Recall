@@ -2969,10 +2969,13 @@ async function syncNow(){
   syncing=true;renderSyncUI();
   const S=store.sync;S.sent=S.sent||{};S.pushMark=S.pushMark||0;S.seq=S.seq||0;
   try{
-    // ---- pull first: rows past the last seq this device saw (small overlap; applying a row twice is harmless)
-    let from=Math.max(0,S.seq-50),changed=false,logSet=null,maxSeq=S.seq;
+    // ---- pull first: only rows past the last seq this device saw. Every few hours it also looks a little further back,
+    // in case two devices saved at the same instant and a row landed out of order. This device's own review-log rows are never fetched back.
+    const repair=!S.repairAt||Date.now()-S.repairAt>6*36e5;
+    let from=repair?Math.max(0,S.seq-100):S.seq,changed=false,logSet=null,maxSeq=S.seq;
+    const notMine="&or="+encodeURIComponent(`(kind.neq.l,key.not.like.${syncCfg.dev}|*)`);
     for(;;){
-      const batch=await sb(`/rest/v1/rack_items?select=kind,key,val,mt,deleted,seq&seq=gt.${from}&order=seq.asc&limit=1000`);
+      const batch=await sb(`/rest/v1/rack_items?select=kind,key,val,mt,deleted,seq&seq=gt.${from}${notMine}&order=seq.asc&limit=1000`);
       for(const row of batch){
         maxSeq=Math.max(maxSeq,row.seq);
         if(row.kind==="c"){
@@ -3010,7 +3013,7 @@ async function syncNow(){
       }
       if(batch.length<1000)break;from=batch[batch.length-1].seq;
     }
-    S.seq=maxSeq;if(logSet)saveLog();
+    S.seq=maxSeq;if(repair)S.repairAt=Date.now();if(logSet)saveLog();
     // ---- push: everything changed since the last successful push
     const start=Date.now(),rows=[];
     for(const ck in store.cards){const r=store.cards[ck];if(recMt(r)>S.pushMark)rows.push({kind:"c",key:ck,val:JSON.stringify(r.slice(0,7)),mt:recMt(r),deleted:false})}
@@ -3024,11 +3027,20 @@ async function syncNow(){
       const byDay={};for(const ln of LOG.split("\n")){if(!ln)continue;const d=dk(parseInt(ln.split(" ")[0],36)*1000);byDay[d]=(byDay[d]||"")+ln+"\n"}
       for(const d in byDay)pend[d]=byDay[d];
     }
-    for(const d in pend)rows.push({kind:"l",key:syncCfg.dev+"|"+d,val:pend[d],mt:start,deleted:false});
-    for(let i=0;i<rows.length;i+=500)
-      await sb("/rest/v1/rack_items?on_conflict=user_id,kind,key",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(rows.slice(i,i+500))});
+    // review log: only the lines added since the last push, as a new small row (other devices merge lines, so duplicates are harmless)
+    const sentLog={};for(const d in pend)sentLog[d]=pend[d];
+    for(const d in pend)if(pend[d])rows.push({kind:"l",key:`${syncCfg.dev}|${d}|${S.logN=(S.logN||0)+1}`,val:pend[d],mt:start,deleted:false});
+    const own=new Set();
+    for(let i=0;i<rows.length;i+=500){
+      const back=await sb("/rest/v1/rack_items?on_conflict=user_id,kind,key&select=seq",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=representation"},body:JSON.stringify(rows.slice(i,i+500))});
+      if(Array.isArray(back))for(const r of back)own.add(r.seq);
+    }
+    // skip past our own just-pushed rows, unless another device saved something in between (then the next pull fetches it)
+    if(own.size){const after=await sb(`/rest/v1/rack_items?select=seq&seq=gt.${S.seq}${notMine}&order=seq.asc&limit=5000`);
+      if(Array.isArray(after)&&after.every(r=>own.has(r.seq)))S.seq=Math.max(S.seq,...own)}
     S.pushMark=start-1;Object.assign(S.sent,metaSent);for(const name in metaSent)S["mt_"+name]=start;
-    const today=todayKey();for(const d in pend)if(d!==today)delete pend[d];
+    // keep any lines logged while the push was on its way; they go next time
+    for(const d in sentLog){const gone=new Set(sentLog[d].split("\n"));const left=(pend[d]||"").split("\n").filter(l=>l&&!gone.has(l));if(left.length)pend[d]=left.join("\n")+"\n";else delete pend[d]}
     for(const ck in store.tomb)if(store.tomb[ck]<start-60*DAY)delete store.tomb[ck];
     S.inited=true;
     try{localStorage.setItem(KEY,JSON.stringify(store))}catch(e){}
