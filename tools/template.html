@@ -368,6 +368,8 @@ html.reviewing,html.reviewing body{overflow:hidden}
 .cond .params{display:flex;gap:6px;align-items:center;flex-wrap:wrap;min-width:0}
 .cond .params input[type=number]{width:84px}
 .cond .params input[type=text]{flex:1;min-width:120px;font-family:var(--f-mono);text-transform:uppercase}
+.cond .params input.hookin{flex:0 0 64px;min-width:0;width:64px}
+.cond .params:has(.hookin){flex-wrap:nowrap}
 .cond .params input.plain{text-transform:none;font-family:var(--f-body)}
 .cond label.neg{font-size:13px;display:flex;gap:4px;align-items:center;color:var(--muted)}
 /* "Add a condition…" looks like a placeholder, so it stands apart from the conditions in use */
@@ -379,6 +381,7 @@ html.reviewing,html.reviewing body{overflow:hidden}
   .cond>select{grid-column:1;grid-row:1;padding-inline:8px}.cond .params{grid-column:2;grid-row:1}.cond label.neg{grid-column:3;grid-row:1;font-size:11px;flex-direction:column;gap:0}.cond .x{grid-column:4;grid-row:1}
   .cond .params input[type=text]{min-width:0;width:100%}
   .cond .params input[type=number]{width:calc(50% - 14px);min-width:0}
+  .cond .params input.hookin{flex:0 0 46px;width:46px}.cond .params select{flex:1 1 auto;min-width:0}
   .cond .chint{display:none}
 }
 .note.err{color:var(--bad)}
@@ -1025,7 +1028,8 @@ const COND={
   points:{label:"Point value",kind:"range",def:["",""],hint:"face value of the tiles, before premium squares"},
   fhooks:{label:"Has front hooks",kind:"bool",hint:"a letter can go in front to make another word"},
   bhooks:{label:"Has back hooks",kind:"bool",hint:"a letter can go on the end to make another word"},
-  takesS:{label:"Takes an S hook",kind:"bool",hint:"adding S at the end makes a word"},
+  takesHook:{label:"Takes hook",kind:"hook",def:["S","back"],hint:"the word takes this hook letter; type more than one letter to match any of them, and choose front, back or either"},
+  takesS:{label:"Takes an S hook",kind:"bool",gone:1,hint:"adding S at the end makes a word"},
   fext:{label:"Has front extensions",kind:"bool",hint:"a longer word ends with it"},
   bext:{label:"Has back extensions",kind:"bool",hint:"a longer word starts with it"},
   blankn:{label:"Words with one blank added",kind:"range",def:[10,""],hint:"how many words its letters plus a blank make"},
@@ -1088,6 +1092,8 @@ function compileCond(cd,ctx){
     case "fhooks":f=(w,e)=>!!e.fh;break;
     case "bhooks":f=(w,e)=>!!e.bh;break;
     case "takesS":f=(w,e)=>(e.bh||"").includes("s");break;
+    case "takesHook":{const ls=new Set(txt.replace(/[^A-Z]/g,""));if(!ls.size)return null;const side=B||"back";
+      const has=h=>hookList(h).some(x=>ls.has(x.l));f=(w,e)=>side==="front"?has(e.fh):side==="back"?has(e.bh):has(e.fh)||has(e.bh);break}
     case "blankn":f=(w,e)=>inR(blankCount(e.a));break;
     case "fext":{const X=extIndex();f=w=>X.front.has(w);break}
     case "bext":{const X=extIndex();f=w=>X.back.has(w);break}
@@ -1122,6 +1128,7 @@ function describeConds(conds){
   return conds.map(c=>{const d=COND[c.t];if(!d)return "";let s=d.label;
     if(d.kind==="range"){const a=c.a===""||c.a==null?"":c.a,b=c.b===""||c.b==null?"":c.b;s+=a!==""&&b!==""?(a==b?` ${a}`:` ${a}–${b}`):a!==""?` ≥ ${a}`:b!==""?` ≤ ${b}`:" any"}
     else if(c.t==="lengths")s+=` ${[...parseLens(c.a)].join(", ")}`;
+    else if(d.kind==="hook")s+=` ${String(c.a||"").toUpperCase()} ${({front:"in front",either:"either side"})[c.b]||"at the back"}`;
     else if(c.t==="list")s+=` (${fmtN(String(c.a||"").split(/[^A-Za-z]+/).filter(Boolean).length)} entries)`;
     else if(d.kind!=="bool")s+=` ${String(c.a||"").toUpperCase()}`;
     return (c.neg?"not ":"")+s}).filter(Boolean).join(" · ");
@@ -1245,6 +1252,8 @@ function mergeStore(s){
   if(!store.migr.count){store.migr={...store.migr,count:1};if(store.settings.showCount==="on")store.settings.showCount="learning"} // new default: count only while learning
   // "Length range" became part of "Length" (7, 7-8, 2-4 ...)
   const fixLen=cs=>Array.isArray(cs)?cs.map(c=>{if(c.t!=="length")return c;const a=c.a===""||c.a==null?2:+c.a,b=c.b===""||c.b==null?15:+c.b;return {t:"lengths",a:a===b?String(a):`${a}-${b}`,neg:c.neg}}):cs;
+  const fixS=cs=>Array.isArray(cs)?cs.map(c=>c.t==="takesS"?{t:"takesHook",a:"S",b:"back",neg:c.neg}:c):cs;
+  store.draft=fixS(store.draft);store.searches=(store.searches||[]).map(x=>({...x,conds:fixS(x.conds)}));store.lists=(store.lists||[]).map(x=>({...x,conds:fixS(x.conds)}));
   store.draft=fixLen(store.draft);store.searches=(store.searches||[]).map(x=>({...x,conds:fixLen(x.conds)}));
   W=Array.isArray(store.settings.w)&&store.settings.w.length===17?store.settings.w.slice():W_DEFAULT.slice();
 }
@@ -2259,6 +2268,7 @@ function renderSearch(){
     if(d.kind==="range")p=`<input type="number" data-i="${i}" data-f="a" value="${esc(c.a??"")}" placeholder="min" aria-label="${d.label} minimum"> to <input type="number" data-i="${i}" data-f="b" value="${esc(c.b??"")}" placeholder="max" aria-label="${d.label} maximum">`;
     else if(d.kind==="letters")p=`<input type="text" data-i="${i}" data-f="a" value="${esc(c.a??"")}" aria-label="${d.label}" placeholder="${esc(d.hint||"")}" spellcheck="false" autocomplete="off">`;
     else if(d.kind==="text")p=`<input type="text" class="plain" data-i="${i}" data-f="a" value="${esc(c.a??"")}" aria-label="${d.label}" autocomplete="off">`;
+    else if(d.kind==="hook")p=`<input type="text" class="hookin" data-i="${i}" data-f="a" value="${esc(c.a??"")}" aria-label="Hook letters" placeholder="S" maxlength="26" spellcheck="false" autocomplete="off"><select data-i="${i}" data-f="b" aria-label="Which side">${[["back","back"],["front","front"],["either","either side"]].map(([v,l])=>`<option value="${v}" ${(c.b||"back")===v?"selected":""}>${l}</option>`).join("")}</select>`;
 
     return `<div class="cond"><select data-i="${i}" data-f="t" aria-label="Condition type" ${d.hint?`data-hint="${esc(d.label)}|${esc(d.hint)}"`:""}>${Object.entries(COND).filter(([k,dd])=>!dd.gone||k===c.t).map(([k,dd])=>`<option value="${k}" ${k===c.t?"selected":""} ${dd.hint?`title="${esc(dd.hint)}"`:""}>${dd.label}</option>`).join("")}</select><div class="params">${p}</div><label class="neg"><input type="checkbox" data-i="${i}" data-f="neg" ${c.neg?"checked":""}> Not</label><button class="x" data-rm="${i}" aria-label="Remove condition">×</button></div>`;
   }).join(""):`<p class="note">No conditions: a search now would return all ${fmtN(LEX.words.size)} words. Add a condition to narrow it.</p>`;
