@@ -60,6 +60,10 @@ h2.sec{font-family:var(--f-display);font-size:18px;margin:0}
 .decks{display:flex;flex-wrap:wrap;gap:6px}
 .chip{font:inherit;font-size:14px;font-weight:500;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:6px 11px;border-radius:999px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
 .chip.len{font-family:var(--f-display);font-weight:700;min-width:44px;justify-content:center}
+.chip.mine{padding:0;overflow:hidden;gap:0;border-color:var(--tl)}
+.chip.mine .chipbtn{all:unset;cursor:pointer;padding:6px 6px 6px 11px}
+.chip.mine .chipx{all:unset;cursor:pointer;padding:6px 10px 6px 6px;color:var(--muted);font-size:13px}
+.chip.mine .chipx.arm{color:var(--bad);font-weight:600}
 .chip .n{font-family:var(--f-mono);font-size:10.5px;padding:0 6px;border-radius:999px;background:var(--dl);color:var(--ink);font-weight:500}
 .chip .n:empty{display:none}
 .chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
@@ -413,6 +417,10 @@ table.curve{width:auto;margin-top:6px}table.curve td{padding:2px 10px 2px 0;bord
 /* nothing on the Settings page may be wider than the screen (a too-wide item makes phones zoom the whole page out) */
 .settings>*{min-width:0}
 @media (max-width:480px){.settings .note:not(summary){display:block;margin-top:4px}.settings select{width:100%}}.settings select,.settings input[type=text]{max-width:100%}table.curve td:last-child{font-weight:600}
+.revgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 12px;margin-bottom:4px}
+.revgrid>span{display:contents}
+.revgrid label{display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--muted)}
+.revgrid input{width:100%}
 .lenacc{display:grid;grid-template-columns:max-content minmax(80px,1fr) max-content max-content;gap:6px 10px;align-items:center;font-size:13px;margin-top:8px}
 .lenacc .bar{height:10px;background:var(--line);border-radius:5px;overflow:hidden}
 .lenacc .bar i{display:block;height:100%;background:var(--good)}
@@ -565,8 +573,8 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
   <!-- ============ SEARCH ============ -->
   <section class="view" id="searchView" hidden>
     <div class="panel">
-      <h2 class="sec">Built-in lists</h2>
-      <p class="note" style="margin:0">Load one to see its words, then save it as a deck or add it to your cardbox. You can also change its conditions first.</p>
+      <h2 class="sec">Saved lists</h2>
+      <p class="note" style="margin:0">Tap a list to run its search. Save any search here with <b>Save list</b> under the results.</p>
       <div class="decks" id="presets"></div>
     </div>
     <div class="panel">
@@ -585,6 +593,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div class="actions">
           <input type="text" id="saveName" placeholder="Name this deck" aria-label="Deck name" style="width:200px">
           <select id="saveOrder" aria-label="Card order"><option value="prob">Probability order</option><option value="play">Playability order</option><option value="len">Length, then probability</option><option value="alpha">Alphabetical</option><option value="alphagram">Alphagram (A–Z)</option></select>
+          <button class="btn ghost" id="saveList" title="Keep this search under Saved lists to run again later">Save list</button>
           <button class="btn" id="saveSearch">Save as deck</button>
         </div>
       </div>
@@ -645,7 +654,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <label for="newLimit">New cards per day</label>
         <div><input type="number" id="newLimit" min="0" max="1000" step="1"> <span class="note">how many of the cards you've added are introduced each day, per deck and quiz type</span></div>
         <label for="revLimit">Daily review limit</label>
-        <div><input type="number" id="revLimit" min="0" max="10000" step="1"> <span class="note">per deck and quiz type; 0 means no limit. When more are due, the cards you're most likely to have forgotten come first.</span></div>
+        <div><div class="revgrid"><label>All cardboxes<input type="number" id="revLimit" min="0" max="10000" step="1"></label><span id="revLimitQ"></span></div><span class="note">per cardbox, counting reviews from all of its decks. 0 means no limit; leave a cardbox blank to use the first number. When more are due, the ones you're most likely to have forgotten come first.</span></div>
         <label for="introBatch">Face-up batch size</label>
         <div><input type="number" id="introBatch" min="3" max="15" step="1"> <span class="note">for decks that show new cards face up first: how many you see before they come back as tests, shuffled</span></div>
         <label for="newOrder">Order of added cards</label>
@@ -1203,7 +1212,7 @@ const recallNow=(r,now)=>r&&r[0]>0?retrievability(Math.max(0,(now-r[4])/DAY),Mat
 const KEY="rack-recall-nwl23-v2",LOGKEY="rack-recall-log-v1";
 const SEED_DECKS=[{id:"s:sev8",name:"Bingos",conds:[{t:"lengths",a:"7,8"}],order:"prob"}];
 const DEFAULTS={cards:{},custom:"",deck:"s:sev8",migr:{bingo:1,ext:1},mode:"learn",qtype:"A",newLog:{},searches:SEED_DECKS,draft:[{t:"lengths",a:"7"},{t:"prob",a:1,b:100}],
-  notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},autoAdd:{},autoDay:{},hist:{},faceUp:{},conf:{},confPh:{},frontNote:{},fooled:{},doubted:{},typos:{},deckRet:{},speedBest:{},
+  notes:{},noteMt:{},tomb:{},sync:{},bury:{day:"",f:{}},autoAdd:{},autoDay:{},hist:{},faceUp:{},conf:{},confPh:{},frontNote:{},fooled:{},doubted:{},typos:{},deckRet:{},lists:[],speedBest:{},
   settings:{retention:0.9,newLimit:20,newOrder:"prob",typing:"on",showCount:"learning",retCurve:"off",smoothLoad:"on",tapGrade:"on",introBatch:8,buildMin:4,leech:6,extDir:"both",extMin:2,extMax:7,buryOn:"on",revLimit:0,showRank:"on",tileOrder:"alpha",alphaStyle:"abc",mixMistakes:"on",speedSecs:60,speedPool:1000,tileStyle:"classic",tilePoints:"on",slowSecs:20,timeLimit:0,theme:"system",phonyKinds:{made:true,ending:true,affix:true,collins:true,typo:true,misspell:true},w:null,fit:null}};
 let store=structuredClone(DEFAULTS),LOG="";
 function mergeStore(s){
@@ -1248,7 +1257,11 @@ const logKey=deck=>deck+"|"+store.qtype;
 function newDoneToday(deck){return (store.newLog[todayKey()]||{})[logKey(deck)]||0}
 function bumpNew(deck){const k=todayKey();store.newLog={[k]:{...(store.newLog[k]||{}),[logKey(deck)]:newDoneToday(deck)+1}}}
 function revDoneToday(deck){return (store.newLog[todayKey()]||{})["r|"+logKey(deck)]||0}
-function bumpRev(deck){const k=todayKey(),lk="r|"+logKey(deck);store.newLog={[k]:{...(store.newLog[k]||{}),[lk]:revDoneToday(deck)+1}}}
+// reviews done today in a whole cardbox (one quiz type), across all its decks
+function revDoneBox(q){return (store.newLog[todayKey()]||{})["rq|"+(q||store.qtype)]||0}
+function bumpRev(deck){const k=todayKey(),lk="r|"+logKey(deck),bk="rq|"+store.qtype,t=store.newLog[k]||{};store.newLog={[k]:{...t,[lk]:(t[lk]||0)+1,[bk]:(t[bk]||0)+1}}}
+// each cardbox can have its own daily limit; blank uses the default; 0 means no limit
+function revLimitFor(q){q=q||store.qtype;const m=store.settings.revLimitQ||{};return m[q]!=null&&m[q]!==""?+m[q]:store.settings.revLimit}
 // log line: time(base36 s) key grade stateBefore predictedRecall%(review cards only, else -)
 // log line: time(base36 s) key grade stateBefore predictedRecall% answerSeconds
 function logReview(key,g,stateBefore,now,r,secs){
@@ -1275,7 +1288,7 @@ const LEARN_AHEAD=20*MIN;
 // scan is called several times per card (queue, header, counts); the same answer is reused until anything changes or a second passes
 let scanCache=null;
 function scan(deck,now){
-  const sk=deck+"|"+store.qtype+"|"+storeVer+"|"+Math.floor(now/1000)+"|"+store.settings.newLimit+"|"+store.settings.revLimit;
+  const sk=deck+"|"+store.qtype+"|"+storeVer+"|"+Math.floor(now/1000)+"|"+store.settings.newLimit+"|"+revLimitFor()+"|"+revDoneBox();
   if(scanCache&&scanCache.k===sk)return scanCache.v;
   const v=scanRaw(deck,now);scanCache={k:sk,v};return v;
 }
@@ -1294,7 +1307,7 @@ function scanRaw(deck,now){
   // learning steps first, then reviews with the cards you're most likely to have forgotten first;
   // a daily review limit holds back the rest
   dueLearn.sort((a,b)=>a[1]-b[1]);dueRev.sort((a,b)=>a[1]-b[1]);soon.sort((a,b)=>a[1]-b[1]);newKeys.sort((a,b)=>a[1]-b[1]);
-  const lim=store.settings.revLimit,revAvail=lim>0?Math.max(0,lim-revDoneToday(deck)):Infinity;
+  const lim=revLimitFor(),revAvail=lim>0?Math.max(0,lim-revDoneBox()):Infinity;
   const due=dueLearn.concat(dueRev.slice(0,revAvail)),held=Math.max(0,dueRev.length-revAvail);
   const newAvail=Math.min(nw,Math.max(0,store.settings.newLimit-newDoneToday(deck)));
   return {keys,due,held,susp,overdue:dueRev.length,soon,newKeys:newKeys.map(x=>x[0]),newAvail:Math.min(newAvail,newKeys.length),nw,mature,seen,out,leeches,buried,boxed:keys.length-out,total:keys.length};
@@ -2098,7 +2111,7 @@ function render(){
     else if(!s.boxed){h=`No ${nm} in your ${esc(qt().name)} cardbox yet`;hint=`Add some below, or from the deck's More menu. They come in most probable first.`}
     else{h=`All caught up on ${nm}`;
       if(nextDue)hint+=`Next review in ${fmtIvl(Math.max(MIN,nextDue-now))}. `;
-      if(s.held)hint+=`${fmtN(s.held)} more ${s.held===1?"review is":"reviews are"} due but held back by your limit of ${fmtN(store.settings.revLimit)} reviews a day (change it in Settings). `;
+      if(s.held)hint+=`${fmtN(s.held)} more ${s.held===1?"review is":"reviews are"} due but held back by your ${esc(qt().name)} limit of ${fmtN(revLimitFor())} reviews a day (change it in Settings). `;
       if(s.buried)hint+=`${fmtN(s.buried)} ${s.buried===1?"card is":"cards are"} held until tomorrow because you've already answered ${s.buried===1?"its":"their"} letters in another quiz type today (sibling burying, in Settings). `;
       if(s.nw-s.buried>0&&!s.newAvail)hint+=`${fmtN(s.nw)} added ${s.nw===1?"card is":"cards are"} waiting; you've reached today's limit of ${store.settings.newLimit} new cards (change it in Settings). `;
       else if(s.out)hint+=`Add more ${u} to keep going.`;
@@ -2218,7 +2231,8 @@ function renderSeen(rows,now){
 /* =================== search UI =================== */
 let lastResult=null;
 function renderSearch(){
-  $("presets").innerHTML=PRESETS.map((p,i)=>`<button class="chip" data-preset="${i}" title="${esc(describeConds(p.conds))}">${esc(p.name)}</button>`).join("");
+  $("presets").innerHTML=(store.lists||[]).map(l=>`<span class="chip mine"><button class="chipbtn" data-list="${esc(l.id)}" title="${esc(describeConds(l.conds))}">${esc(l.name)}</button><button class="chipx" data-dellist="${esc(l.id)}" aria-label="Remove ${esc(l.name)}" title="Remove this list">×</button></span>`).join("")
+    +PRESETS.map((p,i)=>`<button class="chip" data-preset="${i}" title="${esc(describeConds(p.conds))}">${esc(p.name)}</button>`).join("");
   $("addCond").innerHTML=`<option value="">Add a condition…</option>`+Object.entries(COND).filter(([,d])=>!d.gone).map(([k,d])=>`<option value="${k}" ${d.hint?`title="${esc(d.hint)}"`:""}>${d.label}</option>`).join("");
   $("conds").innerHTML=store.draft.length?store.draft.map((c,i)=>{
     const d=COND[c.t];let p="";
@@ -2915,6 +2929,7 @@ const META={
   bury:{get:()=>store.bury,set:v=>{store.bury=v}},
   auto:{get:()=>store.autoAdd,set:v=>{store.autoAdd=v||{}}},
   faceup:{get:()=>store.faceUp,set:v=>{store.faceUp=v||{}}},
+  lists:{get:()=>store.lists||[],set:v=>{store.lists=Array.isArray(v)?v:[];if(PAGE==="search"&&!reviewing)renderSearch()}},
   deckret:{get:()=>store.deckRet,set:v=>{store.deckRet=v||{}}},
   conf:{get:()=>({conf:store.conf,ph:store.confPh,front:store.frontNote}),set:v=>{store.conf=v.conf||{};store.confPh=v.ph||{};store.frontNote=v.front||{}}},
   hist:{get:()=>store.hist,set:v=>{store.hist=v||{}}},
@@ -3104,6 +3119,8 @@ document.addEventListener("click",e=>{
   if(ds.remove){delCard(ds.remove);save();syncSoon();lookup();if(cur&&ckey(cur.key)===ds.remove)next();else render();return}
   if(ds.rm){store.draft.splice(+ds.rm,1);save();renderSearch();return}
   if(ds.sort){const o=ds.sort,same=$("saveOrder").value===o;resortResults(o,same?!resDesc:false);return}
+  if(ds.list){const l=(store.lists||[]).find(x=>x.id===ds.list);if(l){store.draft=structuredClone(l.conds);editingId=null;$("saveOrder").value=l.order||"prob";save();doSearch();$("saveName").value=l.name;$("saveSearch").textContent="Save as deck";$("resultsPanel").scrollIntoView({behavior:"smooth",block:"start"})}return}
+  if(ds.dellist){const g=t.dataset;if(g.confirm!=="1"){g.confirm="1";t.textContent="remove?";t.classList.add("arm");setTimeout(()=>{if(PAGE==="search")renderSearch()},3000);return}store.lists=(store.lists||[]).filter(x=>x.id!==ds.dellist);save();syncSoon();renderSearch();return}
   if(ds.preset){const pr=PRESETS[+ds.preset];store.draft=structuredClone(pr.conds);editingId=null;$("saveOrder").value="prob";save();doSearch();$("saveName").value=pr.name;$("saveSearch").textContent="Save as deck";$("resultsPanel").scrollIntoView({behavior:"smooth",block:"start"});return}
   if(ds.study){PAGE="decks";store.page="decks";startReview(ds.study,"learn");return}
   if(ds.load){const s=store.searches.find(x=>x.id===ds.load);if(s){store.draft=structuredClone(s.conds);editingId=s.id;save();doSearch();$("saveName").value=s.name;$("saveOrder").value=s.order||"prob"}return}
@@ -3152,10 +3169,10 @@ document.addEventListener("click",e=>{
     case "aheadBtn":{
       aheadDays=Math.max(1,Math.min(60,Math.round(+$("aheadDays").value||3)));
       const n=bringForward(store.deck,aheadDays);render();
-      if(n)note("rowNote",`${fmtN(n)} ${n===1?"review is":"reviews are"} due now.${store.settings.revLimit>0?` Your limit of ${fmtN(store.settings.revLimit)} reviews a day still applies.`:""}`);
+      if(n)note("rowNote",`${fmtN(n)} ${n===1?"review is":"reviews are"} due now.${revLimitFor()>0?` Your ${esc(qt().name)} limit of ${fmtN(revLimitFor())} reviews a day still applies.`:""}`);
       break}
     case "nextNBtn":{nextNVal=Math.max(1,Math.min(5000,Math.round(+$("nextNVal").value||50)));const n=bringForwardN(store.deck,nextNVal);render();
-      if(n)note("rowNote",`${fmtN(n)} ${n===1?"review is":"reviews are"} due now.${store.settings.revLimit>0?` Your limit of ${fmtN(store.settings.revLimit)} reviews a day still applies.`:""}`);break}
+      if(n)note("rowNote",`${fmtN(n)} ${n===1?"review is":"reviews are"} due now.${revLimitFor()>0?` Your ${esc(qt().name)} limit of ${fmtN(revLimitFor())} reviews a day still applies.`:""}`);break}
     case "postNBtn":{postNVal=Math.max(1,Math.min(5000,Math.round(+$("postNVal").value||50)));postDays=Math.max(1,Math.min(365,Math.round(+$("postDays").value||3)));
       const n=postponeN(store.deck,postNVal,postDays);render();
       if(n){const d=new Date();d.setDate(d.getDate()+postDays);note("rowNote",`${fmtN(n)} ${n===1?"review moves":"reviews move"} to ${d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})}.`)}break}
@@ -3186,6 +3203,13 @@ document.addEventListener("click",e=>{
       store.searches=store.searches.filter(x=>x.id!==deEditing);clearCache(deEditing);closeEditor(true);
       if(store.deck===deEditing)store.deck=firstDeck();save();next();break}
     case "clearConds":store.draft=[];lastResult=null;editingId=null;$("saveSearch").textContent="Save as deck";save();renderSearch();break;
+    case "saveList":{
+      if(!store.draft.length){note("resNote","Add a condition first.");break}
+      const name=($("saveName").value.trim()||describeConds(store.draft)||"My list").slice(0,60),order=$("saveOrder").value,L=(store.lists||[]).slice();
+      const same=L.find(x=>x.name.toLowerCase()===name.toLowerCase());
+      if(same){same.conds=structuredClone(store.draft);same.order=order;note("resNote",`Updated “${name}” in Saved lists.`)}
+      else{L.unshift({id:"l:"+Date.now().toString(36),name,conds:structuredClone(store.draft),order});note("resNote",`Saved “${name}” to Saved lists.`)}
+      store.lists=same?L:L;save();syncSoon();renderSearch();break}
     case "saveSearch":{
       if(!lastResult)break;
       const name=($("saveName").value.trim()||describeConds(store.draft)||"Saved list").slice(0,80);
@@ -3297,13 +3321,16 @@ $("importFile").addEventListener("change",e=>{
   rd.readAsText(f);e.target.value="";
 });
 const NUMS={introBatch:[3,15,8],retention:[70,99,90],newLimit:[0,1000,20],revLimit:[0,10000,0],slowSecs:[0,300,20],timeLimit:[0,600,0],buildMin:[2,15,4],leech:[2,50,6],extMin:[1,13,2],extMax:[1,13,7]};
-function syncInputs(){setTimeout(()=>{$("retention").value=Math.round(store.settings.retention*100)});for(const id of ["retention","newLimit","revLimit","introBatch","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn","showRank","retCurve","smoothLoad","tapGrade","theme","tileOrder","alphaStyle","tileStyle","tilePoints","slowSecs","timeLimit"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
+function renderRevLimits(){const m=store.settings.revLimitQ||{};$("revLimitQ").innerHTML=Object.entries(QT).map(([q,d])=>`<label>${esc(d.name)}<input type="number" min="0" max="10000" step="1" data-revq="${q}" value="${m[q]??""}" placeholder="${store.settings.revLimit||"no limit"}"></label>`).join("")}
+function syncInputs(){setTimeout(renderRevLimits);setTimeout(()=>{$("retention").value=Math.round(store.settings.retention*100)});for(const id of ["retention","newLimit","revLimit","introBatch","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn","showRank","retCurve","smoothLoad","tapGrade","theme","tileOrder","alphaStyle","tileStyle","tilePoints","slowSecs","timeLimit"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
 for(const id in NUMS)$(id).addEventListener("change",e=>{const [lo,hi,def]=NUMS[id];let v=+e.target.value;if(isNaN(v)||e.target.value==="")v=def;v=Math.round(Math.min(hi,Math.max(lo,v)));store.settings[id]=id==="retention"?v/100:v;e.target.value=v;save();
   if(id==="leech")clearCache("leech");
   if(id==="extMin"&&store.settings.extMax<v){store.settings.extMax=v;$("extMax").value=v}
   if(id==="extMax"&&store.settings.extMin>v){store.settings.extMin=v;$("extMin").value=v}
   if(cur&&store.mode==="learn"){cur.ans=answersFor(cur.key);if(flipped)preview=schedule(cardState(cur.key),Date.now(),ckey(cur.key))}
   if(!cur&&store.mode==="learn")next();else render()});
+$("revLimitQ").addEventListener("change",e=>{const q=e.target.dataset.revq;if(!q)return;const v=e.target.value.trim(),m={...(store.settings.revLimitQ||{})};if(v==="")delete m[q];else{m[q]=Math.max(0,Math.min(10000,Math.round(+v)||0));e.target.value=m[q]}store.settings.revLimitQ=m;save();render()});
+$("revLimit").addEventListener("change",()=>setTimeout(renderRevLimits));
 $("retCurve").addEventListener("change",e=>{store.settings.retCurve=e.target.value;save();if(flipped&&cur){preview=schedule(cardState(cur.key),Date.now(),ckey(cur.key))}render()});
 for(const id of ["newOrder","typing","showCount","buryOn","showRank","tileOrder","alphaStyle","smoothLoad","tapGrade"])$(id).addEventListener("change",e=>{store.settings[id]=e.target.value;save();if(!flipped)next();else render()});
 $("extDir").addEventListener("change",e=>{store.settings.extDir=e.target.value;save();if(cur&&store.mode==="learn")cur.ans=answersFor(cur.key);render()});
@@ -3370,6 +3397,7 @@ setInterval(()=>{
 syncInputs();applyTheme();
 $("lexInfo").textContent=`${LEX_META.name.replace(/^([A-Z]+)20(\d\d)$/,"$1$2")}, ${LEX_META.count.toLocaleString()} words (lexicon dated ${LEX_META.date}). App build ${LEX_META.build||"unknown"}`;
 loadLexicon().then(()=>{
+  store.draft=[];lastResult=null; // searches don't carry over from the last time the app was open
   ready=true;updateStarted();migrateDecks();runAutoAdd();snapshotProgress();renderFitInfo();syncReady=true;renderSyncUI();if(syncCfg.session)syncNow();
   if(store.deck.startsWith("len")){const L=store.deck.slice(3),m=store.searches.find(s=>s.conds.length===1&&s.conds[0].t==="lengths"&&[...parseLens(s.conds[0].a)].join()===L);store.deck=m?m.id:firstDeck()}
   if(!deckExists(store.deck))store.deck=firstDeck();
