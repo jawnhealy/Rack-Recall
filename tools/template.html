@@ -370,6 +370,9 @@ html.reviewing,html.reviewing body{overflow:hidden}
 .cond .params input[type=text]{flex:1;min-width:120px;font-family:var(--f-mono);text-transform:uppercase}
 .cond .params input.plain{text-transform:none;font-family:var(--f-body)}
 .cond label.neg{font-size:13px;display:flex;gap:4px;align-items:center;color:var(--muted)}
+/* "Add a condition…" looks like a placeholder, so it stands apart from the conditions in use */
+#addCond{color:var(--muted);background:transparent;border-style:dashed;font-style:italic}
+#addCond option{color:var(--ink);font-style:normal;background:var(--surface)}
 .cond .x{font:inherit;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:6px;width:30px;height:30px;cursor:pointer}
 @media (max-width:600px){
   .cond{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr) auto auto;gap:6px 5px}
@@ -1009,7 +1012,7 @@ const COND={
   prob:{label:"Probability rank",kind:"range",def:[1,100],hint:"probability rank of the alphagram within its length; 1 is most likely"},
   play:{label:"Playability rank",kind:"range",def:[1,100],hint:"rank among words of its length by how often it is played"},
   pscore:{label:"Playability score",kind:"range",def:[1,""],gone:1,hint:"0 means never recorded in play"},
-  anagram:{label:"Anagram of",kind:"letters",hint:"words using exactly these tiles; ? is a blank, and with a Length condition spare blanks can go unused"},
+  anagram:{label:"Anagram of",kind:"letters",hint:"words using exactly these tiles; ? is a blank"},
   subanagram:{label:"Subanagram of",kind:"letters",hint:"uses only these tiles; ? is a blank"},
   pattern:{label:"Pattern",kind:"letters",hint:"? one letter, * any letters, [AEIOU] one of, = same as the letter before; digits stand for letters, and the same digit means the same letter (??11 ends in a double letter)"},
   includes:{label:"Includes letters",kind:"letters",hint:"all of these, with repeats"},
