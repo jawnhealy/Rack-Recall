@@ -230,6 +230,12 @@ ul.keys{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;fo
 #ihTip{max-width:min(300px,calc(100vw - 16px))!important;box-sizing:border-box}
 #ihTip.wide{max-width:min(420px,calc(100vw - 16px))!important}
 #ihTip b{font-family:var(--f-mono);letter-spacing:.04em;margin-right:6px}
+.lkhead{display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:3;background:var(--surface);margin:-4px 0 6px;padding:4px 0 8px;border-bottom:1px solid var(--line)}
+.lkx{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 14px;border-radius:999px;background:var(--ink);color:var(--surface);font-family:inherit;font-weight:600;font-size:14px;line-height:1}
+.lkx span{font-size:15px}
+.lkx:hover{opacity:.85}
+.lkx:focus-visible{outline:2px solid var(--tl);outline-offset:2px}
+@media (pointer:coarse){.lkx{min-height:42px;padding:0 16px;font-size:15px}}
 .cousins .chg{color:var(--tw);font-weight:700}
 #lookupOut .bwords>span,#lookupOut [data-lk],#lookupOut .ans .w>span:not(.ih){cursor:pointer}
 #lookupOut .bwords>span:hover,#lookupOut [data-lk]:hover,#lookupOut .ans .w>span:not(.ih):hover{text-decoration:underline;text-underline-offset:3px}
@@ -518,7 +524,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
   </header>
 
   <section class="panel" id="lookupPanel" hidden aria-live="polite">
-    <div class="actions" style="justify-content:space-between"><h2 class="sec">Look up</h2><button class="btn ghost sm" id="lookupClose">Close</button></div>
+    <div class="lkhead"><h2 class="sec">Look up</h2><button class="lkx" id="lookupClose" title="Close Look up (Esc)" aria-label="Close Look up"><span aria-hidden="true">✕</span> Close</button></div>
     <div id="lookupOut"></div>
   </section>
 
