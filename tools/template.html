@@ -261,12 +261,13 @@ ul.keys{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;fo
 .forecast{display:flex;gap:3px;align-items:flex-end;height:50px;margin-top:6px}
 .forecast div{flex:1;background:var(--dl);border-radius:2px 2px 0 0;min-height:2px}
 .forecast div.today{background:var(--tw)}
-.fc-axis{display:flex;gap:3px;font-family:var(--f-mono);font-size:10px;color:var(--muted)}
-#fcAxis span{flex:1 1 0;min-width:0;position:relative;height:14px}
-#fcAxis span:not(:empty)::before{content:"";position:absolute;left:50%;top:-3px;height:3px;border-left:1px solid var(--muted)}
-#fcAxis span{text-indent:0;white-space:nowrap;display:flex;justify-content:center;overflow:visible}
-#fcAxis span:first-child{justify-content:flex-start}
-#fcAxis span:last-child{justify-content:flex-end}
+.fc-axis{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:10px;color:var(--muted)}
+.fcwrap{display:grid;grid-template-columns:auto 1fr;gap:6px;align-items:start}
+.fc-y{display:flex;flex-direction:column;justify-content:space-between;height:60px;margin-top:6px;font-family:var(--f-mono);font-size:10px;color:var(--muted);text-align:right}
+.fc-y span{line-height:1}
+.fcwrap .forecast{height:60px;border-left:1px solid var(--line);border-bottom:1px solid var(--line);padding-left:2px}
+#forecast>div{cursor:pointer}#forecast>div.sel{outline:2px solid var(--ink);outline-offset:1px}
+.fc-info{font-size:13px;min-height:18px;color:var(--ink);font-weight:500}
 
 /* search */
 .lens{display:flex;flex-wrap:wrap;gap:4px}
@@ -654,8 +655,8 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <div class="stats" id="stats"></div>
       <div>
         <div class="label">Reviews due in this deck, next 30 days</div>
-        <div class="forecast" id="forecast"></div>
-        <div class="fc-axis" id="fcAxis"></div>
+        <div class="fcwrap"><div class="fc-y" id="fcY"></div><div><div class="forecast" id="forecast"></div><div class="fc-axis"><span>today</span><span>+15</span><span>+30</span></div></div></div>
+        <div class="fc-info" id="fcInfo" aria-live="polite"></div>
       </div>
       <div><div class="label">Progress over time</div><div id="progChart"></div></div>
       <details id="seenBox">
@@ -1958,6 +1959,11 @@ function renderSpeed(card,gr){
   gr.className="grade two";gr.innerHTML=`<button id="spSkip">Skip rack<small>Return on an empty box</small></button><button id="spStop">End now</button>`;
 }
 
+function niceMax(v){if(v<=10)return Math.max(2,Math.ceil(v/2)*2);const p=Math.pow(10,Math.floor(Math.log10(v))),m=v/p;return [1,2,3,4,5,6,8,10].find(x=>m<=x)*p}
+function fcLabel(i,n){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()+i);return `${i===0?"Today":d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})}: ${fmtN(+n)} ${+n===1?"review":"reviews"} due`}
+// tap (or hover) a bar to read its day and count
+document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("#forecast [data-fc]");if(!b)return;for(const x of document.querySelectorAll("#forecast .sel"))x.classList.remove("sel");b.classList.add("sel");$("fcInfo").textContent=fcLabel(+b.dataset.fc,b.dataset.n)});
+document.addEventListener("mouseover",e=>{const b=e.target.closest&&e.target.closest("#forecast [data-fc]");if(b&&!touchUI())$("fcInfo").textContent=fcLabel(+b.dataset.fc,b.dataset.n)});
 function renderStatsPage(){
   if(!deckExists(store.deck))store.deck=firstDeck();
   const ids=deckIds();$("statsDecks").innerHTML=ids.length>1?ids.map(id=>chip(id,deckName(id))).join(""):"";$("statsDecks").hidden=ids.length<2;
@@ -2277,9 +2283,10 @@ function renderStats(){
   const bins=new Array(31).fill(0),rows=[],pre=store.qtype+":";
   for(const k of s.keys){const r=store.cards[pre+k];if(!r)continue;rows.push([k,r]);if(r[0]===0)continue;const i=Math.max(0,Math.floor((r[3]-start)/DAY));if(i<31)bins[i]++}
   const mx=Math.max(1,...bins);
-  {const d0=new Date();d0.setHours(12,0,0,0);const step=innerWidth<560?10:5;
-   $("fcAxis").innerHTML=bins.map((n,i)=>`<span>${i===0?"today":i%step===0?new Date(d0.getTime()+i*DAY).toLocaleDateString(undefined,{month:"short",day:"numeric"}):""}</span>`).join("")}
-  $("forecast").innerHTML=bins.map((n,i)=>`<div class="${i===0?"today":""}" style="height:${n?Math.max(3,n/mx*50):2}px" title="${i===0?"Today":"+"+i+"d"}: ${n}"></div>`).join("");
+  // y axis: a round top value, its half, and zero
+  const top=niceMax(mx);$("fcY").innerHTML=`<span>${fmtN(top)}</span><span>${fmtN(Math.round(top/2))}</span><span>0</span>`;
+  $("forecast").innerHTML=bins.map((n,i)=>`<div class="${i===0?"today":""}" data-fc="${i}" data-n="${n}" style="height:${n?Math.max(3,n/top*60):2}px" title="${fcLabel(i,n)}"></div>`).join("");
+  $("fcInfo").textContent="";
   if($("seenBox").open)renderSeen(rows,now);
 }
 function renderSeen(rows,now){
