@@ -478,6 +478,7 @@ th.num{text-align:right}
 .thsort:hover{color:var(--ink)}
 .thsort:focus-visible{outline:2px solid var(--tl);outline-offset:2px;border-radius:3px}
 th.sortable.on{color:var(--ink)}
+th.fhc{text-align:right}
 .thsort .arr{font-size:9px;min-width:1em}
 footer{font-size:13px;color:var(--muted)}
 kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border-radius:4px;padding:0 5px;background:var(--surface)}
@@ -543,7 +544,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <label for="dePlayA">Playability rank</label>
         <div class="actions"><input type="number" id="dePlayA" placeholder="min" aria-label="Playability rank minimum"> to <input type="number" id="dePlayB" placeholder="max" aria-label="Playability rank maximum"></div>
         <label for="deOrder">Card order</label>
-        <div><select id="deOrder"><option value="prob">Probability</option><option value="play">Playability</option><option value="len">Length, then probability</option><option value="alpha">Alphabetical</option><option value="alphagram">Alphagram (A–Z)</option></select></div>
+        <div><select id="deOrder"><option value="prob">Probability</option><option value="play">Playability</option><option value="len">Length, then probability</option><option value="alpha">Alphabetical</option><option value="alphagram">Alphagram (A–Z)</option><option value="fhooks">Front hooks, most first</option><option value="bhooks">Back hooks, most first</option><option value="def">Definition (A–Z)</option></select></div>
       </div>
       <div class="note" id="deExtra"></div>
       <div class="actions">
@@ -626,7 +627,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <div id="resultSummary"></div>
         <div class="actions">
           <input type="text" id="saveName" placeholder="Name this deck" aria-label="Deck name" style="width:200px">
-          <select id="saveOrder" aria-label="Card order"><option value="prob">Probability order</option><option value="play">Playability order</option><option value="len">Length, then probability</option><option value="alpha">Alphabetical</option><option value="alphagram">Alphagram (A–Z)</option></select>
+          <select id="saveOrder" aria-label="Card order"><option value="prob">Probability order</option><option value="play">Playability order</option><option value="len">Length, then probability</option><option value="alpha">Alphabetical</option><option value="alphagram">Alphagram (A–Z)</option><option value="fhooks">Front hooks, most first</option><option value="bhooks">Back hooks, most first</option><option value="def">Definition (A–Z)</option></select>
           <button class="btn ghost" id="saveList" title="Keep this search under Saved lists to run again later">Save list</button>
           <button class="btn" id="saveSearch">Save as deck</button>
         </div>
@@ -981,7 +982,14 @@ const SORTS={
   len:wSort,
   alpha:(a,b)=>a<b?-1:a>b?1:0,
   alphagram:(a,b)=>{const x=LEX.words.get(a).a,y=LEX.words.get(b).a;return x.length-y.length||(x<y?-1:x>y?1:0)||(a<b?-1:1)},
+  // most hooks first; ties by probability
+  fhooks:(a,b)=>hookList(LEX.words.get(b).fh).length-hookList(LEX.words.get(a).fh).length||SORTS.prob(a,b),
+  bhooks:(a,b)=>hookList(LEX.words.get(b).bh).length-hookList(LEX.words.get(a).bh).length||SORTS.prob(a,b),
+  // by meaning: leading "to", "a", "an", "the" and inflection marks are skipped, so GANEF, GANEV and GONIF sit together
+  def:(a,b)=>{const x=defKey(a),y=defKey(b);return x<y?-1:x>y?1:SORTS.alpha(a,b)},
 };
+const defKeys=new Map();
+function defKey(w){let k=defKeys.get(w);if(k===undefined){const e=LEX.words.get(w),d=(e&&e.def||"").toLowerCase().replace(/^<\s*[a-z]+,?\s*/,"").replace(/^((to|an?|the)\s+)+/,"").replace(/^[^a-z0-9]+/,"");k=d||"\uffff";defKeys.set(w,k)}return k}
 function wordsToKeys(words,u){
   if(u==="word")return words;
   const seen=new Set(),out=[];for(const w of words){const a=LEX.words.get(w).a;if(!seen.has(a)){seen.add(a);out.push(a)}}return out;
@@ -2346,7 +2354,7 @@ function renderResults(){
   for(const w of words){if(w.length>maxL)maxL=w.length;const e=LEX.words.get(w);const f=hookList(e.fh).length,bb=hookList(e.bh).length;if(f>maxF)maxF=f;if(bb>maxB)maxB=bb}
   const cw=monoW(),wW=Math.ceil(maxL*cw+60),hcw=cw*14/13+.84,fW=Math.max(52,Math.ceil(Math.min(10,maxF)*hcw+28)),bW=Math.max(52,Math.ceil(Math.min(10,maxB)*hcw+28)),aW=Math.max(84,Math.ceil(maxL*cw+20));
   const fixed=64+60+fW+wW+bW+aW;
-  $("results").innerHTML=`<div class="vwrap" id="vwrap"><table class="vtable" style="min-width:${fixed+160}px"><colgroup><col style="width:64px"><col style="width:60px"><col style="width:${fW}px"><col style="width:${wW}px"><col style="width:${bW}px"><col style="width:${aW}px"><col></colgroup><thead><tr>${sortTh("prob","Prob.","num")}${sortTh("play","Play.","num")}<th style="text-align:right">Front</th>${sortTh("alpha","Word")}<th>Back</th>${sortTh("alphagram","Alphagram")}<th>Definition</th></tr></thead><tbody id="vbody"></tbody></table></div>`;
+  $("results").innerHTML=`<div class="vwrap" id="vwrap"><table class="vtable" style="min-width:${fixed+160}px"><colgroup><col style="width:64px"><col style="width:60px"><col style="width:${fW}px"><col style="width:${wW}px"><col style="width:${bW}px"><col style="width:${aW}px"><col></colgroup><thead><tr>${sortTh("prob","Prob.","num")}${sortTh("play","Play.","num")}${sortTh("fhooks","Front","fhc")}${sortTh("alpha","Word")}${sortTh("bhooks","Back")}${sortTh("alphagram","Alphagram")}${sortTh("def","Definition")}</tr></thead><tbody id="vbody"></tbody></table></div>`;
   vt={words,first:-1,last:-1,rowH:vt&&vt.rowH||31};
   const wrap=$("vwrap");
   wrap.style.height=Math.min(Math.round(innerHeight*.7),Math.max(160,words.length*vt.rowH+40))+"px";
