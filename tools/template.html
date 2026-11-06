@@ -261,7 +261,12 @@ ul.keys{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;fo
 .forecast{display:flex;gap:3px;align-items:flex-end;height:50px;margin-top:6px}
 .forecast div{flex:1;background:var(--dl);border-radius:2px 2px 0 0;min-height:2px}
 .forecast div.today{background:var(--tw)}
-.fc-axis{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:10px;color:var(--muted)}
+.fc-axis{display:flex;gap:3px;font-family:var(--f-mono);font-size:10px;color:var(--muted)}
+#fcAxis span{flex:1 1 0;min-width:0;position:relative;height:14px}
+#fcAxis span:not(:empty)::before{content:"";position:absolute;left:50%;top:-3px;height:3px;border-left:1px solid var(--muted)}
+#fcAxis span{text-indent:0;white-space:nowrap;display:flex;justify-content:center;overflow:visible}
+#fcAxis span:first-child{justify-content:flex-start}
+#fcAxis span:last-child{justify-content:flex-end}
 
 /* search */
 .lens{display:flex;flex-wrap:wrap;gap:4px}
@@ -286,8 +291,14 @@ form.lookup input{flex:1;min-width:0;font-family:var(--f-mono);text-transform:up
 form.lookup input::placeholder{text-transform:none;font-family:var(--f-body)}
 .lktoggle{display:none;padding:0 12px;align-items:center;justify-content:center}
 @media (max-width:700px){
-  header.top .brand{flex-basis:100%}
-  header.top .nav{flex:1 1 0;min-width:0;width:auto}
+  /* phones: title and the Look up button share the top row; the page tabs get the whole second row,
+     so a large system font size can't push "Settings" under the button */
+  header.top .brand{flex:1 1 auto;order:0}
+  header.top .lktoggle{order:1;height:40px}
+  header.top .syncpill{order:2}
+  header.top .nav{order:3;flex:1 1 100%;min-width:0;width:100%;flex-wrap:wrap}
+  header.top .nav button{flex:1 0 auto;padding:8px 6px;white-space:nowrap}
+  header.top form.lookup{order:4}
   .lktoggle{display:inline-flex}
   form.lookup{display:none;max-width:none;flex-basis:100%}
   header.top.lk-open form.lookup{display:flex}
@@ -322,7 +333,7 @@ button.info[aria-expanded=true]{background:var(--ink);color:var(--surface);borde
 details.dropdown{position:relative;border:0;padding:0;margin:0;background:none;box-shadow:none}
 details.dropdown summary{list-style:none;cursor:pointer}
 details.dropdown summary::-webkit-details-marker{display:none}
-details.dropdown .menu{position:absolute;z-index:20;top:calc(100% + 4px);left:0;display:flex;flex-direction:column;min-width:180px;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:0 8px 24px rgba(0,0,0,.14)}
+details.dropdown .menu{max-width:calc(100vw - 24px);position:absolute;z-index:20;top:calc(100% + 4px);left:0;display:flex;flex-direction:column;min-width:180px;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:0 8px 24px rgba(0,0,0,.14)}
 details.dropdown .menu button{all:unset;cursor:pointer;padding:8px 10px;border-radius:6px;font-size:13.5px}
 details.dropdown .menu button:hover,details.dropdown .menu button:focus-visible{background:var(--bg)}
 @media (max-width:620px){.deckrow{grid-template-columns:minmax(0,1fr)}.deckrow .dact{justify-content:flex-start}}
@@ -347,6 +358,22 @@ html.reviewing,html.reviewing body{overflow:hidden}
 .rv-body{flex:1 1 auto;min-height:0}
 .rv-body .card{flex:1 1 auto;min-height:0;overflow-y:auto;justify-content:safe center}
 .rv-body .grade{flex:none}
+@media (orientation:landscape) and (max-height:520px){
+  .rv-top{padding-block:max(4px,env(safe-area-inset-top,0px)) 4px}
+  .rv-top .btn.sm{padding:4px 10px}
+  .rv-body{flex-direction:row;align-items:stretch;gap:10px;max-width:none;padding-block:8px max(8px,env(safe-area-inset-bottom,0px))}
+  .rv-body .card{padding:38px 14px 12px;gap:8px}
+  .rv-body .grade{width:clamp(150px,24vw,230px);grid-template-columns:1fr!important;grid-auto-rows:1fr;align-content:stretch;gap:6px;overflow-y:auto}
+  .rv-body .grade button{padding:4px 6px!important;min-height:0!important;font-size:15px}
+  .rv-body .grade button small{font-size:11px}
+  .rv-body .grade .full{min-height:0!important}
+  .rv-body .grade .taphint{display:none}
+  .card .tiles{--t:min(15vh,calc((min(100vw,900px) - 330px - (var(--n,7) - 1)*var(--g))/var(--n,7)))}
+  .card .corner{font-size:11px}
+  .rv-body .card .ans .def{-webkit-line-clamp:1;line-clamp:1}
+  .rv-body .card .ans{padding-block:3px}
+  .rv-body .card .ans .w{font-size:18px}
+}
 .card .ans .def{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden}
 .card.sheet .ans .def{display:block;-webkit-line-clamp:unset;overflow:visible}
 .grade .taphint{grid-column:1/-1;display:flex;justify-content:space-between;font:500 11px var(--f-mono);color:var(--muted);padding:0 4px}
@@ -628,7 +655,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <div>
         <div class="label">Reviews due in this deck, next 30 days</div>
         <div class="forecast" id="forecast"></div>
-        <div class="fc-axis"><span>today</span><span>+15</span><span>+30</span></div>
+        <div class="fc-axis" id="fcAxis"></div>
       </div>
       <div><div class="label">Progress over time</div><div id="progChart"></div></div>
       <details id="seenBox">
@@ -769,7 +796,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <ul class="keys">
         <li><b>Show the answer:</b> <kbd>Return</kbd> (checks typed answers), or <kbd>Space</kbd> / <kbd>0</kbd>–<kbd>3</kbd> in flashcard mode. On a phone, tap the card.</li>
         <li><b>Grade:</b> <kbd>0</kbd> Again · <kbd>1</kbd> Hard · <kbd>2</kbd> Good · <kbd>3</kbd> Easy; <kbd>Space</kbd> is Good. On a phone, tap the left or right half of the card.</li>
-        <li><b>Undo:</b> <kbd>Ctrl</kbd>+<kbd>Z</kbd>, the Undo button, or swipe the card left.</li>
+        <li><b>Undo:</b> <kbd>Ctrl</kbd>+<kbd>Z</kbd>, the Undo button, or swipe the card right.</li>
         <li><b>Shuffle tiles:</b> <kbd>5</kbd> or tap the tiles.</li>
         <li><b>Look up:</b> <kbd>/</kbd> anywhere (or <kbd>F6</kbd>). During a quiz it opens on top and the clock pauses; <kbd>Esc</kbd> closes it.</li>
         <li><b>Valid or Phony?:</b> <kbd>V</kbd> / <kbd>→</kbd> / swipe right for valid, <kbd>P</kbd> / <kbd>←</kbd> / swipe left for phony.</li>
@@ -2098,13 +2125,13 @@ $("card").addEventListener("click",e=>{
   grade(drill?(left?1:3):(left?AGAIN:GOOD));
 });
 $("card").addEventListener("touchstart",e=>{if((store.mode==="phony"||store.mode==="learn")&&e.touches.length===1)swipe={x:e.touches[0].clientX,y:e.touches[0].clientY,t:Date.now(),undo:swipeUndoMode()};else swipe=null},{passive:true});
-$("card").addEventListener("touchmove",e=>{if(!swipe)return;const dx=e.touches[0].clientX-swipe.x,dy=e.touches[0].clientY-swipe.y;if(Math.abs(dy)>Math.abs(dx))return;if(swipe.undo&&(dx>0||!undoStack.length||Math.abs(dx)<30))return;$("card").style.transform=`translateX(${Math.max(-60,Math.min(60,dx/3))}px)`},{passive:true});
+$("card").addEventListener("touchmove",e=>{if(!swipe)return;const dx=e.touches[0].clientX-swipe.x,dy=e.touches[0].clientY-swipe.y;if(Math.abs(dy)>Math.abs(dx))return;if(swipe.undo&&(dx<0||!undoStack.length||Math.abs(dx)<30))return;$("card").style.transform=`translateX(${Math.max(-60,Math.min(60,dx/3))}px)`},{passive:true});
 $("card").addEventListener("touchend",e=>{
   $("card").style.transform="";if(!swipe)return;
   const t=e.changedTouches[0],dx=t.clientX-swipe.x,dy=t.clientY-swipe.y,sw0=swipe;swipe=null;
   const need=sw0.undo?120:80;if(Math.abs(dx)<need||Math.abs(dx)<Math.abs(dy)*2.5)return;
   lastSwipeAt=Date.now();
-  if(store.mode==="learn"){if(sw0.undo){if(dx<0)undoGrade();return}answerVP(dx<0);return}
+  if(store.mode==="learn"){if(sw0.undo){if(dx>0)undoGrade();return}answerVP(dx<0);return}
   if(phonyAns===null)answerPhony(dx<0);else next();
 });
 document.addEventListener("fullscreenchange",()=>{if(reviewing)renderReviewBar()});
@@ -2250,6 +2277,8 @@ function renderStats(){
   const bins=new Array(31).fill(0),rows=[],pre=store.qtype+":";
   for(const k of s.keys){const r=store.cards[pre+k];if(!r)continue;rows.push([k,r]);if(r[0]===0)continue;const i=Math.max(0,Math.floor((r[3]-start)/DAY));if(i<31)bins[i]++}
   const mx=Math.max(1,...bins);
+  {const d0=new Date();d0.setHours(12,0,0,0);const step=innerWidth<560?10:5;
+   $("fcAxis").innerHTML=bins.map((n,i)=>`<span>${i===0?"today":i%step===0?new Date(d0.getTime()+i*DAY).toLocaleDateString(undefined,{month:"short",day:"numeric"}):""}</span>`).join("")}
   $("forecast").innerHTML=bins.map((n,i)=>`<div class="${i===0?"today":""}" style="height:${n?Math.max(3,n/mx*50):2}px" title="${i===0?"Today":"+"+i+"d"}: ${n}"></div>`).join("");
   if($("seenBox").open)renderSeen(rows,now);
 }
