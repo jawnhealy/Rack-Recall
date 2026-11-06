@@ -1335,7 +1335,7 @@ function setSusp(ck,on){const r=store.cards[ck];if(!r||isSusp(r)===on)return;r[0
 function suspKeys(){const pre=store.qtype+":",out=[];for(const ck in store.cards)if(ck.startsWith(pre)&&isSusp(store.cards[ck]))out.push(ck.slice(pre.length));return out}
 function cardState(k){const r=store.cards[ckey(k)];return r?{state:SC[r[0]%10],suspended:r[0]>=10,s:r[1],d:r[2],due:r[3],last:r[4],reps:r[5],lapses:r[6]}:{state:"new",s:0,d:0,due:0,last:0,reps:0,lapses:0}}
 // index 7 = time this record last changed (for sync)
-function setCard(k,c){store.cards[ckey(k)]=[SC.indexOf(c.state),+c.s.toFixed(4),+c.d.toFixed(4),c.due,c.last,c.reps,c.lapses,Date.now()];save();syncSoon()}
+function setCard(k,c){store.cards[ckey(k)]=[SC.indexOf(c.state),+c.s.toFixed(4),+c.d.toFixed(4),c.due,c.last,c.reps,c.lapses,Date.now()];delete store.tomb[ckey(k)];save();syncSoon()}
 function addKeys(keys,pre){pre=pre||store.qtype+":";let n=0;const t=Date.now();for(const k of keys){if(store.cards[pre+k])continue;store.cards[pre+k]=[0,0,0,t+n,0,0,0,t+n];delete store.tomb[pre+k];n++}if(n){save();syncSoon()}return n}
 function delCard(ck){if(!store.cards[ck])return;delete store.cards[ck];store.tomb[ck]=Date.now()}
 const recMt=r=>r[7]||r[4]||r[3]||1;
@@ -1750,10 +1750,10 @@ function undoGrade(){
   if(u.intro){const x=u.intro;session.batch=x.batch;session.tests=x.tests;session.shown=x.shown;clearTimer();typed=null;preview=null;noteEditing=false;
     cur={key:x.key,ans:answersFor(x.key),intro:true,t0:Date.now()};flipped=true;lastK=null;render();return}
   if(u.drill){if(!drill)return;const d=u.drill;
-    if(drill.opt.place&&u.ck){if(u.prevCard)store.cards[u.ck]=u.prevCard.slice(0,7).concat(Date.now());else if(store.cards[u.ck]){delete store.cards[u.ck];store.tomb[u.ck]=Date.now()}save();syncSoon()}Object.assign(drill,{i:d.i,right:d.right,wrong:d.wrong,missed:d.missed,firstMissed:new Set(d.first),keys:d.keys,round:d.round});session.n=u.n;session.again=u.again;
+    if(drill.opt.place&&u.ck){if(u.prevCard){store.cards[u.ck]=u.prevCard.slice(0,7).concat(Date.now());delete store.tomb[u.ck]}else if(store.cards[u.ck]){delete store.cards[u.ck];store.tomb[u.ck]=Date.now()}save();syncSoon()}Object.assign(drill,{i:d.i,right:d.right,wrong:d.wrong,missed:d.missed,firstMissed:new Set(d.first),keys:d.keys,round:d.round});session.n=u.n;session.again=u.again;
     clearTimer();flipped=false;typed=null;preview=null;noteEditing=false;cur={key:u.cur.key,order:u.cur.order,ans:answersFor(u.cur.key),t0:Date.now(),vp:u.vp,shown:u.shown};lastK=null;
     render();armTimer();const inp=$("ansIn");if(inp)inp.focus({preventScroll:true});return}
-  if(u.prev)store.cards[u.ck]=u.prev.slice(0,7).concat(Date.now());else delete store.cards[u.ck];
+  if(u.prev){store.cards[u.ck]=u.prev.slice(0,7).concat(Date.now());delete store.tomb[u.ck]}else delete store.cards[u.ck];
   unlogLine(u.line);
   store.newLog=JSON.parse(u.newLog);store.bury=JSON.parse(u.bury);session.n=u.n;session.again=u.again;
   if(u.conf){store.conf=JSON.parse(u.conf);store.confPh=JSON.parse(u.confPh);store.frontNote=JSON.parse(u.frontNote)}
@@ -3156,6 +3156,8 @@ async function syncNow(){
     S.seq=maxSeq;if(repair)S.repairAt=Date.now();if(logSet)saveLog();
     // ---- push: everything changed since the last successful push
     const start=Date.now(),rows=[];
+    // a card that is both live and marked deleted (deleted, then restored or re-added) keeps whichever happened last
+    for(const ck in store.tomb)if(store.cards[ck]){if(recMt(store.cards[ck])>=store.tomb[ck])delete store.tomb[ck];else delete store.cards[ck]}
     for(const ck in store.cards){const r=store.cards[ck];if(recMt(r)>S.pushMark)rows.push({kind:"c",key:ck,val:JSON.stringify(r.slice(0,7)),mt:recMt(r),deleted:false})}
     for(const ck in store.tomb){if(store.tomb[ck]>S.pushMark)rows.push({kind:"c",key:ck,val:null,mt:store.tomb[ck],deleted:true})}
     for(const k in store.noteMt){if(store.noteMt[k]>S.pushMark)rows.push({kind:"n",key:k,val:store.notes[k]??null,mt:store.noteMt[k],deleted:!store.notes[k]})}
@@ -3170,6 +3172,8 @@ async function syncNow(){
     // review log: only the lines added since the last push, as a new small row (other devices merge lines, so duplicates are harmless)
     const sentLog={};for(const d in pend)sentLog[d]=pend[d];
     for(const d in pend)if(pend[d])rows.push({kind:"l",key:`${syncCfg.dev}|${d}|${S.logN=(S.logN||0)+1}`,val:pend[d],mt:start,deleted:false});
+    // the server rejects a batch that names the same row twice, so keep only the newest change for each one
+    {const seen=new Map();for(const r of rows){const k=r.kind+"\u0001"+r.key,o=seen.get(k);if(!o||r.mt>=o.mt)seen.set(k,r)}if(seen.size<rows.length){rows.length=0;rows.push(...seen.values())}}
     const own=new Set();
     for(let i=0;i<rows.length;i+=500){
       const back=await sb("/rest/v1/rack_items?on_conflict=user_id,kind,key&select=seq",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=representation"},body:JSON.stringify(rows.slice(i,i+500))});
