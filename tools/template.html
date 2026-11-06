@@ -838,6 +838,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
 <script id="lexdata" type="application/octet-stream">/*__LEX__*/</script>
 <script id="cswdata" type="application/octet-stream">/*__CSW__*/</script>
 <script id="endingdata" type="application/json">/*__ENDINGS__*/</script>
+<script id="variantdata" type="text/plain">/*__VARIANTS__*/</script>
 <script>
 "use strict";
 const SCORES={A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10};
@@ -992,7 +993,14 @@ const PRESETS=[
   {name:"Bingo stems: 6 + ?",conds:[{t:"lengths",a:"6"},{t:"blankn",a:15,b:""}]},
   {name:"Bingo stems: 7 + ?",conds:[{t:"lengths",a:"7"},{t:"blankn",a:15,b:""}]},
   {name:"New in NWL23",conds:[{t:"lengths",a:"2-8"},{t:"isnew"}]},
+  {name:"Variant spellings",conds:[{t:"variant"}]},
 ];
+// other spellings of the same word (GANEF GANEV GONIF…), worked out from the definitions at build time
+let VARS=null;
+function variants(w){
+  if(!VARS){VARS=new Map();for(const g of (document.getElementById("variantdata").textContent||"").split("|")){const ws=g.split(" ").filter(x=>LEX.words.has(x));if(ws.length>1)for(const x of ws)VARS.set(x,ws)}}
+  return (VARS.get(w)||[]).filter(x=>x!==w);
+}
 const LISTS={
 };
 function stemWords(L,min){const out=[];for(const a of LEX.byLen[L]||[])if(blankCount(a)>=min)out.push(...LEX.anag.get(a));return out}
@@ -1063,6 +1071,7 @@ const COND={
   blankn:{label:"Words with one blank added",kind:"range",def:[10,""],hint:"how many words its letters plus a blank make"},
   extn:{label:"Number of extensions",kind:"range",def:[3,""],hint:"front or back, any length"},
   isnew:{label:"New in NWL23",kind:"bool",hint:"added in the 2023 edition"},
+  variant:{label:"Has other spellings",kind:"bool",hint:"another valid word is a different spelling of it, like GANEF, GANEV and GONIF"},
   defn:{label:"Definition contains",kind:"text",hint:"words whose definition includes this text"},
   inbox:{label:"In my cardbox (current quiz type)",kind:"bool",hint:"already added for the quiz type chosen on Decks"},
   list:{label:"In this list",kind:"text",hint:"words or alphagrams, separated by spaces"},
@@ -1127,6 +1136,7 @@ function compileCond(cd,ctx){
     case "bext":{const X=extIndex();f=w=>X.back.has(w);break}
     case "extn":{const X=extIndex();f=w=>inR((X.front.get(w)?.length||0)+(X.back.get(w)?.length||0));break}
     case "isnew":f=w=>isNew(w);break;
+    case "variant":f=w=>variants(w).length>0;break;
     case "defn":{const q=A.toLowerCase();if(!q)return null;f=(w,e)=>(e.def||"").toLowerCase().includes(q);break}
     case "list":{const set=new Set(A.toUpperCase().split(/[^A-Z]+/).filter(Boolean));if(!set.size)return null;f=(w,e)=>set.has(w)||set.has(e.a);break}
     case "inbox":{const pre=store.qtype+":",u=unit();f=(w,e)=>!!store.cards[pre+(u==="alpha"?e.a:w)];break}
@@ -2457,6 +2467,7 @@ function lookup(){
   {const co=cousins(q);
     if(co.length)html+=`<p class="note">${valid?"Cousins":"Words one letter away"}: ${fmtN(co.length)} ${co.length===1?"word differs":"words differ"} from ${esc(q)} by one letter.</p><div class="bwords cousins">${co.map(([w,i])=>`<span title="${esc(LEX.words.get(w).def)}">${esc(w.slice(0,i))}<b class="chg">${w[i]}</b>${esc(w.slice(i+1))}${isNew(w)?'<sup class="nw">+</sup>':""}</span>`).join("")}</div>`;
     else if(valid)html+=`<p class="note">No cousins: no other word differs from ${esc(q)} by one letter.</p>`}
+  if(valid){const vs=variants(q);if(vs.length)html+=`<p class="note">Other spellings: ${vs.map(w=>`<span class="mono" title="${esc(LEX.words.get(w).def)}">${esc(w)}</span>`).join(", ")}</p>`}
   if(valid){const ex=extensions(q,"both",1,13);if(ex.length){const shown=ex.slice(0,60);html+=`<p class="note">${fmtN(ex.length)} front or back extension${ex.length===1?"":"s"}${ex.length>60?" (first 60)":""}:</p>`+extHTML(q,shown)}}
   const desc=r=>!r?"not in cardbox":r[0]>=10?"suspended":r[0]===0?"added, not yet studied":`${SC[r[0]]}, next ${r[3]<=Date.now()?"now":fmtIvl(r[3]-Date.now())}`;
   // one row: pick a quiz type, see that card's status, act on it

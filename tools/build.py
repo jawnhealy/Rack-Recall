@@ -39,6 +39,41 @@ for w,d in defs:
         f=inflect(w,t)
         if f and f not in nwl: endings.append([f,w,t])
 meta["endings"]=len(endings)
-html=open(tpl).read().replace('/*__ENDINGS__*/',json.dumps(endings,separators=(",",":"))).replace('/*__LEX__*/',b64).replace('/*__CSW__*/',cb).replace('/*__META__*/',json.dumps(meta)).replace('__RRBUILD__',stamp)
+# variant spellings: a sense written as "[to|a|an] base (gloss)" points at another spelling of the same word
+# (GANEV "ganef (a thief)"). Synonyms use the same form, so the two spellings must also be close.
+def lev(a,b):
+    p=list(range(len(b)+1))
+    for i,x in enumerate(a,1):
+        q=[i]
+        for j,y in enumerate(b,1):q.append(min(p[j]+1,q[j-1]+1,p[j-1]+(x!=y)))
+        p=q
+    return p[-1]
+def close(w,h):
+    a,b=sorted((w,h),key=len)
+    if a in b and len(b)-len(a)>=2:return False  # HEART/HEARTEN is a different word
+    d=lev(w,h)
+    if w[0]!=h[0] and d>1 and not (set(w[0]+h[0])<=set("CKQ") and d<=2):return False
+    return d<=max(2,int(max(len(w),len(h))*0.34))
+vpat=re.compile(r'^(?:to |an? |the )?([a-z]+) \(');points=collections.defaultdict(set)
+for w,d in defs:
+    for s in d.split(" / "):
+        m=vpat.match(s.strip())
+        if m and m.group(1).upper()!=w and m.group(1).upper() in nwl:points[m.group(1).upper()].add(w)
+vl=collections.defaultdict(set)
+for h,ws in points.items():
+    fam=sorted(ws|{h})
+    for i,x in enumerate(fam):
+        for y in fam[i+1:]:
+            if (x==h or y==h or True) and close(x,y):vl[x].add(y);vl[y].add(x)
+vseen=set();vgroups=[]
+for w in sorted(vl):
+    if w in vseen:continue
+    st=[w];g=set()
+    while st:
+        x=st.pop()
+        if x not in g:g.add(x);st.extend(vl[x])
+    vseen|=g;vgroups.append(" ".join(sorted(g)))
+meta["variants"]=len(vgroups)
+html=open(tpl).read().replace('/*__VARIANTS__*/','|'.join(vgroups)).replace('/*__ENDINGS__*/',json.dumps(endings,separators=(",",":"))).replace('/*__LEX__*/',b64).replace('/*__CSW__*/',cb).replace('/*__META__*/',json.dumps(meta)).replace('__RRBUILD__',stamp)
 open(out,'w').write(html)
-print(len(rows),'words;',meta['endings'],'ending phonies;',meta.get("csw",{}).get("count",0),'Collins-only;',round(len(html)/1e6,2),'MB')
+print(len(rows),'words;',meta['endings'],'ending phonies;',meta['variants'],'variant groups;',meta.get("csw",{}).get("count",0),'Collins-only;',round(len(html)/1e6,2),'MB')
