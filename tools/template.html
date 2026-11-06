@@ -231,6 +231,8 @@ ul.keys{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;fo
 #ihTip.wide{max-width:min(420px,calc(100vw - 16px))!important}
 #ihTip b{font-family:var(--f-mono);letter-spacing:.04em;margin-right:6px}
 .cousins .chg{color:var(--tw);font-weight:700}
+#lookupOut .bwords>span,#lookupOut [data-lk],#lookupOut .ans .w>span:not(.ih){cursor:pointer}
+#lookupOut .bwords>span:hover,#lookupOut [data-lk]:hover,#lookupOut .ans .w>span:not(.ih):hover{text-decoration:underline;text-underline-offset:3px}
 .bwords .bl{color:var(--tw);font-weight:600}
 .bwords .base{opacity:.5;font-weight:400}
 .bgrp .blen{white-space:nowrap}
@@ -2473,9 +2475,9 @@ function lookup(){
     html+=`<p class="note">Alphagram ${esc(dispA(a))} · probability rank ${fmtN(LEX.rank.get(a))} of ${fmtN(LEX.byLen[a.length].length)} · ${g.length} ${g.length===1?"word":"words"}${valid?` · ${esc(q)} playability rank ${fmtN(LEX.words.get(q).play)} (score ${fmtN(LEX.words.get(q).pscore)})`:""}</p>`+ansRows(g);
   }else html+=`<p class="note">No valid anagrams of these letters.</p>`;
   {const co=cousins(q);
-    if(co.length)html+=`<p class="note">${valid?"Cousins":"Words one letter away"}: ${fmtN(co.length)} ${co.length===1?"word differs":"words differ"} from ${esc(q)} by one letter.</p><div class="bwords cousins">${co.map(([w,i])=>`<span title="${esc(LEX.words.get(w).def)}">${esc(w.slice(0,i))}<b class="chg">${w[i]}</b>${esc(w.slice(i+1))}${isNew(w)?'<sup class="nw">+</sup>':""}</span>`).join("")}</div>`;
+    if(co.length)html+=`<p class="note">Cousins: ${fmtN(co.length)} ${co.length===1?"word differs":"words differ"} from ${esc(q)} by one letter.</p><div class="bwords cousins">${co.map(([w,i])=>`<span title="${esc(LEX.words.get(w).def)}">${esc(w.slice(0,i))}<b class="chg">${w[i]}</b>${esc(w.slice(i+1))}${isNew(w)?'<sup class="nw">+</sup>':""}</span>`).join("")}</div>`;
     else if(valid)html+=`<p class="note">No cousins: no other word differs from ${esc(q)} by one letter.</p>`}
-  if(valid){const vs=variants(q);if(vs.length)html+=`<p class="note">Other spellings: ${vs.map(w=>`<span class="mono" title="${esc(LEX.words.get(w).def)}">${esc(w)}</span>`).join(", ")}</p>`}
+  if(valid){const vs=variants(q);if(vs.length)html+=`<p class="note">Other spellings: ${vs.map(w=>`<span class="mono" data-lk="${esc(w)}" title="${esc(LEX.words.get(w).def)}">${esc(w)}</span>`).join(", ")}</p>`}
   if(valid){const ex=extensions(q,"both",1,13);if(ex.length){const shown=ex.slice(0,60);html+=`<p class="note">${fmtN(ex.length)} front or back extension${ex.length===1?"":"s"}${ex.length>60?" (first 60)":""}:</p>`+extHTML(q,shown)}}
   const desc=r=>!r?"not in cardbox":r[0]>=10?"suspended":r[0]===0?"added, not yet studied":`${SC[r[0]]}, next ${r[3]<=Date.now()?"now":fmtIvl(r[3]-Date.now())}`;
   // one row: pick a quiz type, see that card's status, act on it
@@ -3367,6 +3369,16 @@ $("deckList").addEventListener("input",e=>{
   if(e.target.id==="cramCut"){cramCut=Math.max(50,Math.min(99,Math.round(+e.target.value||85)));const n=cramKeys(store.deck,cramCut).length,b=$("cramBtn");if(b){b.disabled=!n;b.textContent=n?`Cram ${fmtN(n)}`:"Cram"}}
   if(e.target.id==="nextNVal"){nextNVal=Math.max(1,Math.min(5000,Math.round(+e.target.value||50)));const n=Math.min(nextNVal,upcomingReviews(store.deck).length),b=$("nextNBtn");if(b){b.disabled=!n;b.textContent=n?`Bring forward ${fmtN(n)}`:"Bring forward"}}
   if(e.target.id==="postNVal"){postNVal=Math.max(1,Math.min(5000,Math.round(+e.target.value||50)));const n=Math.min(postNVal,scan(store.deck,Date.now()).overdue),b=$("postNBtn");if(b){b.disabled=!n;b.textContent=n?`Postpone ${fmtN(n)}`:"Postpone"}}if(e.target.id==="autoN")autoNVal=Math.max(1,Math.min(1000,Math.round(+e.target.value||20)));if(e.target.id==="addN"){addNVal=Math.max(1,Math.round(+e.target.value||20));if(!store.autoAdd[store.deck+"|"+store.qtype]&&$("keepLbl"))$("keepLbl").textContent=`Keep ${fmtN(addNVal)} ready daily`}if(e.target.id==="spreadDays")spreadDays=Math.max(2,Math.min(60,Math.round(+e.target.value||7)))});
+// click any word in Look up to look it up in turn
+$("lookupOut").addEventListener("click",e=>{
+  const t=e.target;if(t.closest(".ih,button,select,a,input,.notebox"))return;
+  let w="";const row=t.closest(".ans");
+  if(row&&t.closest(".w")){const d=row.querySelector(".def[data-full]");w=d?d.dataset.full:""}
+  else{const s=t.closest(".bwords>span,[data-lk]");if(s)w=s.dataset.lk||s.textContent.toUpperCase().replace(/[^A-Z]/g,"")}
+  if(!w||!LEX.words.has(w)||w===lkQuery.toUpperCase().replace(/[^A-Z?]/g,""))return;
+  e.preventDefault();lkQuery=w;lookup();
+  const p=$("lookupPanel");if(p.getBoundingClientRect().top<0)p.scrollIntoView({block:"start"});else{const o=p.closest(".lkm-box")||p;o.scrollTop=0}
+});
 $("lookupOut").addEventListener("change",e=>{if(e.target.id==="lkQt"){lkQt=e.target.value;lookup()}});
 document.addEventListener("click",e=>{for(const d of document.querySelectorAll("details.dropdown[open]"))if(!d.contains(e.target))d.open=false});
 // inner-hook dots: hover, focus or tap shows the shorter word and a brief definition
