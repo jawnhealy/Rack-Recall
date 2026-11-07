@@ -464,6 +464,9 @@ textarea{width:100%;min-height:140px;font-family:var(--f-mono);font-size:13px;bo
 table.curve{width:auto;margin-top:6px}table.curve td{padding:2px 10px 2px 0;border:0;font-size:13px;white-space:normal}
 /* nothing on the Settings page may be wider than the screen (a too-wide item makes phones zoom the whole page out) */
 .settings>*{min-width:0}
+details.perq{margin-top:6px}details.perq summary{cursor:pointer;display:inline}
+.perqgrid{display:grid;grid-template-columns:auto auto;justify-content:start;gap:6px 12px;align-items:center;margin-top:8px}
+.perqgrid label{font-size:14px}
 @media (max-width:480px){.settings .note:not(summary){display:block;margin-top:4px}.settings select{width:100%}}.settings select,.settings input[type=text]{max-width:100%}table.curve td:last-child{font-weight:600}
 .revgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 12px;margin-bottom:4px}
 .revgrid>span{display:contents}
@@ -735,7 +738,8 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <label for="tapGrade">Tap to grade</label>
         <div><select id="tapGrade"><option value="on">On</option><option value="off">Off</option></select> <span class="note">touch screens: after the answer shows, tap the left half of the card for Again, the right half for Good</span></div>
         <label for="typing">Answer mode</label>
-        <div><select id="typing"><option value="on">Type the answers, then check</option><option value="off">Flashcard mode: flip, then grade with 0–3</option></select></div>
+        <div><select id="typing"><option value="on">Type the answers, then check</option><option value="off">Flashcard mode: flip, then grade with 0–3</option></select>
+          <details class="perq"><summary class="note">Set per quiz type</summary><div id="typingBy" class="perqgrid"></div></details></div>
       </div>
     </div>
 
@@ -916,9 +920,13 @@ const EXT_DIRS={back:"added at the back",front:"added at the front",both:"added 
 function extDesc(){const s=store.settings,r=s.extMin===s.extMax?`${s.extMin}`:`${s.extMin}–${s.extMax}`;return `(${r} letter${s.extMax===1?"":"s"} ${EXT_DIRS[s.extDir]})`}
 function extensions(w,dir,min,max){
   const s=store.settings;dir=dir||s.extDir;min=min??s.extMin;max=max??s.extMax;
-  const X=extIndex();let list;
+  let list;
   if(dir==="any")list=LEX.all.filter(x=>x.length>w.length&&x.includes(w));
-  else{list=[];if(dir!=="front")list.push(...(X.back.get(w)||[]));if(dir!=="back")list.push(...(X.front.get(w)||[]))}
+  else if(EXT){list=[];if(dir!=="front")list.push(...(EXT.back.get(w)||[]));if(dir!=="back")list.push(...(EXT.front.get(w)||[]))}
+  else{ // the full index takes about a second to build and only searches need it: scan just the lengths asked for, a few ms
+    list=[];for(let L=w.length+Math.max(1,min);L<=Math.min(15,w.length+max);L++)for(const x of LEX.wordsByLen[L]||[])
+      if((dir!=="front"&&x.startsWith(w))||(dir!=="back"&&x.endsWith(w)))list.push(x);
+  }
   const out=[...new Set(list)].filter(x=>{const n=x.length-w.length;return n>=min&&n<=max});
   return out.sort((a,b)=>a.length-b.length||(a<b?-1:1));
 }
@@ -948,6 +956,9 @@ const QT={
 const qt=()=>QT[store.qtype];
 const unit=()=>qt().unit;
 const buildMinFor=k=>Math.min(store.settings.buildMin,k.length);
+// Type the answers, or flashcard mode: each quiz type can have its own, else the default
+const typingFor=q=>(store.settings.typingBy||{})[q]||store.settings.typing;
+const typingOn=()=>qt().typed&&typingFor(store.qtype)==="on";
 function answersFor(k){
   switch(store.qtype){
     case "A":return LEX.anag.get(k).slice();
@@ -1598,6 +1609,18 @@ function next(){
   render();armTimer();
   const inp=$("ansIn");if(inp)inp.focus({preventScroll:true});
 }
+// Hooks quizzes take whole words or just the hook letters: "O : E S T" (front : back), "O- -EST", or "EST" (no colon = back hooks)
+function hookGuesses(txt,k){
+  const out=[],s=txt.toUpperCase(),word=t=>t.length===k.length+1&&(t.startsWith(k)||t.endsWith(k));
+  const hasAll=t=>{const c={};for(const L of t)c[L]=(c[L]||0)+1;for(const L of k)if(!c[L]--)return false;return true};
+  const side=(part,where)=>{for(let tok of part.split(/[^A-Z-]+/).filter(Boolean)){
+      let w=where;if(/^-+[A-Z]/.test(tok))w="back";else if(/[A-Z]-+$/.test(tok))w="front";tok=tok.replace(/-/g,"");if(!tok)continue;
+      if(word(tok)||(!w&&tok.length>=k.length+1&&hasAll(tok))){out.push(tok);continue} // a whole word (maybe misspelled)
+      for(const L of tok)out.push(w==="front"?L+k:k+L)}};
+  const c=s.indexOf(":");
+  if(c>=0){side(s.slice(0,c),"front");side(s.slice(c+1),"back")}else side(s,"");
+  return [...new Set(out)];
+}
 function reshuffle(){
   if(reviewing&&store.mode==="speed"&&sp&&!sp.done){const r=sp.racks.at(-1);r.order=shuffleStr(r.order);const el=$("tiles");if(el)el.outerHTML=tiles(r.order,false);return}
   if(!reviewing||store.mode!=="learn"||!cur||unit()!=="alpha")return;
@@ -1609,7 +1632,7 @@ function reveal(fromForm){
   if(store.qtype==="V"&&!cur.intro){if(cur.timedOut)answerVP(null);return}
   const inp=$("ansIn");
   if(inp){
-    const guesses=[...new Set(inp.value.toUpperCase().split(/[^A-Z]+/).filter(Boolean))];
+    const guesses=store.qtype==="H"&&!cur.intro?hookGuesses(inp.value,cur.key):[...new Set(inp.value.toUpperCase().split(/[^A-Z]+/).filter(Boolean))];
     if(guesses.length||(fromForm&&"HES".includes(store.qtype))){
       const ans=new Set(cur.ans),hit=guesses.filter(g=>ans.has(g));
       typed={guesses,hit:new Set(hit),wrong:guesses.filter(g=>!ans.has(g)),missed:cur.ans.filter(a=>!hit.includes(a))};
@@ -2156,7 +2179,7 @@ $("card").addEventListener("click",e=>{
   if(Date.now()-lastSwipeAt<500)return;
   const t=e.target;if(t.closest("button,a,input,textarea,select,label,form,#tiles,.ih,.notebox,.confbox .linkbtn"))return;
   const d=t.closest(".ans .def");if(d&&(d.scrollHeight>d.clientHeight+1))return; // a cut-off definition shows in full instead
-  if(!flipped){if(store.qtype!=="V"&&store.settings.typing!=="on")reveal(false);return}
+  if(!flipped){if(store.qtype!=="V"&&!typingOn())reveal(false);return}
   if(cur.intro){introContinue();return}
   if(store.qtype==="V"&&cur.said===undefined)return;
   const r=$("card").getBoundingClientRect(),left=e.clientX<r.left+r.width/2;
@@ -2232,10 +2255,10 @@ function render(){
       if(store.settings.timeLimit)html+=`<div class="timer" aria-hidden="true"><i style="animation-duration:${store.settings.timeLimit}s;animation-delay:-${Math.min(store.settings.timeLimit,(Date.now()-cur.t0)/1000)}s"></i></div>`;
       if(qt().typed&&(store.settings.showCount==="on"||(store.settings.showCount==="learning"&&st.state!=="review")))html+=`<div class="count">${countText(k,ans)}</div>`;
       if(store.frontNote[ckey(k)]&&store.notes[k])html+=`<div class="notebox hookfront"><div class="label">Your hook</div><div class="notetext">${esc(store.notes[k])}</div></div>`;
-      if(qt().typed&&store.settings.typing==="on"){
-        html+=`<form class="typebox" id="ansForm" autocomplete="off"><input id="ansIn" aria-label="Your answers" placeholder="${store.qtype==="R"?"Type the word":"Type the words, space between"}" spellcheck="false" autocapitalize="characters"><button class="btn" type="submit">Check</button></form>`;
+      if(typingOn()){
+        html+=`<form class="typebox" id="ansForm" autocomplete="off"><input id="ansIn" aria-label="Your answers" placeholder="${store.qtype==="R"?"Type the word":store.qtype==="H"?"Words, or hook letters: O : E S T":"Type the words, space between"}" spellcheck="false" autocapitalize="characters"><button class="btn" type="submit">Check</button></form>`;
       }
-      gr.className="grade";gr.innerHTML=`<button class="full" id="g-show">Show answer<small>${touchUI()?(store.settings.typing==="on"&&qt().typed?"or check your typed answers":"or tap the card"):qt().typed&&store.settings.typing==="on"?"Return":"Return, Space or 0–3"}</small></button>`;
+      gr.className="grade";gr.innerHTML=`<button class="full" id="g-show">Show answer<small>${touchUI()?(typingOn()?"or check your typed answers":"or tap the card"):typingOn()?"Return":"Return, Space or 0–3"}</small></button>`;
       if(store.qtype==="V"&&!cur.intro){html+=`<div class="hint">Would this play stand up to a challenge?</div>`;gr.className="grade two";gr.innerHTML=`<button class="again" id="vpPhony">Phony<small>P · N · ← · swipe left</small></button><button class="good" id="vpValid">Valid<small>V · Y · → · swipe right</small></button>`}
     }else{
       let suggest=null;const found=typed?typed.hit:null;
@@ -3037,7 +3060,7 @@ if(!syncCfg.dev)syncCfg.dev=Math.random().toString(36).slice(2,10);
 const saveSyncCfg=()=>{try{localStorage.setItem(SYNCKEY,JSON.stringify(syncCfg))}catch(e){}};saveSyncCfg();
 let syncReady=false,syncing=false,syncTimer=null,syncState={msg:"",ok:null,at:0};
 const META={
-  settings:{get:()=>{const {typing,...rest}=store.settings;return rest},set:v=>{store.settings={...store.settings,...v,typing:store.settings.typing};W=Array.isArray(store.settings.w)&&store.settings.w.length===17?store.settings.w.slice():W_DEFAULT.slice();syncInputs();applyTheme()}},
+  settings:{get:()=>{const {typing,typingBy,...rest}=store.settings;return rest},set:v=>{store.settings={...store.settings,...v,typing:store.settings.typing,typingBy:store.settings.typingBy};W=Array.isArray(store.settings.w)&&store.settings.w.length===17?store.settings.w.slice():W_DEFAULT.slice();syncInputs();applyTheme()}},
   decks:{get:()=>store.searches,set:v=>{store.searches=v;clearCache("s:");searchCache.clear();if(!deckExists(store.deck))store.deck=firstDeck()}},
   custom:{get:()=>store.custom,set:v=>{store.custom=v;clearCache("custom");$("customText").value=v||""}},
   bury:{get:()=>store.bury,set:v=>{store.bury=v}},
@@ -3476,7 +3499,12 @@ $("importFile").addEventListener("change",e=>{
 });
 const NUMS={introBatch:[3,15,8],retention:[70,99,90],newLimit:[0,1000,20],revLimit:[0,10000,0],slowSecs:[0,300,20],timeLimit:[0,600,0],buildMin:[2,15,4],leech:[2,50,6],extMin:[1,13,2],extMax:[1,13,7]};
 function renderRevLimits(){return;const m=store.settings.revLimitQ||{};$("revLimitQ").innerHTML=Object.entries(QT).map(([q,d])=>`<label>${esc(d.name)}<input type="number" min="0" max="10000" step="1" data-revq="${q}" value="${m[q]??""}" placeholder="${store.settings.revLimit||"no limit"}"></label>`).join("")}
-function syncInputs(){setTimeout(renderRevLimits);setTimeout(()=>{$("retention").value=Math.round(store.settings.retention*100)});for(const id of ["retention","newLimit","revLimit","introBatch","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn","showRank","retCurve","smoothLoad","tapGrade","theme","tileOrder","alphaStyle","tileStyle","tilePoints","slowSecs","timeLimit"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
+function renderTypingBy(){
+  const el=$("typingBy");if(!el)return;const by=store.settings.typingBy||{};
+  el.innerHTML=Object.entries(QT).filter(([,v])=>v.typed).map(([q,v])=>`<label for="tb-${q}">${esc(v.name)}</label><select id="tb-${q}" data-tb="${q}"><option value="">Same as above</option><option value="on">Type</option><option value="off">Flashcard</option></select>`).join("");
+  for(const s of el.querySelectorAll("select"))s.value=by[s.dataset.tb]||"";
+}
+function syncInputs(){setTimeout(renderTypingBy);setTimeout(renderRevLimits);setTimeout(()=>{$("retention").value=Math.round(store.settings.retention*100)});for(const id of ["retention","newLimit","revLimit","introBatch","newOrder","typing","showCount","buildMin","leech","extDir","extMin","extMax","buryOn","showRank","retCurve","smoothLoad","tapGrade","theme","tileOrder","alphaStyle","tileStyle","tilePoints","slowSecs","timeLimit"])$(id).value=store.settings[id];$("customText").value=store.custom||""}
 for(const id in NUMS)$(id).addEventListener("change",e=>{const [lo,hi,def]=NUMS[id];let v=+e.target.value;if(isNaN(v)||e.target.value==="")v=def;v=Math.round(Math.min(hi,Math.max(lo,v)));store.settings[id]=id==="retention"?v/100:v;e.target.value=v;save();
   if(id==="leech")clearCache("leech");
   if(id==="extMin"&&store.settings.extMax<v){store.settings.extMax=v;$("extMax").value=v}
@@ -3486,6 +3514,7 @@ for(const id in NUMS)$(id).addEventListener("change",e=>{const [lo,hi,def]=NUMS[
 $("revLimitQ")&&$("revLimitQ").addEventListener("change",e=>{const q=e.target.dataset.revq;if(!q)return;const v=e.target.value.trim(),m={...(store.settings.revLimitQ||{})};if(v==="")delete m[q];else{m[q]=Math.max(0,Math.min(10000,Math.round(+v)||0));e.target.value=m[q]}store.settings.revLimitQ=m;save();render()});
 $("revLimit").addEventListener("change",()=>setTimeout(renderRevLimits));
 $("retCurve").addEventListener("change",e=>{store.settings.retCurve=e.target.value;save();if(flipped&&cur){preview=schedule(cardState(cur.key),Date.now(),ckey(cur.key))}render()});
+$("typingBy").addEventListener("change",e=>{const q=e.target.dataset.tb;if(!q)return;const by={...(store.settings.typingBy||{})};if(e.target.value)by[q]=e.target.value;else delete by[q];store.settings.typingBy=by;save();if(!flipped&&reviewing)next()});
 for(const id of ["newOrder","typing","showCount","buryOn","showRank","tileOrder","alphaStyle","smoothLoad","tapGrade"])$(id).addEventListener("change",e=>{store.settings[id]=e.target.value;save();if(!flipped)next();else render()});
 $("extDir").addEventListener("change",e=>{store.settings.extDir=e.target.value;save();if(cur&&store.mode==="learn")cur.ans=answersFor(cur.key);render()});
 function applyTheme(){
