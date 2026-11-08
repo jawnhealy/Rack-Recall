@@ -1354,12 +1354,14 @@ function setNote(k,v){if(v)store.notes[k]=v;else delete store.notes[k];store.not
 function addNext(deck,n){const pre=store.qtype+":",pick=[];for(const k of deckKeys(deck)){if(pick.length>=n)break;if(!store.cards[pre+k])pick.push(k)}return addKeys(pick)}
 const todayKey=()=>{const d=new Date();return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate()};
 const logKey=deck=>deck+"|"+store.qtype;
-function newDoneToday(deck){return (store.newLog[todayKey()]||{})[logKey(deck)]||0}
-function bumpNew(deck){const k=todayKey();store.newLog={[k]:{...(store.newLog[k]||{}),[logKey(deck)]:newDoneToday(deck)+1}}}
-function revDoneToday(deck){return (store.newLog[todayKey()]||{})["r|"+logKey(deck)]||0}
+// today's counts: this device's own, plus what other signed-in devices reported (so daily limits are shared)
+function doneToday(k){const d=todayKey();let n=(store.newLog[d]||{})[k]||0;const o=store.cntOther||{};for(const dev in o)if(o[dev].day===d)n+=o[dev].c[k]||0;return n}
+function newDoneToday(deck){return doneToday(logKey(deck))}
+function bumpNew(deck){const k=todayKey(),lk=logKey(deck),t=store.newLog[k]||{};store.newLog={[k]:{...t,[lk]:(t[lk]||0)+1}}}
+function revDoneToday(deck){return doneToday("r|"+logKey(deck))}
 // reviews done today: in one deck (any quiz type), and overall
-function revDoneDeck(deck){return (store.newLog[todayKey()]||{})["rd|"+deck]||0}
-function revDoneAll(){return (store.newLog[todayKey()]||{})["rall"]||0}
+function revDoneDeck(deck){return doneToday("rd|"+deck)}
+function revDoneAll(){return doneToday("rall")}
 function bumpRev(deck){const k=todayKey(),lk="r|"+logKey(deck),dk="rd|"+deck,t=store.newLog[k]||{};store.newLog={[k]:{...t,[lk]:(t[lk]||0)+1,[dk]:(t[dk]||0)+1,rall:(t.rall||0)+1}}}
 // how many more reviews today: the deck's own limit (if set) and the overall limit (if set), whichever leaves fewer
 function revLeft(deck){let left=Infinity;const dl=(store.deckRevLimit||{})[deck];if(dl>0)left=Math.max(0,dl-revDoneDeck(deck));const all=store.settings.revLimit;if(all>0)left=Math.min(left,Math.max(0,all-revDoneAll()));return left}
@@ -3151,6 +3153,9 @@ async function syncNow(){
           if(row.mt<=(store.noteMt[row.key]||0))continue;
           if(row.deleted||!row.val)delete store.notes[row.key];else store.notes[row.key]=row.val;
           store.noteMt[row.key]=row.mt;changed=true;
+        }else if(row.kind==="m"&&row.key.startsWith("cnt|")){
+          const dev=row.key.slice(4);if(dev===syncCfg.dev||!row.val)continue;
+          const v=JSON.parse(row.val);if(v&&v.day){store.cntOther={...(store.cntOther||{}),[dev]:{day:v.day,c:v.c||{}}};changed=true}
         }else if(row.kind==="m"&&META[row.key]){
           const name=row.key,mtKey="mt_"+name;if(row.mt<=(S[mtKey]||0))continue;
           const localJ=JSON.stringify(META[name].get());
@@ -3184,8 +3189,9 @@ async function syncNow(){
     for(const ck in store.cards){const r=store.cards[ck];if(recMt(r)>S.pushMark)rows.push({kind:"c",key:ck,val:JSON.stringify(r.slice(0,7)),mt:recMt(r),deleted:false})}
     for(const ck in store.tomb){if(store.tomb[ck]>S.pushMark)rows.push({kind:"c",key:ck,val:null,mt:store.tomb[ck],deleted:true})}
     for(const k in store.noteMt){if(store.noteMt[k]>S.pushMark)rows.push({kind:"n",key:k,val:store.notes[k]??null,mt:store.noteMt[k],deleted:!store.notes[k]})}
-    const metaSent={};
+    const metaSent={};let cntSent=null;
     for(const name in META){const j=JSON.stringify(META[name].get());if(j!==S.sent[name]){rows.push({kind:"m",key:name,val:j,mt:start,deleted:false});metaSent[name]=j}}
+    {const d=todayKey(),j=JSON.stringify({day:d,c:store.newLog[d]||{}});if(j!==S.sentCnt){rows.push({kind:"m",key:"cnt|"+syncCfg.dev,val:j,mt:start,deleted:false});cntSent=j}}
     const pend=S.pend=S.pend||{};
     if(!S.inited){ // first sync from this device: share its whole review history, one chunk per day
       const dk=t=>{const d=new Date(t);return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate()};
@@ -3205,7 +3211,7 @@ async function syncNow(){
     // skip past our own just-pushed rows, unless another device saved something in between (then the next pull fetches it)
     if(own.size){const after=await sb(`/rest/v1/rack_items?select=seq&seq=gt.${S.seq}${notMine}&order=seq.asc&limit=5000`);
       if(Array.isArray(after)&&after.every(r=>own.has(r.seq)))S.seq=Math.max(S.seq,...own)}
-    S.pushMark=start-1;Object.assign(S.sent,metaSent);for(const name in metaSent)S["mt_"+name]=start;
+    S.pushMark=start-1;Object.assign(S.sent,metaSent);if(cntSent)S.sentCnt=cntSent;for(const name in metaSent)S["mt_"+name]=start;
     // keep any lines logged while the push was on its way; they go next time
     for(const d in sentLog){const gone=new Set(sentLog[d].split("\n"));const left=(pend[d]||"").split("\n").filter(l=>l&&!gone.has(l));if(left.length)pend[d]=left.join("\n")+"\n";else delete pend[d]}
     for(const ck in store.tomb)if(store.tomb[ck]<start-60*DAY)delete store.tomb[ck];
