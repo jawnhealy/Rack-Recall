@@ -1895,7 +1895,7 @@ function renderDecks(){
         const drl=(store.deckRevLimit||{})[id];
         const revRow=`<div class="addctl"><label for="deckRevLimit">Daily review limit</label><input type="number" id="deckRevLimit" min="0" max="10000" step="1" value="${drl||""}" placeholder="none" aria-label="Daily review limit for this deck"><span class="note">${drl?`${fmtN(revDoneDeck(id))} done today`:"blank means no limit for this deck"}</span></div>`;
         cramHTML=cramRow;sched=`<div class="msec"><div class="label">Schedule</div>${retRow}${revRow}
-          <div class="addctl onerow"><select id="schedOp" aria-label="Schedule action">${opt("spread","Spread the backlog over")}${opt("postN","Postpone due reviews")}${opt("ahead","Bring forward reviews due in")}${opt("nextN","Bring forward the next")}</select>
+          <div class="addctl onerow"><select id="schedOp" aria-label="Schedule action">${opt("ahead","Bring forward reviews due in")}${opt("nextN","Bring forward the next")}${opt("postN","Postpone due reviews")}${opt("spread","Spread the backlog over")}</select>
           ${ctl}${btn}${ib("sched","scheduling tools")}
           ${ok?"":`<span class="note">${empty}</span>`}</div>
           ${info("sched",help)}</div>`;
@@ -2488,12 +2488,14 @@ function markBlanks(w,blanks){
   let h="";for(let i=w.length-1;i>=0;i--){const c=w[i];if(need[c]){need[c]--;h=`<span class="bl">${c.toLowerCase()}</span>`+h}else h=esc(c)+h}
   return h;
 }
+// look up these letters again with one more blank tile
+const blankBtn=(q,label)=>`<p><button class="btn ghost sm" data-lkblank="${esc(q)}?" title="Words these letters make with a blank">${label}</button></p>`;
 function lookupBlanks(raw){
   const nb=(raw.match(/\?/g)||[]).length,letters=raw.replace(/[^A-Z]/g,"");
   if(nb>2){$("lookupOut").innerHTML=`<p class="note">Use at most two ? blanks, as in a real game.</p>`;return}
   if(letters.length+nb<2||letters.length+nb>15){$("lookupOut").innerHTML=`<p class="note">Racks need 2 to 15 tiles.</p>`;return}
   const found=blankRackWords(letters,nb),rack=dispA(alpha(letters))+"?".repeat(nb);
-  let html=`<p><b>${esc(rack)}</b> makes <b>${fmtN(found.size)}</b> ${found.size===1?"word":"words"} with ${nb===1?"the blank":"both blanks"}.</p>`;
+  let html=`<p><b>${esc(rack)}</b> makes <b>${fmtN(found.size)}</b> ${found.size===1?"word":"words"} with ${nb===1?"the blank":"both blanks"}.</p>${nb<2&&letters.length+nb<15?blankBtn(raw,"Search with another ?"):""}`;
   if(found.size){
     const by=new Map();for(const [w,b] of found){if(!by.has(b))by.set(b,[]);by.get(b).push(w)}
     html+=`<div class="build">${[...by.keys()].sort().map(b=>`<div class="bgrp"><span class="blen" title="blank${nb>1?"s":""} as ${b}">${b}</span><div class="bwords">${by.get(b).sort().map(w=>`<span title="${esc(LEX.words.get(w).def)}">${markBlanks(w,b)}${isNew(w)?'<sup class="nw">+</sup>':""}</span>`).join("")}</div></div>`).join("")}</div>`;
@@ -2533,7 +2535,7 @@ function lookup(){
   const a=alpha(q),g=LEX.anag.get(a),valid=LEX.words.has(q);
   if(!valid&&hasCSW()&&!CSW.ready){ensureCSW().then(lookup);return}
   const cs=CSW.def.get(q);
-  let html=`<p><b>${esc(q)}</b> ${valid?"is valid":"is not a word"} in NWL23.${cs!==undefined?` It is valid in Collins (CSW24)${cs?`: ${esc(cs)}`:"."}`:""}</p>`;
+  let html=`<p><b>${esc(q)}</b> ${valid?"is valid":"is not a word"} in NWL23.${cs!==undefined?` It is valid in Collins (CSW24)${cs?`: ${esc(cs)}`:"."}`:""}</p>${q.length<15?blankBtn(q,"Search with ?"):""}`;
   if(g){
     html+=`<p class="note">Alphagram ${esc(dispA(a))} · probability rank ${fmtN(LEX.rank.get(a))} of ${fmtN(LEX.byLen[a.length].length)} · ${g.length} ${g.length===1?"word":"words"}${valid?` · ${esc(q)} playability rank ${fmtN(LEX.words.get(q).play)} (score ${fmtN(LEX.words.get(q).pscore)})`:""}</p>`+ansRows(g);
   }else html+=`<p class="note">No valid anagrams of these letters.</p>`;
@@ -3443,7 +3445,8 @@ $("deckList").addEventListener("input",e=>{
   if(e.target.id==="postNVal"){postNVal=Math.max(1,Math.min(5000,Math.round(+e.target.value||50)));const n=Math.min(postNVal,scan(store.deck,Date.now()).overdue),b=$("postNBtn");if(b){b.disabled=!n;b.textContent=n?`Postpone ${fmtN(n)}`:"Postpone"}}if(e.target.id==="autoN")autoNVal=Math.max(1,Math.min(1000,Math.round(+e.target.value||20)));if(e.target.id==="addN"){addNVal=Math.max(1,Math.round(+e.target.value||20));if(!store.autoAdd[store.deck+"|"+store.qtype]&&$("keepLbl"))$("keepLbl").textContent=`Keep ${fmtN(addNVal)} ready daily`}if(e.target.id==="spreadDays")spreadDays=Math.max(2,Math.min(60,Math.round(+e.target.value||7)))});
 // click any word in Look up to look it up in turn
 $("lookupOut").addEventListener("click",e=>{
-  const t=e.target;if(t.closest(".ih,button,select,a,input,.notebox"))return;
+  const t=e.target,bb=t.closest("[data-lkblank]");if(bb){lkQuery=bb.dataset.lkblank;lookup();return}
+  if(t.closest(".ih,button,select,a,input,.notebox"))return;
   let w="";const row=t.closest(".ans");
   if(row&&t.closest(".w")){const d=row.querySelector(".def[data-full]");w=d?d.dataset.full:""}
   else{const s=t.closest(".bwords>span,[data-lk]");if(s)w=s.dataset.lk||s.textContent.toUpperCase().replace(/[^A-Z]/g,"")}
