@@ -1590,6 +1590,13 @@ function next(){
     const pend=session.intro||(session.intro=[]);session.shown=(session.shown||0);
     let k=null,test=false;
     const batch=session.batch||(session.batch=[]),tests=session.tests||(session.tests=[]);
+    const isNew=k=>store.cards[ckey(k)]?.[0]===0;
+    // cards shown face up last time but never tested (the app was closed, or you switched decks) are tested now, not shown again
+    if(!session.restored){session.restored=true;const p=(store.pendIntro||{})[logKey(store.deck)];
+      if(p&&Date.now()-p.t<36e5*36){const ks=p.k.filter(k=>isNew(k)&&!tests.includes(k));for(let i=ks.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[ks[i],ks[j]]=[ks[j],ks[i]]}tests.push(...ks)}}
+    // a card waiting for its test may have been learned on another device since
+    for(let i=tests.length-1;i>=0;i--)if(!isNew(tests[i]))tests.splice(i,1);
+    for(let i=batch.length-1;i>=0;i--)if(!isNew(batch[i]))batch.splice(i,1);
     const due=pend.find(x=>x.at<=session.shown);
     let contrast=null;
     if(tests.length){k=tests.shift();test=true}
@@ -1604,6 +1611,7 @@ function next(){
     if(cur&&contrast)cur.contrast=contrast;
     if(cur&&!test&&store.faceUp[store.deck]&&store.cards[ckey(k)]?.[0]===0){cur.intro=true;flipped=true}
     if(cur)session.shown++;
+    saveIntroState();
     if(cur&&!cur.intro&&unit()==="alpha"&&store.settings.tileOrder==="shuffle")cur.order=shuffleStr(k);
   }
   if(cur&&store.mode==="learn"&&store.qtype==="V"&&!cur.intro&&!cur.rescue)setupVP(cur);
@@ -1753,12 +1761,19 @@ function renderRescue(card,gr){
     <div class="notebox" style="max-width:none"><label class="label" for="rescueNote">Your memory hook</label><textarea id="rescueNote" placeholder="A phrase, a picture, a word it reminds you of…">${esc(nt)}</textarea></div>`;
   gr.className="grade three";gr.innerHTML=`<button class="good" id="rescueSave">Save hook and continue<small>Ctrl+Return</small></button><button id="rescueSkip">Continue without one</button><button class="again" id="rescueSusp">Suspend this card</button>`;
 }
+// remember which cards were shown face up but not yet tested, so a closed app doesn't show them face up again
+function saveIntroState(){
+  const k=[...(session.batch||[]),...(session.tests||[])],key=logKey(store.deck),p=store.pendIntro||{};
+  if(cur&&cur.intro&&!k.includes(cur.key))k.push(cur.key);
+  const was=JSON.stringify(p[key]?.k||[]);if(was===JSON.stringify(k))return;
+  const n={...p};if(k.length)n[key]={k,t:Date.now()};else delete n[key];store.pendIntro=n;save();
+}
 function introContinue(){
   if(!cur||!cur.intro)return;
   undoStack.push({intro:{key:cur.key,batch:(session.batch||[]).slice(),tests:(session.tests||[]).slice(),shown:session.shown}});if(undoStack.length>30)undoStack.shift();
   const b=session.batch||(session.batch=[]);b.push(cur.key);
   if(b.length>=(store.settings.introBatch||8))flushBatch();
-  lastK=cur.key;next();
+  lastK=cur.key;cur=null;next();
 }
 // the batch just shown face up comes back as tests in a new order, never starting with the card you just saw
 function flushBatch(){
@@ -3218,11 +3233,11 @@ async function syncNow(){
     S.inited=true;
     try{localStorage.setItem(KEY,JSON.stringify(store))}catch(e){}
     syncing=false;syncStatus("",true);
-    if(changed){clearCache("leech");if(reviewing&&store.mode==="learn"&&!flipped&&!$("ansIn")?.value)next();else render()}
+    if(changed){clearCache("leech");if(reviewing&&store.mode==="learn"&&!drill&&((!flipped&&!$("ansIn")?.value)||(cur&&cur.intro&&store.cards[ckey(cur.key)]?.[0]!==0)))next();else render()}
   }catch(e){syncing=false;syncStatus(e.message,false)}
   renderSyncUI();
 }
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")syncNow()});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")syncNow();else if(syncCfg.session&&Date.now()-(syncState.at||0)>15e3)syncNow()});
 window.addEventListener("online",()=>syncNow());
 setInterval(()=>{if(syncCfg.session&&document.visibilityState==="visible")syncNow();else renderSyncUI()},180e3);
 
