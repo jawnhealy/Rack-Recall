@@ -2035,7 +2035,10 @@ function renderSpeed(card,gr){
 }
 
 function niceMax(v){if(v<=10)return Math.max(2,Math.ceil(v/2)*2);const p=Math.pow(10,Math.floor(Math.log10(v))),m=v/p;return [1,2,3,4,5,6,8,10].find(x=>m<=x)*p}
-function fcLabel(i,n){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()+i);return `${i===0?"Today":d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})}: ${fmtN(+n)} ${+n===1?"review":"reviews"} due`}
+let todayParts=null;
+function fcLabel(i,n){
+  if(i===0&&todayParts){const p=todayParts,bits=[`${fmtN(p.now)} ready now`];if(p.held)bits.push(`${fmtN(p.held)} held by your daily limit`);if(p.buried)bits.push(`${fmtN(p.buried)} buried`);if(p.later)bits.push(`${fmtN(p.later)} due later today`);
+    return `Today: ${fmtN(+n)} ${+n===1?"review":"reviews"} due (${bits.join(", ")})`}const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()+i);return `${i===0?"Today":d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})}: ${fmtN(+n)} ${+n===1?"review":"reviews"} due`}
 // tap (or hover) a bar to read its day and count
 document.addEventListener("click",e=>{const b=e.target.closest&&e.target.closest("#forecast [data-fc]");if(!b)return;for(const x of document.querySelectorAll("#forecast .sel"))x.classList.remove("sel");b.classList.add("sel");$("fcInfo").textContent=fcLabel(+b.dataset.fc,b.dataset.n)});
 document.addEventListener("mouseover",e=>{const b=e.target.closest&&e.target.closest("#forecast [data-fc]");if(b&&!touchUI())$("fcInfo").textContent=fcLabel(+b.dataset.fc,b.dataset.n)});
@@ -2359,12 +2362,15 @@ function renderStats(){
     (session.n?`<div class="stat"><b>${acc}</b><span>right in your last session (${session.n} ${session.n===1?"card":"cards"})</span></div>`:`<div class="stat"><b>–</b><span>no study session yet since opening the app</span></div>`);
   const start=new Date();start.setHours(0,0,0,0);
   const bins=new Array(31).fill(0),rows=[],pre=store.qtype+":";
-  for(const k of s.keys){const r=store.cards[pre+k];if(!r)continue;rows.push([k,r]);if(r[0]===0)continue;const i=Math.max(0,Math.floor((r[3]-start)/DAY));if(i<31)bins[i]++}
+  // suspended cards aren't due; today's bar also counts cards due later today, which the breakdown below spells out
+  let later=0;
+  for(const k of s.keys){const r=store.cards[pre+k];if(!r)continue;rows.push([k,r]);if(r[0]===0||r[0]>=10)continue;const i=Math.max(0,Math.floor((r[3]-start)/DAY));if(i<31)bins[i]++;if(i===0&&r[3]>now)later++}
+  todayParts={now:s.due.length,held:s.held,buried:s.buried,later};
   const mx=Math.max(1,...bins);
   // y axis: a round top value, its half, and zero
   const top=niceMax(mx);$("fcY").innerHTML=`<span>${fmtN(top)}</span><span>${fmtN(Math.round(top/2))}</span><span>0</span>`;
   $("forecast").innerHTML=bins.map((n,i)=>`<div class="${i===0?"today":""}" data-fc="${i}" data-n="${n}" style="height:${n?Math.max(3,n/top*60):2}px" title="${fcLabel(i,n)}"></div>`).join("");
-  $("fcInfo").textContent="";
+  $("fcInfo").textContent=fcLabel(0,bins[0]);
   if($("seenBox").open)renderSeen(rows,now);
 }
 function renderSeen(rows,now){
