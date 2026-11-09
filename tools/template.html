@@ -820,7 +820,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <li><b>Show the answer:</b> <kbd>Return</kbd> (checks typed answers), or <kbd>Space</kbd> / <kbd>0</kbd>–<kbd>3</kbd> in flashcard mode. On a phone, tap the card.</li>
         <li><b>Grade:</b> <kbd>0</kbd> or <kbd>X</kbd> Again · <kbd>1</kbd> Hard · <kbd>2</kbd> Good · <kbd>3</kbd> Easy; <kbd>Space</kbd> is Good. On a phone, tap the left or right half of the card.</li>
         <li><b>Undo:</b> <kbd>Ctrl</kbd>+<kbd>Z</kbd>, the Undo button, or swipe the card either way.</li>
-        <li><b>Shuffle tiles:</b> <kbd>5</kbd> or <kbd>S</kbd> (<kbd>S</kbd> only while you aren't typing an answer), or tap the tiles.</li>
+        <li><b>Shuffle tiles:</b> <kbd>5</kbd> or <kbd>F2</kbd>, or tap the tiles.</li>
         <li><b>Look up:</b> <kbd>/</kbd> anywhere (or <kbd>F6</kbd>). During a quiz it opens on top and the clock pauses; <kbd>Esc</kbd> closes it.</li>
         <li><b>Valid or Phony?:</b> <kbd>V</kbd> / <kbd>→</kbd> / swipe right for valid, <kbd>P</kbd> / <kbd>←</kbd> / swipe left for phony.</li>
         <li><b>Leave the study screen:</b> <kbd>Esc</kbd>. <kbd>F</kbd> toggles fullscreen on a computer.</li>
@@ -3592,6 +3592,7 @@ document.addEventListener("keydown",e=>{
   }
   if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&e.key.toLowerCase()==="z"&&!(e.target.tagName==="INPUT"&&e.target.value)&&e.target.tagName!=="TEXTAREA"){e.preventDefault();undoGrade();return}
   if(e.key==="5"&&e.target.tagName!=="TEXTAREA"&&store.mode==="learn"&&!flipped){e.preventDefault();reshuffle();return}
+  if(e.key==="F2"&&reviewing&&store.mode==="learn"&&cur&&!flipped){e.preventDefault();reshuffle();return} // works while typing too
   const tag=e.target.tagName;if(tag==="TEXTAREA"||tag==="SELECT"||(tag==="INPUT"&&e.target.type!=="checkbox")||e.metaKey||e.ctrlKey||e.altKey)return;
   const k=e.key.toLowerCase();
   if(k===" "||k==="enter"){
@@ -3602,7 +3603,6 @@ document.addEventListener("keydown",e=>{
     if(store.mode==="learn"){if(cur&&cur.intro)introContinue();else if(!flipped)reveal(false);else if(k===" ")grade(GOOD)}
     else if(phonyAns!==null)next();
   }
-  else if(k==="s"&&store.mode==="learn"&&reviewing&&cur&&!flipped){e.preventDefault();reshuffle()}
   else if(["0","1","2","3","x"].includes(k)&&!(k==="x"&&store.mode!=="learn")){e.preventDefault();if(cur&&cur.intro){introContinue();return}if(store.mode==="learn"&&!flipped)reveal(false);else grade(k==="x"?AGAIN:+k+1)} // 0 or X Again · 1 Hard · 2 Good · 3 Easy
   else if(store.mode==="phony"&&["v","y","arrowright"].includes(k)){e.preventDefault();answerPhony(false)}
   else if(store.mode==="phony"&&["p","n","arrowleft"].includes(k)){e.preventDefault();answerPhony(true)}
