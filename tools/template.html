@@ -832,6 +832,7 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
         <button class="btn ghost" id="importBtn">Restore from backup</button>
         <input type="file" id="importFile" accept="application/json,.json" hidden>
         <button class="btn ghost" id="zyzBtn">Import Zyzzyva cardbox (.db)</button>
+        <button class="btn ghost" id="lostBtn" title="Cards showing as new that you have answered before">Restore cards showing as new</button>
         <input type="file" id="zyzFile" accept=".db,.sqlite,.sqlite3,application/x-sqlite3,application/vnd.sqlite3,application/octet-stream" hidden>
       </div>
       <div class="note" id="settingsNote"></div>
@@ -1378,6 +1379,10 @@ function setCard(k,c){store.cards[ckey(k)]=[SC.indexOf(c.state),+c.s.toFixed(4),
 function addKeys(keys,pre){pre=pre||store.qtype+":";let n=0;const t=Date.now();for(const k of keys){if(store.cards[pre+k])continue;store.cards[pre+k]=[0,0,0,t+n,0,0,0,t+n];delete store.tomb[pre+k];n++}if(n){save();syncSoon()}return n}
 function delCard(ck){if(!store.cards[ck])return;delete store.cards[ck];store.tomb[ck]=Date.now()}
 const recMt=r=>r[7]||r[4]||r[3]||1;
+// A card that was only just added (never answered, untouched since) must never replace progress from another device:
+// if this device added it before hearing that another device had already studied it, the studied copy wins.
+const freshNew=r=>r[0]===0&&!r[5]&&r[7]===r[3];
+const syncMt=r=>freshNew(r)?1:recMt(r);
 function setNote(k,v){if(v)store.notes[k]=v;else delete store.notes[k];store.noteMt[k]=Date.now();save();syncSoon()}
 function addNext(deck,n){const pre=store.qtype+":",pick=[];for(const k of deckKeys(deck)){if(pick.length>=n)break;if(!store.cards[pre+k])pick.push(k)}return addKeys(pick)}
 const todayKey=()=>{const d=new Date();return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate()};
@@ -2680,6 +2685,15 @@ function calendarHTML(L){
 }
 
 /* =================== statistics =================== */
+// cards that show as new but have answers in the review log (their progress was overwritten): rebuild them from the log
+function lostCards(){
+  const by=new Map();for(const e of parseLog()){const r=store.cards[e.key];if(!r||r[0]!==0||!(e.g>=1&&e.g<=4))continue;(by.get(e.key)||by.set(e.key,[]).get(e.key)).push(e)}
+  const out=[];
+  for(const [ck,es] of by){es.sort((a,b)=>a.t-b.t);let st={state:"new",s:0,d:0,due:0,last:0,reps:0,lapses:0};
+    for(const e of es)st=schedule(st,e.t,ck)[e.g];
+    out.push({ck,st,n:es.length,last:es.at(-1).t})}
+  return out;
+}
 function parseLog(){const out=[];for(const line of LOG.split("\n")){if(!line)continue;const p=line.split(" ");out.push({t:parseInt(p[0],36)*1000,key:p[1],q:p[1][0],g:+p[2],st:+p[3],r:p[4]&&p[4]!=="-"?+p[4]/100:null,secs:p[5]&&p[5]!=="-"?+p[5]:null})}return out}
 function renderStatsPanel(){
   const L=parseLog(),now=Date.now(),since=now-30*DAY,target=store.settings.retention;
@@ -3205,7 +3219,7 @@ async function syncNow(){
       for(const row of batch){
         maxSeq=Math.max(maxSeq,row.seq);
         if(row.kind==="c"){
-          const loc=store.cards[row.key],locMt=loc?recMt(loc):(store.tomb[row.key]||0);
+          const loc=store.cards[row.key],locMt=loc?syncMt(loc):(store.tomb[row.key]||0);
           if(row.mt<=locMt)continue;
           if(row.deleted){delete store.cards[row.key];store.tomb[row.key]=row.mt}
           else{store.cards[row.key]=[...JSON.parse(row.val),row.mt];delete store.tomb[row.key]}
@@ -3247,7 +3261,7 @@ async function syncNow(){
     const start=Date.now(),rows=[];
     // a card that is both live and marked deleted (deleted, then restored or re-added) keeps whichever happened last
     for(const ck in store.tomb)if(store.cards[ck]){if(recMt(store.cards[ck])>=store.tomb[ck])delete store.tomb[ck];else delete store.cards[ck]}
-    for(const ck in store.cards){const r=store.cards[ck];if(recMt(r)>S.pushMark)rows.push({kind:"c",key:ck,val:JSON.stringify(r.slice(0,7)),mt:recMt(r),deleted:false})}
+    for(const ck in store.cards){const r=store.cards[ck];if(recMt(r)>S.pushMark)rows.push({kind:"c",key:ck,val:JSON.stringify(r.slice(0,7)),mt:syncMt(r),deleted:false})}
     for(const ck in store.tomb){if(store.tomb[ck]>S.pushMark)rows.push({kind:"c",key:ck,val:null,mt:store.tomb[ck],deleted:true})}
     for(const k in store.noteMt){if(store.noteMt[k]>S.pushMark)rows.push({kind:"n",key:k,val:store.notes[k]??null,mt:store.noteMt[k],deleted:!store.notes[k]})}
     const metaSent={};let cntSent=null;
@@ -3442,6 +3456,16 @@ document.addEventListener("click",e=>{
       const pre=store.qtype+":";for(const k of deckKeys(store.deck))delCard(pre+k);syncSoon();
       save();expanded=null;clearCache("leech");next();break}
     case "fitBtn":startFit();break;
+    case "lostBtn":{
+      const L=lostCards();
+      if(!L.length){note("settingsNote","No cards to restore: every card showing as new is one you've never answered.");break}
+      if(ds.confirm!=="1"){ds.confirm="1";t.textContent=`Restore ${fmtN(L.length)} ${L.length===1?"card":"cards"}`;
+        const qs={};for(const x of L){const q=QT[x.ck[0]]?.name||x.ck[0];qs[q]=(qs[q]||0)+1}
+        note("settingsNote",`${fmtN(L.length)} ${L.length===1?"card shows":"cards show"} as new but ${L.length===1?"has":"have"} answers in your review log (${Object.entries(qs).map(([q,n])=>`${fmtN(n)} ${q}`).join(", ")}). Tap again to rebuild ${L.length===1?"it":"them"} from those answers. Cards from a deck you removed on purpose will come back with their old progress too.`);
+        setTimeout(()=>{if(t.dataset.confirm==="1"){delete t.dataset.confirm;t.textContent="Restore cards showing as new"}},8000);break}
+      delete ds.confirm;t.textContent="Restore cards showing as new";
+      const now=Date.now();L.forEach((x,i)=>{const c=x.st;store.cards[x.ck]=[SC.indexOf(c.state),+c.s.toFixed(4),+c.d.toFixed(4),c.due,c.last,c.reps,c.lapses,now+i];delete store.tomb[x.ck]});
+      save();syncSoon();clearCache("leech");note("settingsNote",`Restored ${fmtN(L.length)} ${L.length===1?"card":"cards"} from your review log.`);break}
     case "syncIn":signIn(false);break;
     case "syncUp":signIn(true);break;
     case "syncOut":signOut();break;
@@ -3656,7 +3680,9 @@ syncInputs();applyTheme();
 $("lexInfo").textContent=`${LEX_META.name.replace(/^([A-Z]+)20(\d\d)$/,"$1$2")}, ${LEX_META.count.toLocaleString()} words (lexicon dated ${LEX_META.date}). App build ${LEX_META.build||"unknown"}`;
 loadLexicon().then(()=>{
   store.draft=[];lastResult=null; // searches don't carry over from the last time the app was open
-  ready=true;updateStarted();migrateDecks();runAutoAdd();snapshotProgress();renderFitInfo();syncReady=true;renderSyncUI();if(syncCfg.session)syncNow();
+  ready=true;updateStarted();migrateDecks();snapshotProgress();renderFitInfo();syncReady=true;renderSyncUI();
+  // with sync on, hear from other devices before topping decks up, so cards studied elsewhere aren't added again as new
+  if(syncCfg.session)Promise.resolve(syncNow()).catch(()=>{}).finally(()=>{runAutoAdd();if(!reviewing)render()});else runAutoAdd();
   if(store.deck.startsWith("len")){const L=store.deck.slice(3),m=store.searches.find(s=>s.conds.length===1&&s.conds[0].t==="lengths"&&[...parseLens(s.conds[0].a)].join()===L);store.deck=m?m.id:firstDeck()}
   if(!deckExists(store.deck))store.deck=firstDeck();
   PAGE=PAGES.includes(store.page)?store.page:"decks";
