@@ -2408,12 +2408,12 @@ function renderSeen(rows,now){
 
 /* =================== search UI =================== */
 let lastResult=null;
-// words picked out of the results (Shift-click, or long-press on touch screens); the buttons then use just these
-let resSel=new Set();
+// words picked out of the results (Ctrl-click one, Shift-click a run, or long-press on touch screens); the buttons then use just these
+let resSel=new Set(),resAnchor=null;
 const resWords=()=>!lastResult?[]:resSel.size?lastResult.words.filter(w=>resSel.has(w)):lastResult.words;
 function selSummary(){
   const el=$("resultSummary");if(!el||!lastResult)return;const {words,alphas}=lastResult;
-  el.innerHTML=`<b>${fmtN(words.length)}</b> words in <b>${fmtN(alphas)}</b> alphagrams`+(resSel.size?` · <b class="selct">${fmtN(resSel.size)} selected</b> <button class="linkbtn" id="selClear">Clear selection</button><span class="note"> · buttons below use only these</span>`:words.length>1?`<span class="note seltip"> · ${touchUI()?"Tap a word to look it up; long-press to select some":"Click a word to look it up; Shift-click to select some"}</span>`:"");
+  el.innerHTML=`<b>${fmtN(words.length)}</b> words in <b>${fmtN(alphas)}</b> alphagrams`+(resSel.size?` · <b class="selct">${fmtN(resSel.size)} selected</b> <button class="linkbtn" id="selClear">Clear selection</button><span class="note"> · buttons below use only these</span>`:words.length>1?`<span class="note seltip"> · ${touchUI()?"Tap a word to look it up; long-press to select some":"Click a word to look it up; Ctrl-click to select some, Shift-click to select a run"}</span>`:"");
 }
 const saveConds=()=>resSel.size?[{t:"list",a:resWords().join(" ")}]:structuredClone(liveConds(store.draft));
 function lookupPopup(w){openLookupModal();lkQuery=w;$("lookupPanel").hidden=false;lookup();const i=$("lkmIn");if(i)i.blur()}
@@ -2499,7 +2499,7 @@ function doSearch(){
   if(!liveConds(store.draft).length){lastResult=null;note("searchNote","Type some letters first.");$("searchNote").classList.add("err");renderResults();return}
   const cf=searchConflict(liveConds(store.draft));if(cf){lastResult=null;note("searchNote",cf);renderResults();$("searchNote").classList.add("err");return}
   $("searchNote").classList.remove("err");
-  resSel.clear();
+  resSel.clear();resAnchor=null;
   try{const t=performance.now();resDesc=false;lastResult=runSearch(liveConds(store.draft),$("saveOrder").value);note("searchNote",`Searched in ${Math.round(performance.now()-t)} ms.`)}
   catch(e){lastResult=null;note("searchNote",e.message)}
   const ed=editingId&&store.searches.find(s=>s.id===editingId);
@@ -3357,7 +3357,7 @@ document.addEventListener("click",e=>{
     case "suspLeeches":{const pre=store.qtype+":";for(const k of leechKeys())setSusp(pre+k,true);clearCache("leech");save();syncSoon();render();break}
     case "lookupClose":closeLookup();break;
     case "lkmClose":closeLookupModal();break;
-    case "selClear":resSel.clear();renderResults();break;
+    case "selClear":resSel.clear();resAnchor=null;renderResults();break;
     case "rvLookup":openLookupModal();break;
     case "lkToggle":if(document.querySelector("header.top").classList.contains("lk-open"))closeLookup();else openLookup();break;
 
@@ -3500,24 +3500,28 @@ $("lookupOut").addEventListener("click",e=>{
   e.preventDefault();lkQuery=w;lookup();
   const p=$("lookupPanel");if(p.getBoundingClientRect().top<0)p.scrollIntoView({block:"start"});else{const o=p.closest(".lkm-box")||p;o.scrollTop=0}
 });
-// results table: click a word to look it up; Shift-click (or Shift-drag) picks words; on touch, long-press starts picking
+// results table: click a word to look it up; Ctrl/Cmd-click (or -drag) picks words one at a time; Shift-click picks
+// every word from the last one picked to this one; on touch, long-press starts picking
 {let drag=null,lp=null,lpDone=0,lpEnd=0;
 const rowOf=e=>{const tr=e.target.closest&&e.target.closest("#vbody tr.r");return tr&&vt?{tr,i:+tr.dataset.i,w:vt.words[+tr.dataset.i]}:null};
 const setSel=(r,on)=>{if(on)resSel.add(r.w);else resSel.delete(r.w);r.tr.classList.toggle("sel",on)};
 const done=()=>{selSummary()};
-$("results").addEventListener("mousedown",e=>{if(!e.shiftKey||e.button)return;const r=rowOf(e);if(!r)return;e.preventDefault();
-  drag={on:!resSel.has(r.w),last:r.i};setSel(r,drag.on);document.querySelector(".vtable")?.classList.add("picking");done()});
+const paint=()=>{for(const tr of $("vbody").querySelectorAll("tr.r"))tr.classList.toggle("sel",resSel.has(vt.words[+tr.dataset.i]))};
+$("results").addEventListener("mousedown",e=>{if(e.button)return;const pick=e.ctrlKey||e.metaKey;if(!pick&&!e.shiftKey)return;const r=rowOf(e);if(!r)return;e.preventDefault();
+  if(e.shiftKey&&resAnchor!==null&&resAnchor<vt.words.length){ // a run, from the last word picked to this one
+    const a=Math.min(resAnchor,r.i),b=Math.max(resAnchor,r.i);for(let i=a;i<=b;i++)resSel.add(vt.words[i]);paint();resAnchor=r.i;done();return}
+  resAnchor=r.i;drag={on:!resSel.has(r.w),last:r.i};setSel(r,drag.on);document.querySelector(".vtable")?.classList.add("picking");done()});
 $("results").addEventListener("mouseover",e=>{if(!drag)return;const r=rowOf(e);if(!r||r.i===drag.last)return;
   const a=Math.min(drag.last,r.i),b=Math.max(drag.last,r.i);for(let i=a;i<=b;i++){const w=vt.words[i];if(drag.on)resSel.add(w);else resSel.delete(w)}
-  drag.last=r.i;for(const tr of $("vbody").querySelectorAll("tr.r"))tr.classList.toggle("sel",resSel.has(vt.words[+tr.dataset.i]));done()});
+  drag.last=r.i;resAnchor=r.i;paint();done()});
 addEventListener("mouseup",()=>{if(drag){drag=null;document.querySelector(".vtable")?.classList.remove("picking")}});
 $("results").addEventListener("touchstart",e=>{const r=rowOf(e);if(!r||e.touches.length>1||e.target.closest("td.d"))return;
-  lp=setTimeout(()=>{lp=null;lpDone=Date.now();lpEnd=0;setSel(r,!resSel.has(r.w));done();navigator.vibrate?.(15)},450)},{passive:true});
+  lp=setTimeout(()=>{lp=null;lpDone=Date.now();lpEnd=0;resAnchor=r.i;setSel(r,!resSel.has(r.w));done();navigator.vibrate?.(15)},450)},{passive:true});
 const cancel=()=>{if(lp){clearTimeout(lp);lp=null}};
 $("results").addEventListener("touchmove",cancel,{passive:true});$("results").addEventListener("touchend",()=>{cancel();if(Date.now()-lpDone<5000&&!lpEnd)lpEnd=Date.now()});
-$("results").addEventListener("contextmenu",e=>{if(Date.now()-lpDone<1500&&rowOf(e))e.preventDefault()});
+$("results").addEventListener("contextmenu",e=>{if((Date.now()-lpDone<1500||e.ctrlKey)&&rowOf(e))e.preventDefault()}); // Ctrl-click on a Mac opens a menu otherwise
 $("results").addEventListener("click",e=>{
-  const r=rowOf(e);if(!r||e.shiftKey)return;
+  const r=rowOf(e);if(!r||e.shiftKey||e.ctrlKey||e.metaKey)return;
   if(lpEnd&&Date.now()-lpEnd<400){lpEnd=0;return}lpEnd=0; // the tap that ended a long-press
   if(e.target.closest(".ih"))return;
   if(touchUI()&&resSel.size&&!e.target.closest("td.d")){setSel(r,!resSel.has(r.w));done();return} // picking mode on phones: taps add or remove
