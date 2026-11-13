@@ -2415,9 +2415,11 @@ function selSummary(){
   const el=$("resultSummary");if(!el||!lastResult)return;const {words,alphas}=lastResult;
   el.innerHTML=`<b>${fmtN(words.length)}</b> words in <b>${fmtN(alphas)}</b> alphagrams`+(resSel.size?` · <b class="selct">${fmtN(resSel.size)} selected</b> <button class="linkbtn" id="selClear">Clear selection</button><span class="note"> · buttons below use only these</span>`:words.length>1?`<span class="note seltip"> · ${touchUI()?"Tap a word to look it up; long-press to select some":"Click a word to look it up; Shift-click to select some"}</span>`:"");
 }
-const saveConds=()=>resSel.size?[{t:"list",a:resWords().join(" ")}]:structuredClone(store.draft);
+const saveConds=()=>resSel.size?[{t:"list",a:resWords().join(" ")}]:structuredClone(liveConds(store.draft));
 function lookupPopup(w){openLookupModal();lkQuery=w;$("lookupPanel").hidden=false;lookup();const i=$("lkmIn");if(i)i.blur()}
 function renderSearch(){
+  // a new search starts with an empty "Anagram of" row, ready for letters
+  if(!store.draft.length)store.draft=[{t:"anagram",a:"",b:""}];
   $("presets").innerHTML=(store.lists||[]).map(l=>`<span class="chip mine"><button class="chipbtn" data-list="${esc(l.id)}" title="${esc(describeConds(l.conds))}">${esc(l.name)}</button><button class="chipx" data-dellist="${esc(l.id)}" aria-label="Remove ${esc(l.name)}" title="Remove this list">×</button></span>`).join("")
     +PRESETS.map((p,i)=>`<button class="chip" data-preset="${i}" title="${esc(describeConds(p.conds))}">${esc(p.name)}</button>`).join("");
   $("addCond").innerHTML=`<option value="">Add a condition…</option>`+Object.entries(COND).filter(([,d])=>!d.gone).map(([k,d])=>`<option value="${k}" ${d.hint?`title="${esc(d.hint)}"`:""}>${d.label}</option>`).join("");
@@ -2491,14 +2493,17 @@ function searchConflict(conds){
         :`${txt} makes words of ${lo===hi?lo:`${lo}–${hi}`} letters, not ${L}. ${blanks?"":"Add a blank (?) or "}${blanks?"Add blanks or change":"change"} Length.`}}
   return null;
 }
+// conditions still waiting for letters or text are left out
+const liveConds=cs=>cs.filter(c=>!(["letters","text"].includes(COND[c.t]?.kind)&&!String(c.a||"").trim()));
 function doSearch(){
-  const cf=searchConflict(store.draft);if(cf){lastResult=null;note("searchNote",cf);renderResults();$("searchNote").classList.add("err");return}
+  if(!liveConds(store.draft).length){lastResult=null;note("searchNote","Type some letters first.");$("searchNote").classList.add("err");renderResults();return}
+  const cf=searchConflict(liveConds(store.draft));if(cf){lastResult=null;note("searchNote",cf);renderResults();$("searchNote").classList.add("err");return}
   $("searchNote").classList.remove("err");
   resSel.clear();
-  try{const t=performance.now();resDesc=false;lastResult=runSearch(store.draft,$("saveOrder").value);note("searchNote",`Searched in ${Math.round(performance.now()-t)} ms.`)}
+  try{const t=performance.now();resDesc=false;lastResult=runSearch(liveConds(store.draft),$("saveOrder").value);note("searchNote",`Searched in ${Math.round(performance.now()-t)} ms.`)}
   catch(e){lastResult=null;note("searchNote",e.message)}
   const ed=editingId&&store.searches.find(s=>s.id===editingId);
-  $("saveName").value=ed?ed.name:describeConds(store.draft).slice(0,60);
+  $("saveName").value=ed?ed.name:describeConds(liveConds(store.draft)).slice(0,60);
   $("saveSearch").textContent=ed?"Update deck":"Save as deck";
   note("resNote","");renderSearch();
 }
@@ -3409,15 +3414,15 @@ document.addEventListener("click",e=>{
       if(store.deck===deEditing)store.deck=firstDeck();save();next();break}
     case "clearConds":store.draft=[];lastResult=null;editingId=null;$("saveSearch").textContent="Save as deck";save();renderSearch();break;
     case "saveList":{
-      if(!store.draft.length){note("resNote","Add a condition first.");break}
-      const name=($("saveName").value.trim()||describeConds(store.draft)||"My list").slice(0,60),order=$("saveOrder").value,L=(store.lists||[]).slice(),sc=saveConds();
+      if(!liveConds(store.draft).length){note("resNote","Add a condition first.");break}
+      const name=($("saveName").value.trim()||describeConds(liveConds(store.draft))||"My list").slice(0,60),order=$("saveOrder").value,L=(store.lists||[]).slice(),sc=saveConds();
       const same=L.find(x=>x.name.toLowerCase()===name.toLowerCase());
       if(same){same.conds=sc;same.order=order;note("resNote",`Updated “${name}” in Saved lists.`)}
       else{L.unshift({id:"l:"+Date.now().toString(36),name,conds:sc,order});note("resNote",`Saved “${name}” to Saved lists.`)}
       store.lists=same?L:L;save();syncSoon();renderSearch();break}
     case "saveSearch":{
       if(!lastResult)break;
-      const name=($("saveName").value.trim()||describeConds(store.draft)||"Saved list").slice(0,80);
+      const name=($("saveName").value.trim()||describeConds(liveConds(store.draft))||"Saved list").slice(0,80);
       const order=$("saveOrder").value,sc=saveConds();
       if(editingId&&store.searches.some(s=>s.id===editingId)){const s=store.searches.find(x=>x.id===editingId);s.name=name;s.conds=sc;s.order=order;clearCache(editingId);note("resNote",`Updated “${name}”.`)}
       else{const id="s:"+Date.now().toString(36);store.searches.push({id,name,conds:sc,order});editingId=id;note("resNote",`Saved “${name}”. It's under Your decks in Study.`)}
@@ -3459,7 +3464,9 @@ $("conds").addEventListener("change",e=>{const el=e.target;if(el.dataset.f==="t"
 function hintAfterPick(i){if(!touchUI())return;const sel=document.querySelector(`#conds select[data-i="${i}"]`);if(sel&&sel.dataset.hint)setTimeout(()=>{window.showHintFor(sel);setTimeout(()=>{const t=$("ihTip");if(t)t.hidden=true},5000)},60)}
 $("conds").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.tagName==="INPUT"){e.preventDefault();doSearch()}});
 $("qtypes").addEventListener("change",e=>{store.qtype=e.target.value;save();lastK=null;clearCache("leech");next()});
-$("addCond").addEventListener("change",e=>{const t=e.target.value;if(!t)return;const d=COND[t];store.draft.push({t,a:d.def?d.def[0]:"",b:d.def?d.def[1]:""});save();renderSearch();hintAfterPick(store.draft.length-1)});
+$("addCond").addEventListener("change",e=>{const t=e.target.value;if(!t)return;const d=COND[t];
+  if(store.draft.length===1&&store.draft[0].t==="anagram"&&!String(store.draft[0].a||"").trim())store.draft=[]; // the starting blank row gives way
+  store.draft.push({t,a:d.def?d.def[0]:"",b:d.def?d.def[1]:""});save();renderSearch();hintAfterPick(store.draft.length-1)});
 $("seenBox").addEventListener("toggle",()=>{if($("seenBox").open&&ready)renderSeen()});
 $("deckList").addEventListener("change",e=>{
   const id=e.target.id;
