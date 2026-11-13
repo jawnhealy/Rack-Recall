@@ -233,6 +233,10 @@ ul.keys{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;fo
 .lkhead{display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:3;background:var(--surface);margin:-4px 0 6px;padding:4px 0 8px;border-bottom:1px solid var(--line)}
 .lkx{all:unset;box-sizing:border-box;cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 14px;border-radius:999px;background:var(--ink);color:var(--surface);font-family:inherit;font-weight:600;font-size:14px;line-height:1}
 .lkx span{font-size:15px}
+@media (max-width:480px){.lkm-form .lkxt{display:none}.lkm-form .lkx{padding:0 13px}}
+/* in the pop-up the form row already has Close, so the panel's own heading row is dropped */
+#lkmSlot .lkhead{display:none}
+.lkm-form .lkx{flex:none}
 .lkx:hover{opacity:.85}
 .lkx:focus-visible{outline:2px solid var(--tl);outline-offset:2px}
 @media (pointer:coarse){.lkx{min-height:42px;padding:0 16px;font-size:15px}}
@@ -357,8 +361,9 @@ details.dropdown .menu button:hover,details.dropdown .menu button:focus-visible{
 #lkModal{position:fixed;inset:0;z-index:70;background:rgba(10,20,25,.45);display:flex;justify-content:center;align-items:flex-start;padding:6vh 16px 16px;overflow:auto}
 #lkModal[hidden]{display:none}
 .lkm-box{width:min(760px,100%);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:16px;display:flex;flex-direction:column;gap:12px;max-height:88vh;overflow:auto}
-.lkm-form{display:flex;gap:8px;flex-wrap:wrap}
-.lkm-form input{flex:1 1 200px;font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.05em}
+.lkm-form{display:flex;gap:8px;flex-wrap:nowrap;align-items:center}
+.lkm-form>button{flex:none}
+.lkm-form input{flex:1 1 auto;min-width:0;font-family:var(--f-mono);text-transform:uppercase;letter-spacing:.05em}
 #lkmSlot #lookupPanel{border:0;padding:0;margin:0;box-shadow:none;background:none}
 #lkmSlot #lookupPanel>.actions:first-child{display:none}
 #review{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column;overflow:auto}
@@ -459,12 +464,32 @@ textarea{width:100%;min-height:140px;font-family:var(--f-mono);font-size:13px;bo
 .progress{height:6px;background:var(--line);border-radius:3px;overflow:hidden;max-width:360px}
 .progress i{display:block;height:100%;width:0;background:var(--tl)}
 .wl{overflow-x:auto;margin-top:8px}
+.th-sm{display:none} /* short table headings, shown on phones instead of the long ones */
+/* phones: the stats tables fit the screen instead of running off the side */
+@media (max-width:480px){
+  #statsView .wl table{width:100%;table-layout:auto}
+  #statsView .wl th{white-space:normal;line-height:1.2;vertical-align:bottom;letter-spacing:0}
+  .th-lg{display:none}.th-sm{display:inline}
+  #statsView .wl th,#statsView .wl td{padding-left:4px;padding-right:4px}
+  #wordlist th:nth-child(5),#wordlist td:nth-child(5),#wordlist th:nth-child(6),#wordlist td:nth-child(6){display:none} /* stability, lapses */
+  #wordlist td:nth-child(7){white-space:normal;overflow-wrap:anywhere;min-width:0}
+  #statsView .wl td,#statsView .wl th{font-size:12px}
+  #statsView .wl th{font-size:10.5px}
+  table.qtt td:first-child{white-space:normal}
+  #statsView .panel{padding-left:10px;padding-right:10px}#statsView details{padding-left:8px;padding-right:8px}
+  table.cov th,table.cov td{padding-left:2px;padding-right:2px}
+  table.cov th,table.cov td{font-size:12px}
+  table.qtt th:nth-child(3),table.qtt td:nth-child(3),table.qtt th:nth-child(4),table.qtt td:nth-child(4),table.qtt th:nth-child(7),table.qtt td:nth-child(7){display:none} /* studied, mature, avg time */
+  .cal{width:100%;grid-auto-columns:minmax(0,1fr);grid-template-rows:repeat(7,auto);gap:2px}
+  .cal i{aspect-ratio:1}
+}
 .st-sec{display:flex;flex-direction:column;gap:8px;margin-top:14px}
 .st-sec>p{margin:0;font-size:13.5px;color:var(--muted);line-height:1.5}.st-sec>p b{color:var(--ink)}
 .curvebox{margin-top:6px}.curvebox summary{cursor:pointer}
 table.curve{width:auto;margin-top:6px}table.curve td{padding:2px 10px 2px 0;border:0;font-size:13px;white-space:normal}
 /* nothing on the Settings page may be wider than the screen (a too-wide item makes phones zoom the whole page out) */
 .settings>*{min-width:0}
+#settingsView a{overflow-wrap:anywhere}
 details.perq{margin-top:6px}details.perq summary{cursor:pointer;display:inline}
 .perqgrid{display:grid;grid-template-columns:auto auto;justify-content:start;gap:6px 12px;align-items:center;margin-top:8px}
 .perqgrid label{font-size:14px}
@@ -828,14 +853,14 @@ kbd{font-family:var(--f-mono);font-size:11px;border:1px solid var(--line);border
       <p class="note" style="margin:0">Each quiz type keeps its own cardbox. On cards and lists, letters either side of a word are its hooks; a red <span class="ih">·</span> marks an inner hook (·LOBELIAS· means OBELIAS and LOBELIA are words) and a red <sup class="nw">+</sup> marks something new in NWL23. In Look up and Search, <kbd>?</kbd> is a blank. More in the glossary.</p>
       <details class="gloss"><summary>Glossary</summary><dl><dt>Alphagram</dt><dd>A word's letters in alphabetical order. RETAINS, NASTIER and STAINER share the alphagram AEINRST, so they're one Anagrams card.</dd><dt>Probability</dt><dd>How likely you are to draw a rack's tiles from a full bag. The app uses two-blank probability, which also counts racks you could make with one or both blanks. <b>Probability rank</b> is the position among alphagrams of the same length, with 1 the most likely.</dd><dt>Playability</dt><dd>How often a word was actually played across a large set of simulated games. The <b>score</b> is the raw count; the <b>rank</b> (the Play. column) is its position among words of the same length, with 1 the most played. A score of 0 means it never came up.</dd><dt>Hooks</dt><dd>Letters that can go in front of a word (front hooks) or after it (back hooks) to make another word: CARES takes S in front for SCARES and S behind for CARESS.</dd><dt>Inner hooks</dt><dd>A red dot before or after a word means it's still a word without that first or last letter: ·LOBELIAS· means OBELIAS and LOBELIA are words.</dd><dt>Extensions</dt><dd>Longer words that contain the word at the start or end: AUDIO to AUDIOBOOK.</dd><dt>Stem</dt><dd>A set of letters that combines with many single tiles to make bingos, written like AEINST + ?.</dd><dt>Cousins</dt><dd>Words one letter different in the same position, like MUNITION, MONITION and PUNITION.</dd><dt>Phony</dt><dd>A play that isn't in the lexicon. In Valid or Phony? phonies are made-up words, real words with endings they don't take, or Collins-only words.</dd><dt>NWL23 and Collins</dt><dd>NWL2023 is the North American word list used here. Collins Scrabble Words (CSW24) is the international list; words only in Collins count as phonies.</dd><dt>Card states</dt><dd><b>New</b>: added but not studied yet. <b>Learning</b>: being seen a few times in short steps. <b>Review</b>: learned and scheduled days or months ahead. <b>Relearning</b>: forgotten in review and back in short steps.</dd><dt>Grades</dt><dd><b>Again</b> (0): didn't know it. <b>Hard</b> (1): got it with real effort or slowly. <b>Good</b> (2): got it. <b>Easy</b> (3): instant. The schedule is built from these, so honest grades matter more than high ones.</dd><dt>Recall</dt><dd>The estimated chance you'd get a card right if it came up now. It falls between reviews and jumps back up after each one.</dd><dt>Stability</dt><dd>How long a memory lasts: the number of days until your recall chance drops to 90%. It grows each time you remember a card, more when the gap was long, and shrinks when you forget it.</dd><dt>Difficulty</dt><dd>How hard a card is for you, from 1 (easy) to 10 (hard). It rises with Again and Hard and falls with Easy. Harder cards gain stability more slowly, so they come back more often.</dd><dt>Target retention</dt><dd>The recall chance you want a card to have when it comes due (Settings, default 90%). Higher means more reviews and fewer misses; lower means fewer reviews and more misses.</dd><dt>Due and interval</dt><dd>A card is due when its review date arrives. The interval is the gap until the next review, shown on each grade button.</dd><dt>Lapse</dt><dd>Forgetting a card that was in review (grading it Again).</dd><dt>Leech</dt><dd>A card with many lapses (6 by default, set in Settings). Leeches get a badge, their own deck, and a rescue screen asking for a memory hook.</dd><dt>Mature</dt><dd>A card with a stability of 21 days or more.</dd><dt>Suspended</dt><dd>Set aside: never shown, but keeps its history. Unsuspend it from the Suspended deck.</dd><dt>Buried</dt><dd>Held until tomorrow because you already answered the same letters in another quiz type today (sibling burying, in Settings).</dd><dt>Look-alike</dt><dd>A rack you've mixed up with this one, linked when a wrong answer belonged to the other rack. Look-alikes come back close together until you sort them out.</dd><dt>Interval fuzz</dt><dd>A small random spread on review intervals so cards added together don't keep coming due together.</dd></dl></details>
       <p class="note" style="margin:0">Lexicon: <span id="lexInfo">NWL23</span>.</p>
-      <p class="note" style="margin:0">Updating: the newest version is always at <a href="https://github.com/jawnhealy/Rack-Recall/raw/main/web/index.html" target="_blank" rel="noopener">github.com/jawnhealy/Rack-Recall/raw/main/web/index.html</a>. On Windows, save it as rack-and-recall.html next to RackAndRecall.exe and restart. On Android, use Check for updates above.</p>
+      <p class="note" style="margin:0">Updating: the newest version is always at <a href="https://github.com/jawnhealy/Rack-Recall/raw/main/web/index.html" target="_blank" rel="noopener" style="overflow-wrap:anywhere">github.com/jawnhealy/Rack-Recall/raw/main/web/index.html</a>. On Windows, save it as rack-and-recall.html next to RackAndRecall.exe and restart. On Android, use Check for updates above.</p>
     </footer>
   </section>
 </div>
 
 <!-- ============ STUDY SCREEN (fills the window) ============ -->
 <div id="lkModal" hidden><div class="lkm-box" role="dialog" aria-modal="true" aria-label="Look up">
-  <form class="lkm-form" id="lkmForm" autocomplete="off"><input id="lkmIn" aria-label="Word or letters to look up" spellcheck="false" autocapitalize="characters" placeholder="Word, or letters with ? for a blank"><button class="btn" type="submit">Look up</button><button class="btn ghost" type="button" id="lkmClose" title="Back to the quiz (Esc or F6)">Close</button></form>
+  <form class="lkm-form" id="lkmForm" autocomplete="off"><input id="lkmIn" aria-label="Word or letters to look up" spellcheck="false" autocapitalize="characters" placeholder="Word, or letters with ? for a blank"><button class="btn" type="submit">Look up</button><button class="lkx" type="button" id="lkmClose" title="Close Look up (Esc)" aria-label="Close Look up"><span aria-hidden="true">✕</span><span class="lkxt"> Close</span></button></form>
   <div id="lkmSlot"></div>
 </div></div>
 <div id="review" hidden>
@@ -2216,7 +2241,7 @@ $("card").addEventListener("touchmove",e=>{if(!swipe)return;const dx=e.touches[0
 $("card").addEventListener("touchend",e=>{
   $("card").style.transform="";if(!swipe)return;
   const t=e.changedTouches[0],dx=t.clientX-swipe.x,dy=t.clientY-swipe.y,sw0=swipe;swipe=null;
-  const need=sw0.undo?102:68;if(Math.abs(dx)<need||Math.abs(dx)<Math.abs(dy)*2.5)return;
+  const need=sw0.undo?90:68;if(Math.abs(dx)<need||Math.abs(dx)<Math.abs(dy)*2.5)return;
   lastSwipeAt=Date.now();
   if(store.mode==="learn"){if(sw0.undo){undoGrade();return}answerVP(dx<0);return}
   if(phonyAns===null)answerPhony(dx<0);else next();
@@ -2622,11 +2647,13 @@ function coverageHTML(){
     });
     if(any||L===7||L===8)rows.push({L,cells});
   }
-  const head=bands.map(n=>`<th class="num">${n?"Top "+fmtN(n):"All"}</th>`).join("");
+  const head=bands.map(n=>`<th class="num">${n?hl("Top "+fmtN(n),n>=1000?n/1000+"k":String(n)):"All"}</th>`).join("");
   return `<div class="st-sec"><div class="label">Coverage by probability · ${esc(QT[q].name)}</div>
     <p style="margin:0" class="note">The share of each length's most probable ${u==="alpha"?"alphagrams":"words"} that you know solidly: studied, out of learning, and with an 85% or better chance of recall right now. Change the quiz type on Decks.</p>
-    <div class="wl"><table class="cov"><thead><tr><th>Length</th>${head}</tr></thead><tbody>${rows.map(r=>`<tr><td><b>${r.L}</b></td>${r.cells.map(c=>{if(c.dup)return `<td class="num"></td>`;const pct=c.top?c.solid/c.top:0;return `<td class="num" style="--p:${pct.toFixed(3)}" title="${fmtN(c.solid)} solid and ${fmtN(c.studied)} studied of ${fmtN(c.top)}">${c.solid?(pct<.01?"<1%":Math.round(pct*100)+"%"):c.studied?"0%":"–"}</td>`}).join("")}</tr>`).join("")}</tbody></table></div></div>`;
+    <div class="wl"><table class="cov"><thead><tr><th>${hl("Length","Len")}</th>${head}</tr></thead><tbody>${rows.map(r=>`<tr><td><b>${r.L}</b></td>${r.cells.map(c=>{if(c.dup)return `<td class="num"></td>`;const pct=c.top?c.solid/c.top:0;return `<td class="num" style="--p:${pct.toFixed(3)}" title="${fmtN(c.solid)} solid and ${fmtN(c.studied)} studied of ${fmtN(c.top)}">${c.solid?(pct<.01?"<1%":Math.round(pct*100)+"%"):c.studied?"0%":"–"}</td>`}).join("")}</tr>`).join("")}</tbody></table></div></div>`;
 }
+// a table heading with a shorter form for phones
+const hl=(lg,sm)=>`<span class="th-lg">${lg}</span><span class="th-sm">${sm}</span>`;
 function calendarHTML(L){
   const byDay=new Map();for(const e of L){const d=isoDay(e.t);byDay.set(d,(byDay.get(d)||0)+1)}
   const today=new Date();today.setHours(12,0,0,0);
@@ -2658,7 +2685,7 @@ function renderStatsPanel(){
   const pct=(a,b)=>b?Math.round(a/b*1000)/10+"%":"–";
   let allRev=0,allPass=0;for(const q in per){allRev+=per[q].rev;allPass+=per[q].pass}
   let html=coverageHTML()+calendarHTML(L)+`<div class="st-sec"><div class="label">True retention, last 30 days</div><p>Share of reviews of learned cards (not new or relearning) that you got right: <b>${pct(allPass,allRev)}</b> across ${fmtN(allRev)} reviews, against a target of ${Math.round(target*100)}%. ${allRev>=100?(allPass/allRev<target-0.03?"You're recalling less than FSRS aims for; fitting your parameters should help.":allPass/allRev>target+0.03?"You're recalling more than FSRS aims for; fitting your parameters, or lowering target retention, would cut reviews.":"You're close to target."):"Needs about 100 reviews of learned cards to say much."}</p>
-  <div class="wl"><table><thead><tr><th>Quiz type</th><th class="num">In cardbox</th><th class="num">Studied</th><th class="num">Mature</th><th class="num">Reviews (30d)</th><th class="num">True retention</th><th class="num">Avg time</th></tr></thead><tbody>${Object.entries(QT).map(([q,d])=>{const x=per[q];return `<tr><td>${d.name}</td><td class="num">${fmtN(x.box)}</td><td class="num">${fmtN(x.studied)}</td><td class="num">${fmtN(x.mature)}</td><td class="num">${fmtN(x.n30)}</td><td class="num">${pct(x.pass,x.rev)}</td><td class="num">${x.tn?(x.tsum/x.tn).toFixed(1)+" s":"–"}</td></tr>`}).join("")}</tbody></table></div></div>`;
+  <div class="wl"><table class="qtt"><thead><tr><th>Quiz type</th><th class="num">${hl("In cardbox","Cards")}</th><th class="num">Studied</th><th class="num">Mature</th><th class="num">${hl("Reviews (30d)","Reviews")}</th><th class="num">${hl("True retention","Retained")}</th><th class="num">Avg time</th></tr></thead><tbody>${Object.entries(QT).map(([q,d])=>{const x=per[q];return `<tr><td>${d.name}</td><td class="num">${fmtN(x.box)}</td><td class="num">${fmtN(x.studied)}</td><td class="num">${fmtN(x.mature)}</td><td class="num">${fmtN(x.n30)}</td><td class="num">${pct(x.pass,x.rev)}</td><td class="num">${x.tn?(x.tsum/x.tn).toFixed(1)+" s":"–"}</td></tr>`}).join("")}</tbody></table></div></div>`;
   // reviews per day
   const start=new Date();start.setHours(0,0,0,0);const day0=start.getTime()-29*DAY;
   const ok=new Array(30).fill(0),bad=new Array(30).fill(0);
